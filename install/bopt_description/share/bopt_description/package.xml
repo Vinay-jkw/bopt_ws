@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+
+  <name>bopt_description</name>
+  <version>0.0.1</version>
+  <description>Robot description package for BOPT</description>
+
+  <maintainer email="vinay@jkwinnovatics.com">Vinay</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Runtime dependencies -->
+  <depend>xacro</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>joint_state_publisher</depend>
+  <depend>joint_state_publisher_gui</depend>
+  <depend>rviz2</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+</package>
