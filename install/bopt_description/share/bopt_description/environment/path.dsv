@@ -1,1 +1,1 @@
-prepend-non-duplicate-if-exists;PATH;bin
+/home/jkw/bopt_ws/build/bopt_description/ament_cmake_environment_hooks/path.dsv

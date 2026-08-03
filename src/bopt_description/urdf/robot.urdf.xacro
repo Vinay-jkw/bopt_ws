@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="bopt_robot">
+
+    <xacro:include filename="materials.xacro"/>
+
+    <link name="base_footprint"/>
+
+
+    <link name="base_link">
+        <visual>
+            <origin xyz="-0.2980 -0.394 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/Base.STL" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.3 0.3 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+     <joint name="base_footprint_joint" type="fixed">
+        <parent link="base_footprint"/>
+        <child link="base_link"/>
+        <origin xyz="-1.25 0 0.025" rpy="0 0 0"/>
+    </joint>
+        
+
+    
+
+
+</robot>

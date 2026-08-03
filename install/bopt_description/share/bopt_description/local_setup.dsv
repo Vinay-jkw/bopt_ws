@@ -1,2 +1,1 @@
-source;share/bopt_description/environment/ament_prefix_path.sh
-source;share/bopt_description/environment/path.sh
+/home/jkw/bopt_ws/build/bopt_description/ament_cmake_environment_hooks/local_setup.dsv
