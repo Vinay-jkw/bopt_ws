@@ -8,9 +8,9 @@
 
     <link name="base_link">
         <visual>
-            <origin xyz="-0.2980 -0.394 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/Base.STL" scale="0.001 0.001 0.001"/>
+                <mesh filename="package://bopt_description/meshes/visual/Base.stl" scale="1 1 1"/>
             </geometry>
             <material name="blue"/>
         </visual>
@@ -25,9 +25,366 @@
      <joint name="base_footprint_joint" type="fixed">
         <parent link="base_footprint"/>
         <child link="base_link"/>
-        <origin xyz="-1.25 0 0.025" rpy="0 0 0"/>
+        <origin xyz="-1.20 0 0.3088" rpy="0 0 0"/>
     </joint>
-        
+
+   <!--drive wheel holding ass-->
+
+
+    <link name="drive_wheel_Ass">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/drive_wheel_ass.stl" scale="1 1 1"/>    
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.3 0.3 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="drive_wheel_Ass_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="drive_wheel_Ass"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+         <axis xyz="0 0 1"/>
+        <limit lower="-1.5708" upper="1.5708" effort="1" velocity="1"/> 
+
+    </joint>
+
+    <link name="drive_wheel">
+         <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/drive_wheel.stl" scale="1 1 1"/>    
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.05215" height="0.03"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="drive_wheel_joint" type="revolute">
+        <parent link="drive_wheel_Ass"/>
+        <child link="drive_wheel"/>
+        <origin xyz="0 0 -0.2233" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit lower="-3.1416" upper="3.1416" effort="1" velocity="1"/> 
+    </joint>
+    <!--end of sterring wheel part -->
+
+
+    <!--caster wheel holding ass-->
+
+
+    <link name="caster_wheel_ass_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/caster_wheel_ass.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.3 0.3 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="caster_wheel_ass_joint_right" type="revolute">
+        <parent link="base_link"/>
+        <child link="caster_wheel_ass_right"/>
+        <origin xyz="0 -0.255 -0.20515" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+    <link name="caster_wheel_ass_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/caster_wheel_ass.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.3 0.3 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="caster_wheel_ass_joint_left" type="revolute">
+        <parent link="base_link"/>
+        <child link="caster_wheel_ass_left"/>
+        <origin xyz="0 0.255 -0.20515" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+    <!--wheel joint fot caster right-->
+
+
+    <link name="caster_wheel_right">
+        <visual>
+           <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
+           </geometry> 
+           <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.05215" height="0.03"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="caster_wheel_joint_right" type="revolute">
+        <parent link="caster_wheel_ass_right"/>
+        <child link="caster_wheel_right"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+
+    <!--wheel segment for caster left-->
+
+     <link name="caster_wheel_left">
+        <visual>
+           <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
+           </geometry> 
+           <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.05215" height="0.03"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="caster_wheel_joint_left" type="revolute">
+        <parent link="caster_wheel_ass_left"/>
+        <child link="caster_wheel_left"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+    <!--end of caster wheel joint segment-->
+
+
+    <!--back  lidar segment-->
+
+    <link name="LLt">
+        <visual>
+            <origin xyz="0 0 -0.009" rpy="0 0 2.356"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="LLt_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="LLt"/>
+        <origin xyz="-0.1854 0.3704 -0.230" rpy="3.14 0 0"/>
+    </joint>
+
+    <link name="LRt">
+        <visual>
+            <origin xyz="0 0 -0.009" rpy="0 0 0.784"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="LRt_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="LRt"/>
+        <origin xyz="-0.1854 -0.3704 -0.230" rpy="3.14 0 0"/>
+    </joint>
+
+
+    <!--top lidar segment-->
+
+    <link name="toplidar_back">
+        <visual>
+            <origin xyz="0 0 -0.005" rpy="0 0 1.5708"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="toplidar_joint_back" type="fixed">
+        <parent link="base_link"/>
+        <child link="toplidar_back"/>
+        <origin xyz="0.175 -0.0063 1.720" rpy="0 -0.45 0"/>
+    </joint>
+
+    <link name="toplidar_front">
+        <visual>
+            <origin xyz="0 0 -0.003" rpy="0 0 -1.5708"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="toplidar_joint_front" type="fixed">
+        <parent link="base_link"/>
+        <child link="toplidar_front"/>
+        <origin xyz="0.288 -0.0063 1.66" rpy="0 0.47 0"/>
+    </joint>
+
+
+    <!--top 3d lidar-->
+    <link name="top3dl_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/3Dlidar.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="top3dl_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="top3dl_link"/>
+        <origin xyz="0.2356 0.0024 1.9831" rpy="0 0 0"/>
+    </joint>
+
+
+    <!--front part segment -->
+    <link name="front_lift_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/front.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="front_lift_joint" type="prismatic">
+        <parent link="base_link"/>
+        <child link="front_lift_link"/>
+        <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="0" upper="0.095" effort="1000000" velocity="2.0"/>
+    </joint>
+
+
+    <link name="front_wheel_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/front_wheel.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.175" length="0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="front_wheel_right_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="front_wheel_right"/>
+        <origin xyz="1.5471 -0.1775 -0.02847" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+    <link name="front_wheel_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://bopt_description/meshes/visual/front_wheel.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.175" length="0.1"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="front_wheel_right_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="front_wheel_left"/>
+        <origin xyz="1.5471 0.1775 -0.02847" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+    </joint>
+
+
+
+
+
+
+
+
+
+
+
 
     
 
