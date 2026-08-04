@@ -328,6 +328,8 @@
         <limit lower="0" upper="0.095" effort="1000000" velocity="2.0"/>
     </joint>
 
+    <!--front wheel segment -->
+
 
     <link name="front_wheel_right">
         <visual>
