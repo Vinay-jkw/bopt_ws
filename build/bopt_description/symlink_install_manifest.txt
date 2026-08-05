@@ -15,6 +15,7 @@
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/rviz/display.rviz
+/home/jkw/bopt_ws/install/bopt_description/share/bopt_description/config/controllers.yaml
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/worlds/empty.world
 /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/package_run_dependencies/bopt_description
 /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/parent_prefix_path/bopt_description

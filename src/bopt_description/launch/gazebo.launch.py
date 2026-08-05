@@ -33,10 +33,10 @@ def generate_launch_description():
         "robot_description": robot_description_config.toxml()
     }
     joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
         output='screen',
-        name='joint_state_publisher',
+        name='joint_state_publisher_gui',
         parameters=[robot_description]
     )
 
@@ -72,15 +72,41 @@ def generate_launch_description():
         output='screen'
     )
 
-    
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+
+    steering_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["steering_controller", "-c", "/controller_manager"],
+    )
+
+    drive_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["drive_controller", "-c", "/controller_manager"],
+    )
+
+    lift_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["lift_controller", "-c", "/controller_manager"],
+    )
+
     return LaunchDescription(
         [
             gui_arg,
             robot_state_publisher_node,
             gazebo_launch,
             joint_state_publisher_node,
-            spawn_entity
+            spawn_entity,
+            joint_state_broadcaster_spawner,
+            steering_controller_spawner,
+            drive_controller_spawner,
+            lift_controller_spawner
         ]
     )
-
   
