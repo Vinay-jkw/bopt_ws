@@ -30,6 +30,8 @@ install(
     meshes
     rviz
     config
+    worlds
+    materials
   DESTINATION share/${PROJECT_NAME}
 )
 

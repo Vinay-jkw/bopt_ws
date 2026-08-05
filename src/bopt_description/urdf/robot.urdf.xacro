@@ -14,31 +14,31 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/Base.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl"/>
             </geometry>
             <material name="blue"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0.5" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.5 0.7 0.7"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl"/>
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=20 kg, box 0.3 x 0.3 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="20.0"/>
-            <inertia ixx="0.1917" ixy="0.0" ixz="0.0"
-                     iyy="0.1917" iyz="0.0"
-                     izz="0.3000"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
     <joint name="base_footprint_joint" type="fixed">
         <parent link="base_footprint"/>
         <child link="base_link"/>
-        <origin xyz="-1.20 0 0.3088" rpy="0 0 0"/>
+        <origin xyz="-1.2 0 0.350" rpy="0 0 0"/>
     </joint>
+
 
 
     <!-- ================================================================
@@ -50,23 +50,23 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/drive_wheel_ass.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel_ass.stl"/>
             </geometry>
             <material name="yellow"/>
         </visual>
         <collision>
             <origin xyz="0 0 00" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel_ass.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=2 kg, box 0.3 x 0.3 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="2.0"/>
-            <inertia ixx="0.0192" ixy="0.0" ixz="0.0"
-                     iyy="0.0192" iyz="0.0"
-                     izz="0.0300"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -76,6 +76,7 @@
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
         <limit lower="-1.5708" upper="1.5708" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Drive wheel -->
@@ -83,32 +84,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/drive_wheel.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <cylinder radius="0.12215" length="0.06"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=1 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="1.0"/>
-            <inertia ixx="0.000933" ixy="0.0" ixz="0.0"
-                     iyy="0.000933" iyz="0.0"
-                     izz="0.001360"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="drive_wheel_joint" type="revolute">
+    <joint name="drive_wheel_joint" type="continuous">
         <parent link="drive_wheel_Ass"/>
         <child link="drive_wheel"/>
-        <origin xyz="0 0 -0.2233" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.222" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.1416" upper="3.1416" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
 
@@ -121,32 +122,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/caster_wheel_ass.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl"/>
             </geometry>
             <material name="yellow"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=1 kg, box 0.3 x 0.3 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="1.0"/>
-            <inertia ixx="0.0096" ixy="0.0" ixz="0.0"
-                     iyy="0.0096" iyz="0.0"
-                     izz="0.0150"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="caster_wheel_ass_joint_right" type="revolute">
+    <joint name="caster_wheel_ass_joint_right" type="continuous">
         <parent link="base_link"/>
         <child link="caster_wheel_ass_right"/>
         <origin xyz="0 -0.255 -0.20515" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Caster assembly - left -->
@@ -154,32 +155,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/caster_wheel_ass.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl"/>
             </geometry>
             <material name="yellow"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=1 kg, box 0.3 x 0.3 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="1.0"/>
-            <inertia ixx="0.0096" ixy="0.0" ixz="0.0"
-                     iyy="0.0096" iyz="0.0"
-                     izz="0.0150"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="caster_wheel_ass_joint_left" type="revolute">
+    <joint name="caster_wheel_ass_joint_left" type="continuous">
         <parent link="base_link"/>
         <child link="caster_wheel_ass_left"/>
         <origin xyz="0 0.255 -0.20515" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Caster wheel - right -->
@@ -187,32 +188,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" length="0.03"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.5"/>
-            <inertia ixx="0.000467" ixy="0.0" ixz="0.0"
-                     iyy="0.000467" iyz="0.0"
-                     izz="0.000680"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="caster_wheel_joint_right" type="revolute">
+    <joint name="caster_wheel_joint_right" type="continuous">
         <parent link="caster_wheel_ass_right"/>
         <child link="caster_wheel_right"/>
-        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.08105" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Caster wheel - left -->
@@ -220,32 +221,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" length="0.03"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.5"/>
-            <inertia ixx="0.000467" ixy="0.0" ixz="0.0"
-                     iyy="0.000467" iyz="0.0"
-                     izz="0.000680"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="caster_wheel_joint_left" type="revolute">
+    <joint name="caster_wheel_joint_left" type="continuous">
         <parent link="caster_wheel_ass_left"/>
         <child link="caster_wheel_left"/>
-        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.08105" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
 
@@ -258,7 +259,7 @@
         <visual>
             <origin xyz="0 0 -0.009" rpy="0 0 2.356"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
             </geometry>
             <material name="gray"/>
         </visual>
@@ -272,9 +273,9 @@
             <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.2"/>
-            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
-                     iyy="0.000333" iyz="0.0"
-                     izz="0.000333"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -289,7 +290,7 @@
         <visual>
             <origin xyz="0 0 -0.009" rpy="0 0 0.784"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
             </geometry>
             <material name="gray"/>
         </visual>
@@ -303,9 +304,9 @@
             <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.2"/>
-            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
-                     iyy="0.000333" iyz="0.0"
-                     izz="0.000333"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -325,7 +326,7 @@
         <visual>
             <origin xyz="0 0 -0.005" rpy="0 0 1.5708"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
             </geometry>
             <material name="gray"/>
         </visual>
@@ -339,9 +340,9 @@
             <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.2"/>
-            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
-                     iyy="0.000333" iyz="0.0"
-                     izz="0.000333"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -356,7 +357,7 @@
         <visual>
             <origin xyz="0 0 -0.003" rpy="0 0 -1.5708"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/lidar19.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
             </geometry>
             <material name="gray"/>
         </visual>
@@ -370,9 +371,9 @@
             <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.2"/>
-            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
-                     iyy="0.000333" iyz="0.0"
-                     izz="0.000333"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -391,7 +392,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/3Dlidar.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/3Dlidar.stl"/>
             </geometry>
             <material name="gray"/>
         </visual>
@@ -405,9 +406,9 @@
             <!-- mass=0.5 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.5"/>
-            <inertia ixx="0.000833" ixy="0.0" ixz="0.0"
-                     iyy="0.000833" iyz="0.0"
-                     izz="0.000833"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -426,23 +427,23 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/front.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
             <origin xyz="0.22 0 0.1" rpy="0 0 0"/>
             <geometry>
-                <box size="0.8 0.7 0.2"/>
+                <box size="0.5 0.6 0.1"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=3 kg, box 0.1 x 0.1 x 0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="3.0"/>
-            <inertia ixx="0.005000" ixy="0.0" ixz="0.0"
-                     iyy="0.005000" iyz="0.0"
-                     izz="0.005000"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -465,23 +466,23 @@
         <visual>
             <origin xyz="0 0 0" rpy="-1.57080 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/front_wheel_shaft.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.16 0.05 0.05"/>
+                <box size="0.14 0.05 0.05"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0.148 0 0" rpy="0 0 0"/>
             <mass value="1"/>
-            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
-                     iyy="0.039844" iyz="0.0"
-                     izz="0.045938"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -490,8 +491,8 @@
         <child link="front_wheel_shaft_left"/>
         <origin xyz="0.9211 0.1055 -0.01758" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="0" upper="0.7854" effort="2" velocity="100"/>
-        <dynamics damping="0.01" friction="0.0"/>
+        <limit lower="0" upper="0.7854" effort="50" velocity="2"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
 
@@ -499,23 +500,23 @@
         <visual>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/front_wheel_shaft.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.16 0.05 0.05"/>
+                <box size="0.14 0.05 0.05"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0.148 0 0" rpy="0 0 0"/>
             <mass value="1"/>
-            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
-                     iyy="0.039844" iyz="0.0"
-                     izz="0.045938"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
@@ -524,8 +525,8 @@
         <child link="front_wheel_shaft_right"/>
         <origin xyz="0.9211 -0.1135 -0.01758" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="0" upper="0.7854" effort="2" velocity="100"/>
-        <dynamics damping="0.01" friction="0.0"/>
+        <limit lower="0" upper="0.7854" effort="50" velocity="2"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Front wheel - right -->
@@ -533,32 +534,32 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/front_wheel.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="1.5705 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <cylinder radius="0.0615" length="0.1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="3.0"/>
-            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
-                     iyy="0.039844" iyz="0.0"
-                     izz="0.045938"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="front_wheel_right_joint" type="revolute">
+    <joint name="front_wheel_right_joint" type="continuous">
         <parent link="front_wheel_shaft_right"/>
         <child link="front_wheel_right"/>
         <origin xyz="0.1488 -0.067 -0.0013" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
     <!-- Front wheel - left -->
@@ -566,35 +567,85 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/front_wheel.stl" scale="1 1 1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="1.5705 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <cylinder radius="0.0615" length="0.1"/>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
         </collision>
         <inertial>
             <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="3.0"/>
-            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
-                     iyy="0.039844" iyz="0.0"
-                     izz="0.045938"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
         </inertial>
     </link>
 
-    <joint name="front_wheel_left_joint" type="revolute">
+    <joint name="front_wheel_left_joint" type="continuous">
         <parent link="front_wheel_shaft_left"/>
         <child link="front_wheel_left"/>
         <origin xyz="0.1488 0.077 -0.0013" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+        <dynamics damping="0.1" friction="0.1"/>
     </joint>
 
 
-    
+    <gazebo reference="base_link">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+    <gazebo reference="drive_wheel_Ass">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="drive_wheel">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_ass_right">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_ass_left">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="LLt">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="LRt">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="toplidar_back">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="toplidar_front">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="top3dl_link">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="front_lift_link">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_shaft_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_shaft_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
 
 </robot>
