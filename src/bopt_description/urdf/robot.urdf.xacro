@@ -67,7 +67,7 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" height="0.03"/>
+                <cylinder radius="0.05215" length="0.03"/>
             </geometry>
         </collision>
     </link>
@@ -146,7 +146,7 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" height="0.03"/>
+                <cylinder radius="0.05215" length="0.03"/>
             </geometry>
         </collision>
     </link>
@@ -172,7 +172,7 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" height="0.03"/>
+                <cylinder radius="0.05215" length="0.03"/>
             </geometry>
         </collision>
     </link>
@@ -349,7 +349,7 @@
     <joint name="front_wheel_right_joint" type="revolute">
         <parent link="base_link"/>
         <child link="front_wheel_right"/>
-        <origin xyz="1.5471 -0.1775 -0.02847" rpy="0 0 0"/>
+        <origin xyz="1.5471 -0.1775 -0.2847" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
@@ -369,26 +369,13 @@
         </collision>
     </link>
 
-    <joint name="front_wheel_right_joint" type="revolute">
+    <joint name="front_wheel_left_joint" type="revolute">
         <parent link="base_link"/>
         <child link="front_wheel_left"/>
-        <origin xyz="1.5471 0.1775 -0.02847" rpy="0 0 0"/>
+        <origin xyz="1.5471 0.1775 -0.2847" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
-
-
-
-
-
-
-
-
-
-
-
-
-    
 
 
 </robot>
