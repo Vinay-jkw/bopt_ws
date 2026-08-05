@@ -3,9 +3,13 @@
 
     <xacro:include filename="materials.xacro"/>
 
+    <!-- ================================================================
+         BASE LINKS
+         ================================================================ -->
+
     <link name="base_footprint"/>
 
-
+    <!-- Base chassis link -->
     <link name="base_link">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -15,61 +19,88 @@
             <material name="blue"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0.5" rpy="0 0 0"/>
             <geometry>
-                <box size="0.3 0.3 0.1"/>
+                <box size="0.5 0.7 0.7"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=20 kg, box 0.3 x 0.3 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="20.0"/>
+            <inertia ixx="0.1917" ixy="0.0" ixz="0.0"
+                     iyy="0.1917" iyz="0.0"
+                     izz="0.3000"/>
+        </inertial>
     </link>
 
-     <joint name="base_footprint_joint" type="fixed">
+    <joint name="base_footprint_joint" type="fixed">
         <parent link="base_footprint"/>
         <child link="base_link"/>
         <origin xyz="-1.20 0 0.3088" rpy="0 0 0"/>
     </joint>
 
-   <!--drive wheel holding ass-->
 
+    <!-- ================================================================
+         DRIVE WHEEL ASSEMBLY (Steering + Drive)
+         ================================================================ -->
 
+    <!-- Drive wheel steering assembly -->
     <link name="drive_wheel_Ass">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/drive_wheel_ass.stl" scale="1 1 1"/>    
+                <mesh filename="package://bopt_description/meshes/visual/drive_wheel_ass.stl" scale="1 1 1"/>
             </geometry>
             <material name="yellow"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 00" rpy="0 0 0"/>
             <geometry>
-                <box size="0.3 0.3 0.1"/>
+                <box size="0.1 0.1 0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=2 kg, box 0.3 x 0.3 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="2.0"/>
+            <inertia ixx="0.0192" ixy="0.0" ixz="0.0"
+                     iyy="0.0192" iyz="0.0"
+                     izz="0.0300"/>
+        </inertial>
     </link>
 
     <joint name="drive_wheel_Ass_joint" type="revolute">
         <parent link="base_link"/>
         <child link="drive_wheel_Ass"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-         <axis xyz="0 0 1"/>
-        <limit lower="-1.5708" upper="1.5708" effort="1" velocity="1"/> 
-
+        <axis xyz="0 0 1"/>
+        <limit lower="-1.5708" upper="1.5708" effort="1" velocity="1"/>
     </joint>
 
+    <!-- Drive wheel -->
     <link name="drive_wheel">
-         <visual>
+        <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://bopt_description/meshes/visual/drive_wheel.stl" scale="1 1 1"/>    
+                <mesh filename="package://bopt_description/meshes/visual/drive_wheel.stl" scale="1 1 1"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <cylinder radius="0.05215" length="0.03"/>
+                <cylinder radius="0.12215" length="0.06"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=1 kg, solid cylinder r=0.05215 m, l=0.03 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="1.0"/>
+            <inertia ixx="0.000933" ixy="0.0" ixz="0.0"
+                     iyy="0.000933" iyz="0.0"
+                     izz="0.001360"/>
+        </inertial>
     </link>
 
     <joint name="drive_wheel_joint" type="revolute">
@@ -77,14 +108,15 @@
         <child link="drive_wheel"/>
         <origin xyz="0 0 -0.2233" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-3.1416" upper="3.1416" effort="1" velocity="1"/> 
+        <limit lower="-3.1416" upper="3.1416" effort="1" velocity="1"/>
     </joint>
-    <!--end of sterring wheel part -->
 
 
-    <!--caster wheel holding ass-->
+    <!-- ================================================================
+         CASTER WHEEL ASSEMBLIES
+         ================================================================ -->
 
-
+    <!-- Caster assembly - right -->
     <link name="caster_wheel_ass_right">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -94,11 +126,19 @@
             <material name="yellow"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.3 0.3 0.1"/>
+                <box size="0.1 0.1 0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=1 kg, box 0.3 x 0.3 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="1.0"/>
+            <inertia ixx="0.0096" ixy="0.0" ixz="0.0"
+                     iyy="0.0096" iyz="0.0"
+                     izz="0.0150"/>
+        </inertial>
     </link>
 
     <joint name="caster_wheel_ass_joint_right" type="revolute">
@@ -109,6 +149,7 @@
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
 
+    <!-- Caster assembly - left -->
     <link name="caster_wheel_ass_left">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -118,11 +159,19 @@
             <material name="yellow"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.3 0.3 0.1"/>
+                <box size="0.1 0.1 0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=1 kg, box 0.3 x 0.3 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="1.0"/>
+            <inertia ixx="0.0096" ixy="0.0" ixz="0.0"
+                     iyy="0.0096" iyz="0.0"
+                     izz="0.0150"/>
+        </inertial>
     </link>
 
     <joint name="caster_wheel_ass_joint_left" type="revolute">
@@ -133,22 +182,29 @@
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
 
-    <!--wheel joint fot caster right-->
-
-
+    <!-- Caster wheel - right -->
     <link name="caster_wheel_right">
         <visual>
-           <geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
                 <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
-           </geometry> 
-           <material name="black"/>
+            </geometry>
+            <material name="black"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
                 <cylinder radius="0.05215" length="0.03"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.000467" ixy="0.0" ixz="0.0"
+                     iyy="0.000467" iyz="0.0"
+                     izz="0.000680"/>
+        </inertial>
     </link>
 
     <joint name="caster_wheel_joint_right" type="revolute">
@@ -159,22 +215,29 @@
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
 
-
-    <!--wheel segment for caster left-->
-
-     <link name="caster_wheel_left">
+    <!-- Caster wheel - left -->
+    <link name="caster_wheel_left">
         <visual>
-           <geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
                 <mesh filename="package://bopt_description/meshes/visual/casster_wheel.stl" scale="1 1 1"/>
-           </geometry> 
-           <material name="black"/>
+            </geometry>
+            <material name="black"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
                 <cylinder radius="0.05215" length="0.03"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.000467" ixy="0.0" ixz="0.0"
+                     iyy="0.000467" iyz="0.0"
+                     izz="0.000680"/>
+        </inertial>
     </link>
 
     <joint name="caster_wheel_joint_left" type="revolute">
@@ -185,11 +248,12 @@
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
 
-    <!--end of caster wheel joint segment-->
 
+    <!-- ================================================================
+         BOTTOM LIDAR SENSORS (rear corners)
+         ================================================================ -->
 
-    <!--back  lidar segment-->
-
+    <!-- Bottom lidar - left rear -->
     <link name="LLt">
         <visual>
             <origin xyz="0 0 -0.009" rpy="0 0 2.356"/>
@@ -199,11 +263,19 @@
             <material name="gray"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <box size="0.05 0.05 0.05"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
+                     iyy="0.000333" iyz="0.0"
+                     izz="0.000333"/>
+        </inertial>
     </link>
 
     <joint name="LLt_joint" type="fixed">
@@ -212,6 +284,7 @@
         <origin xyz="-0.1854 0.3704 -0.230" rpy="3.14 0 0"/>
     </joint>
 
+    <!-- Bottom lidar - right rear -->
     <link name="LRt">
         <visual>
             <origin xyz="0 0 -0.009" rpy="0 0 0.784"/>
@@ -221,11 +294,19 @@
             <material name="gray"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <box size="0.05 0.05 0.05"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
+                     iyy="0.000333" iyz="0.0"
+                     izz="0.000333"/>
+        </inertial>
     </link>
 
     <joint name="LRt_joint" type="fixed">
@@ -235,8 +316,11 @@
     </joint>
 
 
-    <!--top lidar segment-->
+    <!-- ================================================================
+         TOP 2D LIDAR SENSORS
+         ================================================================ -->
 
+    <!-- Top 2D lidar - back -->
     <link name="toplidar_back">
         <visual>
             <origin xyz="0 0 -0.005" rpy="0 0 1.5708"/>
@@ -246,11 +330,19 @@
             <material name="gray"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <box size="0.05 0.05 0.05"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
+                     iyy="0.000333" iyz="0.0"
+                     izz="0.000333"/>
+        </inertial>
     </link>
 
     <joint name="toplidar_joint_back" type="fixed">
@@ -259,6 +351,7 @@
         <origin xyz="0.175 -0.0063 1.720" rpy="0 -0.45 0"/>
     </joint>
 
+    <!-- Top 2D lidar - front -->
     <link name="toplidar_front">
         <visual>
             <origin xyz="0 0 -0.003" rpy="0 0 -1.5708"/>
@@ -268,11 +361,19 @@
             <material name="gray"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <box size="0.05 0.05 0.05"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.2 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.000333" ixy="0.0" ixz="0.0"
+                     iyy="0.000333" iyz="0.0"
+                     izz="0.000333"/>
+        </inertial>
     </link>
 
     <joint name="toplidar_joint_front" type="fixed">
@@ -282,7 +383,10 @@
     </joint>
 
 
-    <!--top 3d lidar-->
+    <!-- ================================================================
+         TOP 3D LIDAR
+         ================================================================ -->
+
     <link name="top3dl_link">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -292,11 +396,19 @@
             <material name="gray"/>
         </visual>
         <collision>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
                 <box size="0.1 0.1 0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=0.5 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.000833" ixy="0.0" ixz="0.0"
+                     iyy="0.000833" iyz="0.0"
+                     izz="0.000833"/>
+        </inertial>
     </link>
 
     <joint name="top3dl_joint" type="fixed">
@@ -306,20 +418,34 @@
     </joint>
 
 
-    <!--front part segment -->
+    <!-- ================================================================
+         FRONT LIFT MECHANISM
+         ================================================================ -->
+
     <link name="front_lift_link">
         <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
                 <mesh filename="package://bopt_description/meshes/visual/front.stl" scale="1 1 1"/>
             </geometry>
             <material name="black"/>
         </visual>
         <collision>
+            <origin xyz="0.22 0 0.1" rpy="0 0 0"/>
             <geometry>
-                <box size="0.1 0.1 0.1"/>
+                <box size="0.8 0.7 0.2"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=3 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="3.0"/>
+            <inertia ixx="0.005000" ixy="0.0" ixz="0.0"
+                     iyy="0.005000" iyz="0.0"
+                     izz="0.005000"/>
+        </inertial>
     </link>
+
     <joint name="front_lift_joint" type="prismatic">
         <parent link="base_link"/>
         <child link="front_lift_link"/>
@@ -328,9 +454,12 @@
         <limit lower="0" upper="0.095" effort="1000000" velocity="2.0"/>
     </joint>
 
-    <!--front wheel segment -->
 
+    <!-- ================================================================
+         FRONT WHEELS
+         ================================================================ -->
 
+    <!-- Front wheel - right -->
     <link name="front_wheel_right">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -340,10 +469,19 @@
             <material name="black"/>
         </visual>
         <collision>
+            <origin xyz="0 0 0" rpy="1.5705 0 0"/>
             <geometry>
-                <cylinder radius="0.175" length="0.1"/>
+                <cylinder radius="0.0615" length="0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="3.0"/>
+            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
+                     iyy="0.039844" iyz="0.0"
+                     izz="0.045938"/>
+        </inertial>
     </link>
 
     <joint name="front_wheel_right_joint" type="revolute">
@@ -354,6 +492,7 @@
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
 
+    <!-- Front wheel - left -->
     <link name="front_wheel_left">
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -363,10 +502,19 @@
             <material name="black"/>
         </visual>
         <collision>
+            <origin xyz="0 0 0" rpy="1.5705 0 0"/>
             <geometry>
-                <cylinder radius="0.175" length="0.1"/>
+                <cylinder radius="0.0615" length="0.1"/>
             </geometry>
         </collision>
+        <inertial>
+            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="3.0"/>
+            <inertia ixx="0.039844" ixy="0.0" ixz="0.0"
+                     iyy="0.039844" iyz="0.0"
+                     izz="0.045938"/>
+        </inertial>
     </link>
 
     <joint name="front_wheel_left_joint" type="revolute">
@@ -376,6 +524,5 @@
         <axis xyz="0 1 0"/>
         <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
     </joint>
-
 
 </robot>

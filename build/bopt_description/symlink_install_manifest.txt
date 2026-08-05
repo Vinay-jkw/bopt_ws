@@ -11,6 +11,7 @@
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/fork wheel shaft.STL
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl
+/home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/rviz/display.rviz
 /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/package_run_dependencies/bopt_description
