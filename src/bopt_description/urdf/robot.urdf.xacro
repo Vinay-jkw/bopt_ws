@@ -1,4 +1,9 @@
 <?xml version="1.0"?>
+<!-- 
+  BOPT Robot URDF Description
+  This file defines the physical properties, joints, links, and sensor locations of the bopt_robot.
+  It also includes Gazebo simulation materials and ros2_control interfaces.
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="bopt_robot">
 
     <xacro:include filename="materials.xacro"/>
@@ -53,7 +58,7 @@
             <material name="yellow"/>
         </visual>
         <collision>
-            <origin xyz="0 0 00" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel_ass.stl"/>
             </geometry>
@@ -93,7 +98,7 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=1 kg, solid cylinder r=0.05215 m, l=0.03 m -->
+            <!-- mass=2.0 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="2.0"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
@@ -210,7 +215,7 @@
     <joint name="caster_wheel_joint_right" type="continuous">
         <parent link="caster_wheel_ass_right"/>
         <child link="caster_wheel_right"/>
-        <origin xyz="0 0 -0.08105" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.08109" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="5" friction="1"/>
     </joint>
@@ -243,7 +248,7 @@
     <joint name="caster_wheel_joint_left" type="continuous">
         <parent link="caster_wheel_ass_left"/>
         <child link="caster_wheel_left"/>
-        <origin xyz="0 0 -0.08105" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.08109" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="5" friction="1"/>
     </joint>
@@ -437,8 +442,8 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=3 kg, box 0.1 x 0.1 x 0.1 m -->
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <!-- mass=15 kg, box 0.1 x 0.1 x 0.1 m -->
+            <origin xyz="0.477 0 0" rpy="0 0 0"/>
             <mass value="15"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
                      iyy="0.02" iyz="0.0"
@@ -449,9 +454,9 @@
     <joint name="front_lift_joint" type="prismatic">
         <parent link="base_link"/>
         <child link="front_lift_link"/>
-        <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
+        <origin xyz="0.377 0 -0.265" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="0" upper="0.095" effort="30000" velocity="0.03"/>
+        <limit lower="0" upper="0.095" effort="30000" velocity="0.003"/>
         <dynamics damping="200" friction="20"/>
     </joint>
 
@@ -460,15 +465,81 @@
          FRONT WHEELS
          ================================================================ -->
 
+    <!-- Front socket - left (Prismatic movement) -->
+    <link name="front_socket_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0"
+                     iyy="0.001" iyz="0.0"
+                     izz="0.001"/>
+        </inertial>
+    </link>
 
-    <!--front wheel shaft- left -->
+    <joint name="front_socket_left_joint" type="prismatic">
+        <parent link="front_lift_link"/>
+        <child link="front_socket_left"/>
+        <origin xyz="0.876075 0.2565 0.0176" rpy="0 0 0"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="0" upper="0.01068" effort="50" velocity="2"/>
+        <dynamics damping="1.5" friction="2"/>
+    </joint>
+
+    <!-- Front socket - right (Prismatic movement) -->
+    <link name="front_socket_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0"
+                     iyy="0.001" iyz="0.0"
+                     izz="0.001"/>
+        </inertial>
+    </link>
+
+    <joint name="front_socket_right_joint" type="prismatic">
+        <parent link="front_lift_link"/>
+        <child link="front_socket_right"/>
+        <origin xyz="0.87605 -0.1085 0.0176" rpy="0 0 0"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="0" upper="0.01068" effort="50" velocity="2"/>
+        <dynamics damping="1.5" friction="2"/>
+    </joint>
+
+   
+    <!-- Front wheel shaft - left -->
     <link name="front_wheel_shaft_left">
         <visual>
-            <origin xyz="0 0 0" rpy="-1.57080 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="gray"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -477,9 +548,8 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0.148 0 0" rpy="0 0 0"/>
-            <mass value="0.1"/>
+            <mass value="1"/>
             <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                      iyy="0.01" iyz="0.0"
                      izz="0.01"/>
@@ -487,22 +557,23 @@
     </link>
 
     <joint name="front_wheel_shaft_left_joint" type="revolute">
-        <parent link="front_lift_link"/>
+        <parent link="front_socket_left"/>
         <child link="front_wheel_shaft_left"/>
-        <origin xyz="0.9211 0.1055 -0.01758" rpy="0 0 0"/>
+        <origin xyz="0.045125 -0.008 0" rpy="0 0.259 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="0" upper="0.7854" effort="50" velocity="2"/>
-        <dynamics damping="5" friction="1"/>
+        <limit lower="0" upper="0.785" effort="50" velocity="2"/>
+        <dynamics damping="3" friction="2"/>
     </joint>
 
 
+    <!-- Front wheel shaft - right -->
     <link name="front_wheel_shaft_right">
         <visual>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="gray"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -511,9 +582,8 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
             <origin xyz="0.148 0 0" rpy="0 0 0"/>
-            <mass value="0.1"/>
+            <mass value="1"/>
             <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                      iyy="0.01" iyz="0.0"
                      izz="0.01"/>
@@ -521,12 +591,12 @@
     </link>
 
     <joint name="front_wheel_shaft_right_joint" type="revolute">
-        <parent link="front_lift_link"/>
+        <parent link="front_socket_right"/>
         <child link="front_wheel_shaft_right"/>
-        <origin xyz="0.9211 -0.1135 -0.01758" rpy="0 0 0"/>
+        <origin xyz="0.045125 -0.008 0" rpy="0 0.259 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="0" upper="0.7854" effort="50" velocity="2"/>
-        <dynamics damping="5" friction="1"/>
+        <limit lower="0" upper="0.785" effort="50" velocity="2"/>
+        <dynamics damping="3" friction="2"/>
     </joint>
 
     <!-- Front wheel - right -->
@@ -545,9 +615,9 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
+            <!-- mass=2 kg, solid cylinder r=0.0425 m, l=0.110 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <mass value="1.0"/>
+            <mass value="2.0"/>
             <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                      iyy="0.01" iyz="0.0"
                      izz="0.01"/>
@@ -557,7 +627,7 @@
     <joint name="front_wheel_right_joint" type="continuous">
         <parent link="front_wheel_shaft_right"/>
         <child link="front_wheel_right"/>
-        <origin xyz="0.1488 -0.067 -0.0013" rpy="0 0 0"/>
+        <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="5" friction="1"/>
     </joint>
@@ -578,9 +648,9 @@
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=3 kg, solid cylinder r=0.175 m, l=0.1 m -->
+            <!-- mass=2 kg, solid cylinder r=0.0425 m, l=0.110 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <mass value="1.0"/>
+            <mass value="2.0"/>
             <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                      iyy="0.01" iyz="0.0"
                      izz="0.01"/>
@@ -590,12 +660,16 @@
     <joint name="front_wheel_left_joint" type="continuous">
         <parent link="front_wheel_shaft_left"/>
         <child link="front_wheel_left"/>
-        <origin xyz="0.1488 0.077 -0.0013" rpy="0 0 0"/>
+        <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="5" friction="1"/>
     </joint>
 
 
+    <!-- ================================================================
+         GAZEBO MATERIALS
+         ================================================================ -->
+         
     <gazebo reference="base_link">
         <material>Gazebo/Blue</material>
     </gazebo>
@@ -648,6 +722,18 @@
         <material>Gazebo/Black</material>
     </gazebo>
 
+    <!-- ================================================================
+         GAZEBO FRICTION PROPERTIES
+         ================================================================ -->
+
+    <gazebo reference="front_socket_left_joint">
+        <spring_reference>0.025</spring_reference>
+        <spring_stiffness>5000</spring_stiffness>
+    </gazebo>
+     <gazebo reference="front_socket_right_joint">
+        <spring_reference>0.025</spring_reference>
+        <spring_stiffness>5000</spring_stiffness>
+    </gazebo>
 
 
     <gazebo reference="drive_wheel">
@@ -674,6 +760,21 @@
         <mu1>1.2</mu1>
         <mu2>1.2</mu2>
     </gazebo>
+    
+    <gazebo reference="front_socket_left_joint">
+        <implicit_spring_damper>true</implicit_spring_damper>
+        <spring_reference>0.025</spring_reference>
+        <spring_stiffness>3000</spring_stiffness>
+    </gazebo>
+    <gazebo reference="front_socket_right_joint">
+        <implicit_spring_damper>true</implicit_spring_damper>
+        <spring_reference>0.025</spring_reference>
+        <spring_stiffness>3000</spring_stiffness>
+    </gazebo>
+
+    <!-- ================================================================
+         ROS2 CONTROL PLUGINS AND INTERFACES
+         ================================================================ -->
 
     <ros2_control name="GazeboSystem" type="system">
         <hardware>
@@ -681,19 +782,28 @@
         </hardware>
         
         <joint name="drive_wheel_Ass_joint">
-            <command_interface name="position"/>
+            <command_interface name="position">
+                <param name="min">-1.512</param>
+                <param name="max">1.512</param>
+            </command_interface> 
             <state_interface name="position"/>
             <state_interface name="velocity"/>
         </joint>
         
         <joint name="drive_wheel_joint">
-            <command_interface name="velocity"/>
+            <command_interface name="velocity">
+                <param name="min">-3.0</param>
+                <param name="max">3.0</param>
+            </command_interface>
             <state_interface name="position"/>
             <state_interface name="velocity"/>
         </joint>
 
         <joint name="front_lift_joint">
-            <command_interface name="position"/>
+            <command_interface name="position">
+                <param name="min">0.0</param>
+                <param name="max">0.095</param>
+            </command_interface>
             <state_interface name="position"/>
             <state_interface name="velocity"/>
         </joint>

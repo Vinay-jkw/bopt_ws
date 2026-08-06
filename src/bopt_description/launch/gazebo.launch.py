@@ -78,18 +78,6 @@ def generate_launch_description():
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
-    steering_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["steering_controller", "-c", "/controller_manager"],
-    )
-
-    drive_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["drive_controller", "-c", "/controller_manager"],
-    )
-
     lift_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -104,8 +92,6 @@ def generate_launch_description():
             joint_state_publisher_node,
             spawn_entity,
             joint_state_broadcaster_spawner,
-            steering_controller_spawner,
-            drive_controller_spawner,
             lift_controller_spawner
         ]
     )

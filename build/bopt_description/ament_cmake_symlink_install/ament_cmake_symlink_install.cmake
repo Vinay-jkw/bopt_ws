@@ -318,6 +318,9 @@ message(STATUS "Execute custom install script")
 # install(DIRECTORY "launch" "urdf" "meshes" "rviz" "config" "worlds" "materials" "DESTINATION" "share/bopt_description")
 ament_cmake_symlink_install_directory("/home/jkw/bopt_ws/src/bopt_description" DIRECTORY "launch" "urdf" "meshes" "rviz" "config" "worlds" "materials" "DESTINATION" "share/bopt_description")
 
+# install(PROGRAMS "scripts/teleop_keyboard.py" "DESTINATION" "lib/bopt_description")
+ament_cmake_symlink_install_programs("/home/jkw/bopt_ws/src/bopt_description" PROGRAMS "scripts/teleop_keyboard.py" "DESTINATION" "lib/bopt_description")
+
 # install(FILES "/home/jkw/bopt_ws/build/bopt_description/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/bopt_description" "DESTINATION" "share/ament_index/resource_index/package_run_dependencies")
 ament_cmake_symlink_install_files("/home/jkw/bopt_ws/src/bopt_description" FILES "/home/jkw/bopt_ws/build/bopt_description/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/bopt_description" "DESTINATION" "share/ament_index/resource_index/package_run_dependencies")
 
