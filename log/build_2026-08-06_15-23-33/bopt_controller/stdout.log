@@ -1,0 +1,43 @@
+running egg_info
+creating ../../build/bopt_controller/bopt_controller.egg-info
+writing ../../build/bopt_controller/bopt_controller.egg-info/PKG-INFO
+writing dependency_links to ../../build/bopt_controller/bopt_controller.egg-info/dependency_links.txt
+writing entry points to ../../build/bopt_controller/bopt_controller.egg-info/entry_points.txt
+writing requirements to ../../build/bopt_controller/bopt_controller.egg-info/requires.txt
+writing top-level names to ../../build/bopt_controller/bopt_controller.egg-info/top_level.txt
+writing manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+reading manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+writing manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/jkw/bopt_ws/build/bopt_controller/build
+creating /home/jkw/bopt_ws/build/bopt_controller/build/lib
+creating /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+copying bopt_controller/teleop_keyboard.py -> /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+copying bopt_controller/robot_controller_node.py -> /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+copying bopt_controller/__init__.py -> /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+running install
+running install_lib
+creating /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+copying /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller/teleop_keyboard.py -> /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+copying /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller/robot_controller_node.py -> /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+copying /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller/__init__.py -> /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+byte-compiling /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller/teleop_keyboard.py to teleop_keyboard.cpython-310.pyc
+byte-compiling /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller/robot_controller_node.py to robot_controller_node.cpython-310.pyc
+byte-compiling /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /home/jkw/bopt_ws/install/bopt_controller/share/ament_index
+creating /home/jkw/bopt_ws/install/bopt_controller/share/ament_index/resource_index
+creating /home/jkw/bopt_ws/install/bopt_controller/share/ament_index/resource_index/packages
+copying resource/bopt_controller -> /home/jkw/bopt_ws/install/bopt_controller/share/ament_index/resource_index/packages
+copying package.xml -> /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller
+creating /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller/launch
+copying launch/teleop.launch.py -> /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller/launch
+copying launch/controller.launch.py -> /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller/launch
+creating /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller/config
+running install_egg_info
+Copying ../../build/bopt_controller/bopt_controller.egg-info to /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller-0.0.1-py3.10.egg-info
+running install_scripts
+Installing robot_controller script to /home/jkw/bopt_ws/install/bopt_controller/bin
+Installing teleop_keyboard script to /home/jkw/bopt_ws/install/bopt_controller/bin
+writing list of installed files to '/home/jkw/bopt_ws/build/bopt_controller/install.log'

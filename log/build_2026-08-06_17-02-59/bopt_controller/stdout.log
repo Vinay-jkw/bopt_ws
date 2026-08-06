@@ -1,0 +1,23 @@
+running egg_info
+writing ../../build/bopt_controller/bopt_controller.egg-info/PKG-INFO
+writing dependency_links to ../../build/bopt_controller/bopt_controller.egg-info/dependency_links.txt
+writing entry points to ../../build/bopt_controller/bopt_controller.egg-info/entry_points.txt
+writing requirements to ../../build/bopt_controller/bopt_controller.egg-info/requires.txt
+writing top-level names to ../../build/bopt_controller/bopt_controller.egg-info/top_level.txt
+reading manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+writing manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+running build
+running build_py
+copying bopt_controller/robot_controller_node.py -> /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+running install
+running install_lib
+copying /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller/robot_controller_node.py -> /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+byte-compiling /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller/robot_controller_node.py to robot_controller_node.cpython-310.pyc
+running install_data
+running install_egg_info
+removing '/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller-0.0.1-py3.10.egg-info' (and everything under it)
+Copying ../../build/bopt_controller/bopt_controller.egg-info to /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller-0.0.1-py3.10.egg-info
+running install_scripts
+Installing robot_controller script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+Installing teleop_keyboard script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+writing list of installed files to '/home/jkw/bopt_ws/build/bopt_controller/install.log'

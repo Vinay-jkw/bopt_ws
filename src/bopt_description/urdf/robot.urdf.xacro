@@ -78,8 +78,8 @@
         <child link="drive_wheel_Ass"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="-1.5708" upper="1.5708" effort="1000" velocity="2"/>
-        <dynamics damping="5" friction="1"/>
+        <limit lower="-3.14159" upper="3.14159" effort="1000" velocity="2"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
     <!-- Drive wheel -->
@@ -92,13 +92,12 @@
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl"/>
+                <cylinder radius="0.115" length="0.074"/>
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=2.0 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="2.0"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
@@ -110,9 +109,9 @@
     <joint name="drive_wheel_joint" type="continuous">
         <parent link="drive_wheel_Ass"/>
         <child link="drive_wheel"/>
-        <origin xyz="0 0 -0.222" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.223" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <dynamics damping="5" friction="2"/>
+        <dynamics damping="5" friction="0.2"/>
     </joint>
 
 
@@ -150,7 +149,7 @@
         <child link="caster_wheel_ass_right"/>
         <origin xyz="0 -0.255 -0.20515" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
     <!-- Caster assembly - left -->
@@ -183,7 +182,7 @@
         <child link="caster_wheel_ass_left"/>
         <origin xyz="0 0.255 -0.20515" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
     <!-- Caster wheel - right -->
@@ -196,13 +195,12 @@
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
+                <cylinder radius="0.050" length="0.060"/>
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.5"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
@@ -214,9 +212,9 @@
     <joint name="caster_wheel_joint_right" type="continuous">
         <parent link="caster_wheel_ass_right"/>
         <child link="caster_wheel_right"/>
-        <origin xyz="0 0 -0.08109" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.0827" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
     <!-- Caster wheel - left -->
@@ -229,13 +227,12 @@
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
+                <cylinder radius="0.050" length="0.060"/>
             </geometry>
         </collision>
         <inertial>
-            <!-- mass=0.5 kg, solid cylinder r=0.05215 m, l=0.03 m -->
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="0.5"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
@@ -247,9 +244,9 @@
     <joint name="caster_wheel_joint_left" type="continuous">
         <parent link="caster_wheel_ass_left"/>
         <child link="caster_wheel_left"/>
-        <origin xyz="0 0 -0.08109" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.0827" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
 
@@ -442,7 +439,7 @@
         </collision>
         <inertial>
             <!-- mass=15 kg, box 0.1 x 0.1 x 0.1 m -->
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0.477 0 0" rpy="0 0 0"/>
             <mass value="15"/>
             <inertia ixx="0.02" ixy="0.0" ixz="0.0"
                      iyy="0.02" iyz="0.0"
@@ -561,7 +558,7 @@
         <origin xyz="0.045125 -0.008 0" rpy="0 0.259 0"/>
         <axis xyz="0 1 0"/>
         <limit lower="0" upper="0.785" effort="50" velocity="2"/>
-        <dynamics damping="5.0" friction="1"/>
+        <dynamics damping="5.0" friction="0.1"/>
     </joint>
 
 
@@ -595,7 +592,7 @@
         <origin xyz="0.045125 -0.008 0" rpy="0 0.259 0"/>
         <axis xyz="0 1 0"/>
         <limit lower="0" upper="0.785" effort="50" velocity="2"/>
-        <dynamics damping="5.0" friction="1"/>
+        <dynamics damping="5.0" friction="0.1"/>
     </joint>
 
     <!-- Front wheel - right -->
@@ -608,9 +605,9 @@
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
+                <cylinder radius="0.0425" length="0.110"/>
             </geometry>
         </collision>
         <inertial>
@@ -628,7 +625,7 @@
         <child link="front_wheel_right"/>
         <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 -0.259 0"/>
         <axis xyz="0 1 0"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
     <!-- Front wheel - left -->
@@ -641,9 +638,9 @@
             <material name="black"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
+                <cylinder radius="0.0425" length="0.110"/>
             </geometry>
         </collision>
         <inertial>
@@ -661,7 +658,7 @@
         <child link="front_wheel_left"/>
         <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 -0.259 0"/>
         <axis xyz="0 1 0"/>
-        <dynamics damping="5" friction="1"/>
+        <dynamics damping="5" friction="0.1"/>
     </joint>
 
 
@@ -732,23 +729,23 @@
     </gazebo>
 
     <gazebo reference="caster_wheel_left">
-        <mu1>1.2</mu1>
-        <mu2>1.2</mu2>
+        <mu1>1.5</mu1>
+        <mu2>1.5</mu2>
     </gazebo>
 
     <gazebo reference="caster_wheel_right">
-        <mu1>1.2</mu1>
-        <mu2>1.2</mu2>
+        <mu1>1.5</mu1>
+        <mu2>1.5</mu2>
     </gazebo>
 
     <gazebo reference="front_wheel_left">
-        <mu1>1.2</mu1>
-        <mu2>1.2</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
     </gazebo>
 
     <gazebo reference="front_wheel_right">
-        <mu1>1.2</mu1>
-        <mu2>1.2</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
     </gazebo>
 
     <!-- ================================================================
@@ -762,8 +759,8 @@
         
         <joint name="drive_wheel_Ass_joint">
             <command_interface name="position">
-                <param name="min">-1.512</param>
-                <param name="max">1.512</param>
+                <param name="min">-3.14159</param>
+                <param name="max">3.14159</param>
             </command_interface> 
             <state_interface name="position"/>
             <state_interface name="velocity"/>
@@ -783,6 +780,22 @@
                 <param name="min">0.0</param>
                 <param name="max">0.095</param>
             </command_interface>
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+        <joint name="caster_wheel_ass_joint_left">
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+        <joint name="caster_wheel_ass_joint_right">
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+        <joint name="front_wheel_left_joint">
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+        <joint name="front_wheel_right_joint">
             <state_interface name="position"/>
             <state_interface name="velocity"/>
         </joint>

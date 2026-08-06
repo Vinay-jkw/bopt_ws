@@ -1,0 +1,4 @@
+[console_scripts]
+robot_controller = bopt_controller.robot_controller_node:main
+teleop_keyboard = bopt_controller.teleop_keyboard:main
+
