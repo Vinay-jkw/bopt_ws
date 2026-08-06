@@ -1,0 +1,4 @@
+Invoking command in '/home/jkw/bopt_ws/build/bopt_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/jkw/bopt_ws/build/bopt_description -- -j32 -l32
+Invoked command in '/home/jkw/bopt_ws/build/bopt_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/jkw/bopt_ws/build/bopt_description -- -j32 -l32
+Invoking command in '/home/jkw/bopt_ws/build/bopt_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/jkw/bopt_ws/build/bopt_description
+Invoked command in '/home/jkw/bopt_ws/build/bopt_description' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/jkw/bopt_ws/build/bopt_description

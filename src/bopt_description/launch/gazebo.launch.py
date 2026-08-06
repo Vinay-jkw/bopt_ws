@@ -78,6 +78,12 @@ def generate_launch_description():
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
+    tricycle_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["tricycle_controller", "-c", "/controller_manager"],
+    )
+
     lift_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -92,7 +98,7 @@ def generate_launch_description():
             joint_state_publisher_node,
             spawn_entity,
             joint_state_broadcaster_spawner,
+            tricycle_controller_spawner,
             lift_controller_spawner
         ]
     )
-  

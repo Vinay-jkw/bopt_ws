@@ -1,0 +1,30 @@
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/display.launch.py
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/gazebo.launch.py
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/simulation.launch.py
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/materials.xacro
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/robot.urdf.xacro
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/3Dlidar.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Fork_with_base.STL
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel_ass.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/rviz/display.rviz
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/config/controllers.yaml
+-- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/worlds/empty.world
+CMake Error at ament_cmake_symlink_install/ament_cmake_symlink_install.cmake:209 (message):
+  ament_cmake_symlink_install_programs() can't find
+  '/home/jkw/bopt_ws/src/bopt_description/scripts/bopt_controller.py'
+Call Stack (most recent call first):
+  ament_cmake_symlink_install/ament_cmake_symlink_install.cmake:322 (ament_cmake_symlink_install_programs)
+  cmake_install.cmake:46 (include)
+
+

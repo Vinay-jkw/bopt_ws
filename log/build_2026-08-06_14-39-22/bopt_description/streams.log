@@ -1,0 +1,49 @@
+[0.004s] Invoking command in '/home/jkw/bopt_ws/build/bopt_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/jkw/bopt_ws/src/bopt_description -DCMAKE_INSTALL_PREFIX=/home/jkw/bopt_ws/install/bopt_description
+[0.009s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.057s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.059s] -- Found ament_lint_auto: 0.12.15 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.086s] -- Configuring done
+[0.086s] -- Generating done
+[0.087s] -- Build files have been written to: /home/jkw/bopt_ws/build/bopt_description
+[0.088s] Invoked command in '/home/jkw/bopt_ws/build/bopt_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/jkw/bopt_ws/src/bopt_description -DCMAKE_INSTALL_PREFIX=/home/jkw/bopt_ws/install/bopt_description
+[0.089s] Invoking command in '/home/jkw/bopt_ws/build/bopt_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/jkw/bopt_ws/build/bopt_description -- -j32 -l32
+[0.103s] Invoked command in '/home/jkw/bopt_ws/build/bopt_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/jkw/bopt_ws/build/bopt_description -- -j32 -l32
+[0.107s] Invoking command in '/home/jkw/bopt_ws/build/bopt_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/jkw/bopt_ws/build/bopt_description
+[0.109s] -- Install configuration: ""
+[0.109s] -- Execute custom install script
+[0.109s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/display.launch.py
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/gazebo.launch.py
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/simulation.launch.py
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/materials.xacro
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/robot.urdf.xacro
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/3Dlidar.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Fork_with_base.STL
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/caster_wheel_ass.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel_ass.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_socket.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/rviz/display.rviz
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/config/controllers.yaml
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/worlds/empty.world
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/package_run_dependencies/bopt_description
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/parent_prefix_path/bopt_description
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/environment/ament_prefix_path.sh
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/environment/ament_prefix_path.dsv
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/environment/path.sh
+[0.110s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/environment/path.dsv
+[0.111s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/local_setup.bash
+[0.111s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/local_setup.sh
+[0.111s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/local_setup.zsh
+[0.111s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/local_setup.dsv
+[0.111s] -- Symlinking: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/package.dsv
+[0.114s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/packages/bopt_description
+[0.114s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/cmake/bopt_descriptionConfig.cmake
+[0.114s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/cmake/bopt_descriptionConfig-version.cmake
+[0.114s] -- Up-to-date symlink: /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/package.xml
+[0.115s] Invoked command in '/home/jkw/bopt_ws/build/bopt_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/jkw/bopt_ws/build/bopt_description
