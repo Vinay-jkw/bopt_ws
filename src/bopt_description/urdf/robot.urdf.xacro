@@ -2,6 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="bopt_robot">
 
     <xacro:include filename="materials.xacro"/>
+    <xacro:include filename="ros2_control.xacro"/>
 
     <!-- ================================================================
          BASE LINKS
@@ -475,13 +476,13 @@
         <parent link="front_lift_link"/>
         <child link="front_wheel_shaft_left"/>
 
-        <origin xyz="0.876075 0.2565 0.0176"
+        <origin xyz="0.896075 0.2565 0.0176"
             rpy="0 0.259 0"/>
 
         <axis xyz="0 1 0"/>
 
         <limit lower="0"
-            upper="0.73391095"
+            upper="0.785"
             effort="50"
             velocity="2"/>  
 
@@ -489,7 +490,7 @@
                 friction="0.1"/>
 
         <mimic joint="front_lift_joint"
-               multiplier="7,725"
+               multiplier="7.725"
                offset="0"/>
     </joint>
 
@@ -522,13 +523,13 @@
         <parent link="front_lift_link"/>
         <child link="front_wheel_shaft_right"/>
 
-        <origin xyz="0.87605 -0.1085 0.0176"
+        <origin xyz="0.89605 -0.1085 0.0176"
             rpy="0 0.259 0"/>
 
         <axis xyz="0 1 0"/>
 
         <limit lower="0"
-            upper="0.73391095"
+            upper="0.785"
             effort="50"
             velocity="2"/>
 
@@ -602,6 +603,8 @@
         <axis xyz="0 1 0"/>
         <dynamics damping="5" friction="0.1"/>
     </joint>
+
+    <xacro:ros2_control/>
 
 
     <!-- ================================================================
@@ -688,7 +691,20 @@
     <gazebo reference="front_wheel_right">
         <mu1>1.0</mu1>
         <mu2>1.0</mu2>
+    </gazebo>   
+
+
+    <!--ROS2 Control Plugin-->
+    <gazebo>
+        <plugin name="gazebo_ros2_control"
+            filename="libgazebo_ros2_control.so">
+            <robot_param>robot_description</robot_param>
+
+            <robot_param_node>robot_state_publisher</robot_param_node>
+            <parameters>$(find bopt_description)/config/controller.yaml</parameters>
+        </plugin>
     </gazebo>
+
 
 
 </robot>

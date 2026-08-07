@@ -37,7 +37,7 @@ def generate_launch_description():
         executable='joint_state_publisher_gui',
         output='screen',
         name='joint_state_publisher_gui',
-        parameters=[robot_description]
+        parameters=[robot_description, {'use_sim_time': True}]
     )
 
     robot_state_publisher_node = Node(

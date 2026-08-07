@@ -5,26 +5,35 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    drive_velocity_controller:
-      type: velocity_controllers/JointGroupVelocityController
+    traction_joint_controller:
+      type: forward_command_controller/ForwardCommandController
 
-    steering_position_controller:
+    steering_joint_controller:
       type: position_controllers/JointGroupPositionController
 
-    lift_controller:
-      type: position_controllers/JointGroupPositionController
+    lift_joint_controller:
+      type: effort_controllers/JointGroupEffortController
 
-drive_velocity_controller:
+
+traction_joint_controller:
   ros__parameters:
     joints:
       - drive_wheel_joint
 
-steering_position_controller:
+    interface_name: velocity
+
+
+steering_joint_controller:
   ros__parameters:
     joints:
       - drive_wheel_Ass_joint
 
-lift_controller:
+    interface_name: position
+
+
+lift_joint_controller:
   ros__parameters:
     joints:
       - front_lift_joint
+      
+    interface_name: effort

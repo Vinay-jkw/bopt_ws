@@ -3,6 +3,7 @@
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/launch/simulation.launch.py
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/materials.xacro
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/robot.urdf.xacro
+/home/jkw/bopt_ws/install/bopt_description/share/bopt_description/urdf/ros2_control.xacro
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/3Dlidar.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Fork_with_base.STL
@@ -16,7 +17,7 @@
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel_shaft.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/rviz/display.rviz
-/home/jkw/bopt_ws/install/bopt_description/share/bopt_description/config/controllers.yaml
+/home/jkw/bopt_ws/install/bopt_description/share/bopt_description/config/controller.yaml
 /home/jkw/bopt_ws/install/bopt_description/share/bopt_description/worlds/empty.world
 /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/package_run_dependencies/bopt_description
 /home/jkw/bopt_ws/install/bopt_description/share/ament_index/resource_index/parent_prefix_path/bopt_description
