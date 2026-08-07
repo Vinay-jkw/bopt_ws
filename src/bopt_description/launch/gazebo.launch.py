@@ -72,40 +72,12 @@ def generate_launch_description():
         output='screen'
     )
 
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
-    )
-
-    drive_velocity_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["drive_velocity_controller", "-c", "/controller_manager"],
-    )
-
-    steering_position_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["steering_position_controller", "-c", "/controller_manager"],
-    )
-
-    lift_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["lift_controller", "-c", "/controller_manager"],
-    )
-
     return LaunchDescription(
         [
             gui_arg,
             robot_state_publisher_node,
             gazebo_launch,
             joint_state_publisher_node,
-            spawn_entity,
-            joint_state_broadcaster_spawner,
-            drive_velocity_controller_spawner,
-            steering_position_controller_spawner,
-            lift_controller_spawner
+            spawn_entity
         ]
     )
