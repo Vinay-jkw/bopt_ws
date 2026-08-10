@@ -26,7 +26,7 @@ class BOPTController(Node):
         self.mimic_min_angle = 0.0
         self.mimic_max_angle = 0.78
 
-        self.mimic_slew_rate = 0.40
+        self.mimic_slew_rate = 0.35
         self.control_dt = 0.05
 
         self.commanded_mimic_angle = None
@@ -104,7 +104,7 @@ class BOPTController(Node):
         speed = msg.drive.speed
         steering_angle = msg.drive.steering_angle
 
-        wheel_velocity = (speed / self.wheel_radius)
+        wheel_velocity = -(speed / self.wheel_radius)
 
         wheel_velocity = self.clamp(
             wheel_velocity,
