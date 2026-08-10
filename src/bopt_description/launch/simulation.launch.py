@@ -15,9 +15,7 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
 
-    # ============================================================
-    # GUI ARGUMENT
-    # ============================================================
+
 
     gui_arg = DeclareLaunchArgument(
         'gui',
@@ -25,17 +23,13 @@ def generate_launch_description():
         description='Set to "false" to run Gazebo headless'
     )
 
-    # ============================================================
-    # PACKAGE PATH
-    # ============================================================
+
 
     package_path = get_package_share_directory(
         'bopt_description'
     )
 
-    # ============================================================
-    # GAZEBO
-    # ============================================================
+
 
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -50,9 +44,6 @@ def generate_launch_description():
         }.items()
     )
 
-    # ============================================================
-    # JOINT STATE BROADCASTER
-    # ============================================================
 
     joint_state_broadcaster = Node(
         package='controller_manager',
@@ -65,9 +56,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # TRACTION CONTROLLER
-    # ============================================================
 
     traction_controller = Node(
         package='controller_manager',
@@ -80,9 +68,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # STEERING CONTROLLER
-    # ============================================================
+
 
     steering_controller = Node(
         package='controller_manager',
@@ -95,9 +81,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # LIFT CONTROLLER
-    # ============================================================
+
 
     lift_controller = Node(
         package='controller_manager',
@@ -110,9 +94,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # MIMIC JOINT CONTROLLER
-    # ============================================================
 
     mimic_controller = Node(
         package='controller_manager',
@@ -125,9 +106,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # BOPT HIGH-LEVEL CONTROLLER
-    # ============================================================
 
     bopt_controller = Node(
         package='bopt_controller',
@@ -140,9 +118,7 @@ def generate_launch_description():
         ]
     )
 
-    # ============================================================
-    # RVIZ
-    # ============================================================
+
 
     rviz_config_file = os.path.join(
         package_path,
@@ -165,21 +141,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # ============================================================
-    # DELAY MIMIC CONTROLLER
-    # ============================================================
-
-    mimic_controller_delayed = TimerAction(
-        period=2.0,
-        actions=[
-            mimic_controller
-        ]
-    )
-
-    # ============================================================
-    # DELAY BOPT CONTROLLER
-    # ============================================================
-
     bopt_controller_delayed = TimerAction(
         period=3.0,
         actions=[
@@ -187,9 +148,16 @@ def generate_launch_description():
         ]
     )
 
-    # ============================================================
-    # LAUNCH EVERYTHING
-    # ============================================================
+
+
+    mimic_controller_delayed = TimerAction(
+        period=5.0,
+        actions=[
+            mimic_controller
+        ]
+    )
+
+
 
     return LaunchDescription([
 
@@ -205,11 +173,11 @@ def generate_launch_description():
         steering_controller,
         lift_controller,
 
-        # Mimic joint controller
-        mimic_controller_delayed,
-
-        # High-level controller
+        # High-level controller FIRST (must be running before mimic)
         bopt_controller_delayed,
+
+        # Mimic joint controller AFTER bopt is running
+        mimic_controller_delayed,
 
         # RViz
         rviz

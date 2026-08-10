@@ -439,8 +439,8 @@
         <child link="front_lift_link"/>
         <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="0" upper="0.095" effort="30000" velocity="0.03"/>
-        <dynamics damping="50" friction="10"/>
+        <limit lower="0" upper="0.095" effort="3000" velocity="0.03"/>
+        <dynamics damping="50" friction="20"/>
     </joint>
 
 
@@ -476,7 +476,7 @@
         <parent link="front_lift_link"/>
         <child link="front_wheel_shaft_left"/>
 
-        <origin xyz="0.896075 0.2565 0.0176"
+        <origin xyz="0.896075 0.2565 0.0196"
             rpy="0 0.259 0"/>
 
         <axis xyz="0 1 0"/>
@@ -523,7 +523,7 @@
         <parent link="front_lift_link"/>
         <child link="front_wheel_shaft_right"/>
 
-        <origin xyz="0.89605 -0.1085 0.0176"
+        <origin xyz="0.89605 -0.1085 0.0196"
             rpy="0 0.259 0"/>
 
         <axis xyz="0 1 0"/>
