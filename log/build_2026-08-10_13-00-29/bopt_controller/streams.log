@@ -1,0 +1,19 @@
+[0.351s] Invoking command in '/home/jkw/bopt_ws/build/bopt_controller': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/jkw/bopt_ws/build/bopt_controller/build --no-deps symlink_data --force
+[0.450s] running develop
+[0.513s] running egg_info
+[0.513s] writing bopt_controller.egg-info/PKG-INFO
+[0.513s] writing dependency_links to bopt_controller.egg-info/dependency_links.txt
+[0.513s] writing entry points to bopt_controller.egg-info/entry_points.txt
+[0.513s] writing requirements to bopt_controller.egg-info/requires.txt
+[0.513s] writing top-level names to bopt_controller.egg-info/top_level.txt
+[0.514s] reading manifest file 'bopt_controller.egg-info/SOURCES.txt'
+[0.514s] writing manifest file 'bopt_controller.egg-info/SOURCES.txt'
+[0.515s] running build_ext
+[0.515s] Creating /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt-controller.egg-link (link to .)
+[0.515s] Installing bopt_controller script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+[0.515s] 
+[0.515s] Installed /home/jkw/bopt_ws/build/bopt_controller
+[0.516s] running symlink_data
+[0.516s] symbolically linking /home/jkw/bopt_ws/build/bopt_controller/resource/bopt_controller -> /home/jkw/bopt_ws/install/bopt_controller/share/ament_index/resource_index/packages
+[0.516s] symbolically linking /home/jkw/bopt_ws/build/bopt_controller/package.xml -> /home/jkw/bopt_ws/install/bopt_controller/share/bopt_controller
+[0.529s] Invoked command in '/home/jkw/bopt_ws/build/bopt_controller' returned '0': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/jkw/bopt_ws/build/bopt_controller/build --no-deps symlink_data --force

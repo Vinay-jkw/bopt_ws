@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
            'bopt_controller = bopt_controller.controller_node:main',
+           'bopt_keyboard = bopt_controller.teleop_keyboard:main',
         ],
     },
 )

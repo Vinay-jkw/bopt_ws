@@ -12,6 +12,7 @@
 
   <!-- Runtime dependencies -->
   <depend>xacro</depend>
+  <depend>ackermann_msgs</depend>
   <depend>robot_state_publisher</depend>
   <depend>joint_state_publisher</depend>
   <depend>joint_state_publisher_gui</depend>

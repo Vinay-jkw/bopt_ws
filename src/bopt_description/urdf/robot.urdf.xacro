@@ -27,7 +27,7 @@
         </collision>
         <inertial>
             <origin xyz="0 0 -0.2500" rpy="0 0 0"/>
-            <mass value="50.0"/>
+            <mass value="20.0"/>
             <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                      iyy="0.01" iyz="0.0"
                      izz="0.01"/>
@@ -37,7 +37,7 @@
     <joint name="base_footprint_joint" type="fixed">
         <parent link="base_footprint"/>
         <child link="base_link"/>
-        <origin xyz="0 0 0.300" rpy="0 0 0"/>
+        <origin xyz="0 0 0.338" rpy="0 0 0"/>
     </joint>
 
     <!-- ================================================================
@@ -439,8 +439,8 @@
         <child link="front_lift_link"/>
         <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="0" upper="0.095" effort="3000" velocity="0.03"/>
-        <dynamics damping="50" friction="20"/>
+        <limit lower="0" upper="0.095" effort="3000" velocity="0.05"/>
+        <dynamics damping="50" friction="10"/>
     </joint>
 
 

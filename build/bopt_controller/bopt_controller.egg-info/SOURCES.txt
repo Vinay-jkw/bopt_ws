@@ -10,6 +10,7 @@ setup.py
 ../../build/bopt_controller/bopt_controller.egg-info/zip-safe
 bopt_controller/__init__.py
 bopt_controller/controller_node.py
+bopt_controller/teleop_keyboard.py
 resource/bopt_controller
 test/test_copyright.py
 test/test_flake8.py
