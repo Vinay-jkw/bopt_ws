@@ -32,13 +32,6 @@ def generate_launch_description():
     robot_description = {
         "robot_description": robot_description_config.toxml()
     }
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        output='screen',
-        name='joint_state_publisher_gui',
-        parameters=[robot_description, {'use_sim_time': True}]
-    )
 
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
@@ -77,7 +70,6 @@ def generate_launch_description():
             gui_arg,
             robot_state_publisher_node,
             gazebo_launch,
-            joint_state_publisher_node,
             spawn_entity
         ]
     )

@@ -1,0 +1,17 @@
+[0.344s] Invoking command in '/home/jkw/bopt_ws/build/bopt_controller': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/jkw/bopt_ws/build/bopt_controller/build --no-deps symlink_data
+[0.442s] running develop
+[0.503s] running egg_info
+[0.503s] writing bopt_controller.egg-info/PKG-INFO
+[0.503s] writing dependency_links to bopt_controller.egg-info/dependency_links.txt
+[0.503s] writing entry points to bopt_controller.egg-info/entry_points.txt
+[0.503s] writing requirements to bopt_controller.egg-info/requires.txt
+[0.503s] writing top-level names to bopt_controller.egg-info/top_level.txt
+[0.504s] reading manifest file 'bopt_controller.egg-info/SOURCES.txt'
+[0.504s] writing manifest file 'bopt_controller.egg-info/SOURCES.txt'
+[0.504s] running build_ext
+[0.504s] Creating /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt-controller.egg-link (link to .)
+[0.505s] Installing bopt_controller script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+[0.505s] 
+[0.505s] Installed /home/jkw/bopt_ws/build/bopt_controller
+[0.505s] running symlink_data
+[0.519s] Invoked command in '/home/jkw/bopt_ws/build/bopt_controller' returned '0': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/jkw/bopt_ws/build/bopt_controller/build --no-deps symlink_data

@@ -59,6 +59,22 @@
                 <state_interface name="position"/>
                 <state_interface name="velocity"/>
             </joint>
+            <joint name="front_wheel_shaft_left_joint">
+                <command_interface name="position">
+                    <param name="min">0.0</param>
+                    <param name="max">0.785</param>
+                </command_interface>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="front_wheel_shaft_right_joint">
+                <command_interface name="position">
+                    <param name="min">0.0</param>
+                    <param name="max">0.785</param>
+                </command_interface>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
 
             <joint name="front_wheel_right_joint">
                 <state_interface name="position"/>

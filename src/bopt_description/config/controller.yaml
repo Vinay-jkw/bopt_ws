@@ -14,6 +14,8 @@ controller_manager:
     lift_joint_controller:
       type: effort_controllers/JointGroupEffortController
 
+    mimic_joint_controller:
+      type: position_controllers/JointGroupPositionController
 
 traction_joint_controller:
   ros__parameters:
@@ -37,3 +39,11 @@ lift_joint_controller:
       - front_lift_joint
       
     interface_name: effort
+
+mimic_joint_controller:
+  ros__parameters:
+    joints:
+      - front_wheel_shaft_left_joint
+      - front_wheel_shaft_right_joint
+
+    interface_name: position

@@ -1,0 +1,3 @@
+[console_scripts]
+bopt_controller = bopt_controller.controller_node:main
+

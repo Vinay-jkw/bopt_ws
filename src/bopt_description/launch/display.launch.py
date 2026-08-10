@@ -27,12 +27,6 @@ def generate_launch_description():
         parameters=[robot_description]
     )
 
-    joint_state_publisher_gui_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        output='screen'
-    )
-
     #ab rviz ko launch karna hai
     rviz_config_file = os.path.join(
         package_path,
@@ -49,7 +43,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         robot_state_publisher_node,
-        joint_state_publisher_gui_node,
         rviz
     ])
 
