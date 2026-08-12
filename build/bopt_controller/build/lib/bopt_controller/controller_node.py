@@ -4,7 +4,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from builtin_interfaces.msg import Duration
-from ackermann_msgs.msg import AckermannDriveStamped
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64, Float64MultiArray
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -17,32 +17,25 @@ class BOPTController(Node):
 
         # --- Robot Parameters ---
         self.wheel_radius = 0.115
-        self.max_wheel_velocity = 3.0
-        self.max_steering_angle = 0.6
-
-        # --- Mimic Parameters ---
-        self.lift_min = 0.0
-        self.lift_max = 0.095
-        self.mimic_min_angle = 0.0
-        self.mimic_max_angle = 0.78
-
-        self.mimic_slew_rate = 0.30
+        self.wheelbase = 1.542
+        self.max_wheel_velocity = 5.0
+        self.max_steering_angle = 1.5708 
         self.control_dt = 0.05
 
-        self.commanded_mimic_angle = None
-        self.joint_states_received = False
+        # --- Lift Parameters ---
+        self.lift_min = 0.0
+        self.lift_max = 0.095
 
         # --- Safety & State ---
         self.cmd_vel_timeout = 0.5
         self.last_cmd_vel_time = self.get_clock().now()
         self.current_lift_position = 0.0
-        self.current_shaft_angle = 0.0
 
         # --- Subscribers ---
         self.create_subscription(
-            AckermannDriveStamped,
-            '/cmd_ackermann',
-            self.cmd_ackermann_callback,
+            Twist,
+            '/cmd_vel',
+            self.cmd_vel_callback,
             10
         )
 
@@ -79,12 +72,6 @@ class BOPTController(Node):
             10
         )
 
-        self.mimic_pub = self.create_publisher(
-            Float64MultiArray,
-            '/mimic_joint_controller/commands',
-            10
-        )
-
         self.control_timer = self.create_timer(
             self.control_dt,
             self.control_loop
@@ -97,14 +84,38 @@ class BOPTController(Node):
             'BOPT Controller started - ROBOT STOPPED'
         )
 
-    def cmd_ackermann_callback(self, msg):
+    def cmd_vel_callback(self, msg):
 
         self.last_cmd_vel_time = self.get_clock().now()
 
-        speed = msg.drive.speed
-        steering_angle = msg.drive.steering_angle
+        # Commanded velocity at the front load wheel axis
+        v = msg.linear.x
+        omega = msg.angular.z
 
-        wheel_velocity = -(speed / self.wheel_radius)
+        # Kinematics at the rear drive wheel
+        v_x = v
+        v_y = -omega * self.wheelbase
+
+        if v_x == 0.0 and v_y == 0.0:
+            target_steering = 0.0
+            v_drive_linear = 0.0
+        else:
+            target_steering = math.atan2(v_y, v_x)
+            v_drive_linear = math.hypot(v_x, v_y)
+
+        # Prevent 180-degree steering flips when reversing
+        if target_steering > math.pi / 2:
+            target_steering -= math.pi
+            v_drive_linear = -v_drive_linear
+        elif target_steering < -math.pi / 2:
+            target_steering += math.pi
+            v_drive_linear = -v_drive_linear
+
+        # Convert linear drive speed to wheel rotational velocity (rad/s)
+        wheel_velocity = v_drive_linear / self.wheel_radius
+        
+        # If your robot drives backward when commanded forward, uncomment the next line:
+        # wheel_velocity = -wheel_velocity
 
         wheel_velocity = self.clamp(
             wheel_velocity,
@@ -112,19 +123,18 @@ class BOPTController(Node):
             self.max_wheel_velocity
         )
 
-        steering_angle = self.clamp(
-            steering_angle,
+        target_steering = self.clamp(
+            target_steering,
             -self.max_steering_angle,
             self.max_steering_angle
         )
 
         self.publish_traction(wheel_velocity)
-        self.publish_steering(steering_angle)
+        self.publish_steering(target_steering)
 
         self.get_logger().info(
-            f'DRIVE | speed={speed:.3f} m/s | '
-            f'wheel={wheel_velocity:.3f} rad/s | '
-            f'steering={steering_angle:.3f} rad'
+            f'DRIVE | v_front={v:.2f} m/s | omega={omega:.2f} rad/s | '
+            f'wheel_vel={wheel_velocity:.2f} rad/s | steer={target_steering:.2f} rad'
         )
 
     def lift_cmd_callback(self, msg):
@@ -162,25 +172,8 @@ class BOPTController(Node):
             if index < len(msg.position):
                 self.current_lift_position = msg.position[index]
 
-        if 'front_wheel_shaft_left_joint' in msg.name:
-            index = msg.name.index(
-                'front_wheel_shaft_left_joint'
-            )
-
-            if index < len(msg.position):
-                self.current_shaft_angle = msg.position[index]
-
-        if not self.joint_states_received:
-            self.commanded_mimic_angle = self.current_shaft_angle
-            self.joint_states_received = True
-
-            self.get_logger().info(
-                f'MIMIC | Seeded from actual shaft position: '
-                f'{self.commanded_mimic_angle:.4f} rad'
-            )
-
     def control_loop(self):
-
+        # Only checks for cmd_vel timeout now since mimic logic is gone
         elapsed = (
             self.get_clock().now() -
             self.last_cmd_vel_time
@@ -189,66 +182,6 @@ class BOPTController(Node):
         if elapsed > self.cmd_vel_timeout:
             self.publish_traction(0.0)
             self.publish_steering(0.0)
-
-        if not self.joint_states_received:
-            return
-
-        target_mimic_angle = self.calculate_mimic_angle(
-            self.current_lift_position
-        )
-
-        max_step = (
-            self.mimic_slew_rate *
-            self.control_dt
-        )
-
-        error = (
-            target_mimic_angle -
-            self.commanded_mimic_angle
-        )
-
-        if abs(error) <= max_step:
-            self.commanded_mimic_angle = target_mimic_angle
-        else:
-            self.commanded_mimic_angle += math.copysign(
-                max_step,
-                error
-            )
-
-        self.commanded_mimic_angle = self.clamp(
-            self.commanded_mimic_angle,
-            self.mimic_min_angle,
-            self.mimic_max_angle
-        )
-
-        self.publish_mimic(
-            self.commanded_mimic_angle
-        )
-
-    def calculate_mimic_angle(self, lift_position):
-
-        lift_position = self.clamp(
-            lift_position,
-            self.lift_min,
-            self.lift_max
-        )
-
-        lift_ratio = (
-            (lift_position - self.lift_min) /
-            (self.lift_max - self.lift_min)
-        )
-
-        angle = (
-            self.mimic_min_angle +
-            lift_ratio *
-            (self.mimic_max_angle - self.mimic_min_angle)
-        )
-
-        return self.clamp(
-            angle,
-            self.mimic_min_angle,
-            self.mimic_max_angle
-        )
 
     def publish_traction(self, velocity):
 
@@ -287,14 +220,6 @@ class BOPTController(Node):
         msg.points = [point]
 
         self.lift_pub.publish(msg)
-
-    def publish_mimic(self, angle):
-
-        self.mimic_pub.publish(
-            Float64MultiArray(
-                data=[angle, angle]
-            )
-        )
 
     @staticmethod
     def clamp(value, minimum, maximum):
