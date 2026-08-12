@@ -5,7 +5,7 @@
     <xacro:macro name="ros2_control">
         <ros2_control name="my_robot_gazebo" type="system">
             <hardware>
-                <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+                <plugin>ign_ros2_control/IgnitionSystem</plugin>
             </hardware>
 
             <joint name="drive_wheel_joint">
@@ -27,10 +27,7 @@
             </joint>
 
             <joint name="front_lift_joint">
-                <command_interface name="position">
-                    <param name="min">0.0</param>
-                    <param name="max">0.095</param>
-                </command_interface>
+                <command_interface name="effort"/>
                 <state_interface name="position"/>
                 <state_interface name="velocity"/>
             </joint>

@@ -1,75 +1,103 @@
 import os
-import xacro
-from launch import LaunchDescription
-from launch_ros.actions import Node
+from os import pathsep
+from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
+
 def generate_launch_description():
-    gui_arg = DeclareLaunchArgument(
-        'gui',
-        default_value='true',
-        description='Set to "false" to run Gazebo headless'
+    bopt_description_dir = get_package_share_directory("bopt_description")
+
+    model_arg = DeclareLaunchArgument(
+        name="model", default_value=os.path.join(
+                bopt_description_dir, "urdf", "robot.urdf.xacro"
+            ),
+        description="Absolute path to robot urdf file"
     )
 
-    package_path = get_package_share_directory('bopt_description')
-    
-    world_path=os.path.join(
-        package_path,
-        "worlds",
-        "empty.world"
-    )
+    world_name_arg = DeclareLaunchArgument(name="world_name", default_value="empty")
 
-    urdf_file = os.path.join(
-        package_path,
-        "urdf",
-        "robot.urdf.xacro"
-    )
-
-    robot_description_config = xacro.process_file(urdf_file)
-    robot_description = {
-        "robot_description": robot_description_config.toxml()
-    }
-
-    robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        output='screen',
-        parameters=[robot_description, {'use_sim_time': True}]
-    )
-
-    gazebo_launch=IncludeLaunchDescription(
-
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('gazebo_ros'),
-                'launch',
-                'gazebo.launch.py'
-            )
-        ),
-
-        launch_arguments={'world': world_path, 'gui': LaunchConfiguration('gui')}.items()
-    )
-    spawn_entity = Node(
-        package='gazebo_ros',
-        executable='spawn_entity.py',
-        arguments=[
-            "-entity", "bopt_robot",
-            "-topic", "robot_description",
-            "-x", "0",
-            "-y", "0",
-            "-z", "0.5"
-        ],
-        output='screen'
-    )
-
-    return LaunchDescription(
-        [
-            gui_arg,
-            robot_state_publisher_node,
-            gazebo_launch,
-            spawn_entity
+    world_path = PathJoinSubstitution([
+            bopt_description_dir,
+            "worlds",
+            PythonExpression(expression=["'", LaunchConfiguration("world_name"), "'", " + '.world'"])
         ]
     )
+
+    model_path = str(Path(bopt_description_dir).parent.resolve())
+    model_path += pathsep + os.path.join(get_package_share_directory("bopt_description"), 'models')
+
+    gazebo_resource_path = SetEnvironmentVariable(
+        "GZ_SIM_RESOURCE_PATH",
+        model_path
+        )
+
+
+    robot_description = ParameterValue(Command([
+            "xacro ",
+            LaunchConfiguration("model")
+        ]),
+        value_type=str
+    )
+
+    robot_state_publisher_node = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        parameters=[{"robot_description": robot_description,
+                        "use_sim_time": True}]
+    )
+
+    gazebo = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory("ros_gz_sim"), "launch"), "/gz_sim.launch.py"]),
+                launch_arguments={
+                    "gz_args": PythonExpression(["'", world_path, " -v 4 -r'"])
+                }.items()
+             )
+
+    gz_spawn_entity = Node(
+        package="ros_gz_sim",
+        executable="create",
+        output="screen",
+        arguments=["-topic", "robot_description",
+                   "-name", "JKW_BOPT"],
+    )
+
+    # gz_ros2_bridge = Node(
+    #     package="ros_gz_bridge",
+    #     executable="parameter_bridge",
+    #     output="screen",
+    #     parameters=[{"use_sim_time": True}],
+    #     arguments=[
+    #         "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+    #         "/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
+    #         "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         "/Lidar_LLT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         "/Lidar_RLT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         "/Lidar_LSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         "/Lidar_RSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         "/Lidar_TSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+    #         # "/Lidar_6@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan"
+    #     ],
+    #     remappings=[
+    #         ('/imu', '/imu/out'),
+    #     ]
+    # )
+    
+
+    return LaunchDescription([
+        model_arg,
+        world_name_arg,
+        gazebo_resource_path,
+        robot_state_publisher_node,
+        gazebo,
+        gz_spawn_entity,
+        # gz_ros2_bridge
+    ])

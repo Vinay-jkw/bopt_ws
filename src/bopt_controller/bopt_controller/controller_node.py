@@ -26,7 +26,7 @@ class BOPTController(Node):
         self.mimic_min_angle = 0.0
         self.mimic_max_angle = 0.78
 
-        self.mimic_slew_rate = 0.35
+        self.mimic_slew_rate = 0.30
         self.control_dt = 0.05
 
         self.commanded_mimic_angle = None

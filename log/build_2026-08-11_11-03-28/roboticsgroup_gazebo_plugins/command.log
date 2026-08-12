@@ -1,0 +1,1 @@
+Invoking command in '/home/jkw/bopt_ws/build/roboticsgroup_gazebo_plugins': /usr/bin/cmake /home/jkw/bopt_ws/src/roboticsgroup_gazebo_plugins -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCATKIN_SYMLINK_INSTALL=ON -DCMAKE_INSTALL_PREFIX=/home/jkw/bopt_ws/install/roboticsgroup_gazebo_plugins
