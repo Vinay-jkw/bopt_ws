@@ -94,19 +94,6 @@ def generate_launch_description():
         output='screen'
     )
 
-
-    # mimic_controller = Node(
-    #     package='controller_manager',
-    #     executable='spawner',
-    #     arguments=[
-    #         'mimic_joint_controller',
-    #         '--controller-manager',
-    #         '/controller_manager'
-    #     ],
-    #     output='screen'
-    # )
-
-
     bopt_controller = Node(
         package='bopt_controller',
         executable='bopt_controller',
@@ -148,37 +135,15 @@ def generate_launch_description():
         ]
     )
 
-
-
-    # mimic_controller_delayed = TimerAction(
-    #     period=5.0,
-    #     actions=[
-    #         mimic_controller
-    #     ]
-    # )
-
-
-
     return LaunchDescription([
-
-        # GUI
         gui_arg,
-
-        # Gazebo
         gazebo,
-
         # Controllers
         joint_state_broadcaster,
         traction_controller,
         steering_controller,
         lift_controller,
 
-        # High-level controller FIRST (must be running before mimic)
         bopt_controller_delayed,
-# 
-        # Mimic joint controller AFTER bopt is running
-        # mimic_controller_delayed,
-
-        # RViz
         rviz
     ])

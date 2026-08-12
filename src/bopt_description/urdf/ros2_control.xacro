@@ -17,6 +17,7 @@
                 <state_interface name="velocity"/>
             </joint>
 
+
             <joint name="drive_wheel_Ass_joint">
                 <command_interface name="position">
                     <param name="min">-3.14159</param>
@@ -56,24 +57,24 @@
                 <state_interface name="position"/>
                 <state_interface name="velocity"/>
             </joint>
-            <joint name="front_wheel_shaft_left_joint">
-                <command_interface name="position">
-                    <param name="min">0.0</param>
-                    <param name="max">0.785</param>
-                </command_interface>
-                <state_interface name="position"/>
-                <state_interface name="velocity"/>
-            </joint>
-            <joint name="front_wheel_shaft_right_joint">
-                <command_interface name="position">
-                    <param name="min">0.0</param>
-                    <param name="max">0.785</param>
-                </command_interface>
+            
+            <joint name="front_wheel_right_joint">
                 <state_interface name="position"/>
                 <state_interface name="velocity"/>
             </joint>
 
-            <joint name="front_wheel_right_joint">
+
+
+            <joint name="front_wheel_shaft_left_joint">
+                <param name="mimic">front_lift_joint</param>
+                <param name="multiplier">7.725</param>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+
+            <joint name="front_wheel_shaft_right_joint">
+                <param name="mimic">front_lift_joint</param>
+                <param name="multiplier">7.725</param>
                 <state_interface name="position"/>
                 <state_interface name="velocity"/>
             </joint>

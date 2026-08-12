@@ -70,34 +70,11 @@ def generate_launch_description():
                    "-name", "JKW_BOPT"],
     )
 
-    # gz_ros2_bridge = Node(
-    #     package="ros_gz_bridge",
-    #     executable="parameter_bridge",
-    #     output="screen",
-    #     parameters=[{"use_sim_time": True}],
-    #     arguments=[
-    #         "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-    #         "/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
-    #         "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         "/Lidar_LLT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         "/Lidar_RLT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         "/Lidar_LSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         "/Lidar_RSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         "/Lidar_TSL@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-    #         # "/Lidar_6@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan"
-    #     ],
-    #     remappings=[
-    #         ('/imu', '/imu/out'),
-    #     ]
-    # )
-    
-
     return LaunchDescription([
         model_arg,
         world_name_arg,
         gazebo_resource_path,
         robot_state_publisher_node,
         gazebo,
-        gz_spawn_entity,
-        # gz_ros2_bridge
+        gz_spawn_entity
     ])
