@@ -1,0 +1,301 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- ================================================================
+         GAZEBO MATERIALS
+         ================================================================ -->
+         
+    <gazebo reference="base_link">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+    <gazebo reference="drive_wheel_Ass">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="drive_wheel">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_ass_right">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_ass_left">
+        <material>Gazebo/Yellow</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="caster_wheel_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="LLt">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="LRt">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="toplidar_back">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="toplidar_front">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="top3dl_link">
+        <material>Gazebo/Gray</material>
+    </gazebo>
+    <gazebo reference="front_lift_link">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_shaft_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_shaft_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_right">
+        <material>Gazebo/Black</material>
+    </gazebo>
+    <gazebo reference="front_wheel_left">
+        <material>Gazebo/Black</material>
+    </gazebo>
+
+    <!-- ================================================================
+         GAZEBO PHYSICS & FRICTION PROPERTIES
+         ================================================================ -->
+    <gazebo reference="drive_wheel">
+        <mu1>1.2</mu1>
+        <mu2>1.2</mu2>
+        <kp>1000000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+        <fdir1>1 0 0</fdir1>
+    </gazebo>
+
+    <gazebo reference="front_wheel_left">
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
+        <kp>1000000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+    </gazebo>
+
+    <gazebo reference="front_wheel_right">
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
+        <kp>1000000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+    </gazebo>
+
+    <gazebo reference="caster_wheel_left">
+        <mu1>0.8</mu1>
+        <mu2>0.02</mu2>
+        <fdir1>1 0 0</fdir1>
+        <kp>1000000.0</kp>
+        <kd>10.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+    </gazebo>
+
+    <gazebo reference="caster_wheel_right">
+        <mu1>0.8</mu1>
+        <mu2>0.02</mu2>
+        <fdir1>1 0 0</fdir1>
+        <kp>1000000.0</kp>
+        <kd>10.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+    </gazebo>
+
+    <!-- ================================================================
+         GAZEBO JOINT DYNAMICS
+         ================================================================ -->
+    <gazebo reference="front_lift_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+
+    <gazebo reference="front_wheel_shaft_left_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+    
+    <gazebo reference="front_wheel_shaft_right_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+
+    <gazebo reference="drive_wheel_Ass_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+
+    <!-- ================================================================
+         GAZEBO SENSOR PLUGINS
+         ================================================================ -->
+         
+    <!-- 1. Front Top 2D LiDAR -->
+    <gazebo reference="toplidar_front">
+        <sensor name="front_2d_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/front/scan</topic>
+            <gz_frame_id>toplidar_front</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!-- 2. Back Top 2D LiDAR -->
+    <gazebo reference="toplidar_back">
+        <sensor name="back_2d_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/back/scan</topic>
+            <gz_frame_id>toplidar_back</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!-- 3. Bottom Left 2D LiDAR -->
+    <gazebo reference="LLt">
+        <sensor name="left_bottom_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/left/scan</topic>
+            <gz_frame_id>LLt</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>180</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-1.5708</min_angle> <!-- 90 degree sweep -->
+                        <max_angle>1.5708</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!-- 4. Bottom Right 2D LiDAR -->
+    <gazebo reference="LRt">
+        <sensor name="right_bottom_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/right/scan</topic>
+            <gz_frame_id>LRt</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>180</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-1.5708</min_angle> <!-- 90 degree sweep -->
+                        <max_angle>1.5708</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!-- 5. Top 3D LiDAR -->
+    <gazebo reference="top3dl_link">
+        <sensor name="top_3d_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/top3d/points</topic>
+            <gz_frame_id>top3dl_link</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
+                    </horizontal>
+                    <vertical>
+                        <samples>16</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-0.261799</min_angle>
+                        <max_angle>0.261799</max_angle>
+                    </vertical>
+                </scan>
+                <range>
+                    <min>0.3</min>
+                    <max>30.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!-- ================================================================
+         ROS 2 CONTROL PLUGIN
+         ================================================================ -->
+    <gazebo>
+        <plugin name="ign_ros2_control::IgnitionROS2ControlPlugin" filename="ign_ros2_control-system">
+            <robot_param>robot_description</robot_param>
+            <robot_param_node>robot_state_publisher</robot_param_node>
+            <parameters>$(find bopt_description)/config/controller.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+</robot>
