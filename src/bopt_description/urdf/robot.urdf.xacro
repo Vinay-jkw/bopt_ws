@@ -84,7 +84,7 @@
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/drive_wheel.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="rubber_black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -193,7 +193,7 @@
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="rubber_black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -225,7 +225,7 @@
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/casster_wheel.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="rubber_black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -447,8 +447,8 @@
         <child link="front_lift_link"/>
         <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
-        <limit lower="0" upper="0.095" effort="3000" velocity="0.05"/>
-        <dynamics damping="50" friction="10"/>
+        <limit lower="0" upper="0.095" effort="30000" velocity="0.05"/>
+        <dynamics damping="50" friction="20"/>
     </joint>
 
 
@@ -555,7 +555,7 @@
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="rubber_black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -587,7 +587,7 @@
             <geometry>
                 <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/front_wheel.stl"/>
             </geometry>
-            <material name="black"/>
+            <material name="rubber_black"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="1.5708 0 0"/>
@@ -674,32 +674,77 @@
     <!-- ================================================================
          GAZEBO FRICTION PROPERTIES
          ================================================================ -->
-
+    <gazebo reference="front_lift_joint">
+      <kp>100000</kp>
+      <kd>1000</kd>
+    </gazebo>
 
     <gazebo reference="drive_wheel">
-        <mu1>2.0</mu1>
-        <mu2>2.0</mu2>
+        <mu1>1.2</mu1>
+        <mu2>1.2</mu2>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
+        <fdir1>1 0 0</fdir1>
     </gazebo>
 
     <gazebo reference="caster_wheel_left">
-        <mu1>1.0</mu1>
-        <mu2>1.0</mu2>
+        <mu1>0.8</mu1>   <!-- Forward friction -->
+        <mu2>0.02</mu2>  <!-- Sideways slip -->
+        <fdir1>1 0 0</fdir1>
+        <kp>100000.0</kp>
+        <kd>10.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
     </gazebo>
 
     <gazebo reference="caster_wheel_right">
-        <mu1>1.0</mu1>
-        <mu2>1.0</mu2>
+        <mu1>0.8</mu1>   <!-- Forward friction -->
+        <mu2>0.02</mu2>  <!-- Sideways slip -->
+        <fdir1>1 0 0</fdir1>
+        <kp>100000.0</kp>
+        <kd>10.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
     </gazebo>
 
     <gazebo reference="front_wheel_left">
         <mu1>1.0</mu1>
         <mu2>1.0</mu2>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
     </gazebo>
 
     <gazebo reference="front_wheel_right">
         <mu1>1.0</mu1>
         <mu2>1.0</mu2>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.001</minDepth>
+        <maxVel>0.1</maxVel>
     </gazebo>   
+
+    <gazebo reference="front_lift_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+        <gravity>false</gravity>
+    </gazebo>
+
+    <!-- MIMIC STEERING JOINTS -->
+    <gazebo reference="front_wheel_shaft_left_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+    
+    <gazebo reference="front_wheel_shaft_right_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
+
+    <!-- DRIVE STEERING ASSEMBLY -->
+    <gazebo reference="drive_wheel_Ass_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+    </gazebo>
 
 
     <!--ROS2 Control Plugin-->
