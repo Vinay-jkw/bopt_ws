@@ -5,6 +5,7 @@ import rclpy
 from rclpy.node import Node
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Twist
+from ackermann_msgs.msg import AckermannDriveStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64, Float64MultiArray
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -33,7 +34,7 @@ class BOPTController(Node):
 
         # --- Subscribers ---
         self.create_subscription(
-            Twist,
+            AckermannDriveStamped,
             '/cmd_vel',
             self.cmd_vel_callback,
             10
@@ -88,11 +89,9 @@ class BOPTController(Node):
 
         self.last_cmd_vel_time = self.get_clock().now()
 
-        # Commanded velocity at the front load wheel axis
-        v = msg.linear.x
-        omega = msg.angular.z
+        v = msg.drive.speed
+        omega = msg.drive.steering_angle
 
-        # Kinematics at the rear drive wheel
         v_x = v
         v_y = -omega * self.wheelbase
 
@@ -103,7 +102,6 @@ class BOPTController(Node):
             target_steering = math.atan2(v_y, v_x)
             v_drive_linear = math.hypot(v_x, v_y)
 
-        # Prevent 180-degree steering flips when reversing
         if target_steering > math.pi / 2:
             target_steering -= math.pi
             v_drive_linear = -v_drive_linear
@@ -111,11 +109,7 @@ class BOPTController(Node):
             target_steering += math.pi
             v_drive_linear = -v_drive_linear
 
-        # Convert linear drive speed to wheel rotational velocity (rad/s)
         wheel_velocity = v_drive_linear / self.wheel_radius
-        
-        # If your robot drives backward when commanded forward, uncomment the next line:
-        # wheel_velocity = -wheel_velocity
 
         wheel_velocity = self.clamp(
             wheel_velocity,
@@ -243,8 +237,11 @@ def main(args=None):
         pass
 
     finally:
-        node.publish_traction(0.0)
-        node.publish_steering(0.0)
+        try:
+            node.publish_traction(0.0)
+            node.publish_steering(0.0)
+        except Exception:
+            pass
 
         node.destroy_node()
         rclpy.shutdown()

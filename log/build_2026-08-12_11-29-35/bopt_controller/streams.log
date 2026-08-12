@@ -1,0 +1,25 @@
+[0.267s] Invoking command in '/home/jkw/bopt_ws/src/bopt_controller': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/bopt_controller build --build-base /home/jkw/bopt_ws/build/bopt_controller/build install --record /home/jkw/bopt_ws/build/bopt_controller/install.log --install-scripts $base/lib/bopt_controller --single-version-externally-managed install_data
+[0.361s] running egg_info
+[0.361s] writing ../../build/bopt_controller/bopt_controller.egg-info/PKG-INFO
+[0.361s] writing dependency_links to ../../build/bopt_controller/bopt_controller.egg-info/dependency_links.txt
+[0.362s] writing entry points to ../../build/bopt_controller/bopt_controller.egg-info/entry_points.txt
+[0.362s] writing requirements to ../../build/bopt_controller/bopt_controller.egg-info/requires.txt
+[0.362s] writing top-level names to ../../build/bopt_controller/bopt_controller.egg-info/top_level.txt
+[0.362s] reading manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+[0.363s] writing manifest file '../../build/bopt_controller/bopt_controller.egg-info/SOURCES.txt'
+[0.363s] running build
+[0.363s] running build_py
+[0.363s] copying bopt_controller/teleop_keyboard.py -> /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller
+[0.363s] running install
+[0.363s] running install_lib
+[0.363s] copying /home/jkw/bopt_ws/build/bopt_controller/build/lib/bopt_controller/teleop_keyboard.py -> /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller
+[0.364s] byte-compiling /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller/teleop_keyboard.py to teleop_keyboard.cpython-310.pyc
+[0.364s] running install_data
+[0.364s] running install_egg_info
+[0.365s] removing '/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller-0.0.0-py3.10.egg-info' (and everything under it)
+[0.365s] Copying ../../build/bopt_controller/bopt_controller.egg-info to /home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages/bopt_controller-0.0.0-py3.10.egg-info
+[0.365s] running install_scripts
+[0.376s] Installing bopt_controller script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+[0.376s] Installing bopt_keyboard script to /home/jkw/bopt_ws/install/bopt_controller/lib/bopt_controller
+[0.376s] writing list of installed files to '/home/jkw/bopt_ws/build/bopt_controller/install.log'
+[0.391s] Invoked command in '/home/jkw/bopt_ws/src/bopt_controller' returned '0': PYTHONPATH=/home/jkw/bopt_ws/build/bopt_controller/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jkw/bopt_ws/install/bopt_controller/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/bopt_controller build --build-base /home/jkw/bopt_ws/build/bopt_controller/build install --record /home/jkw/bopt_ws/build/bopt_controller/install.log --install-scripts $base/lib/bopt_controller --single-version-externally-managed install_data
