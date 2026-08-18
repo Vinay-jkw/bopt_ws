@@ -1,1 +1,14 @@
+# ROS 2 build artifacts
+build/
+install/
+log/
+.colcon/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Large model assets
 src/bopt_description/models/

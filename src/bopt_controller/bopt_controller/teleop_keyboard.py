@@ -1,121 +1,209 @@
-#!/usr/bin/env python3
 
-import sys
+from ackermann_msgs import msg
+import math
 import select
+import sys
 import termios
 import tty
-
+from geometry_msgs.msg import Twist
 import rclpy
 from rclpy.node import Node
-
-from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import Float64
 
-# Instructions to print on startup
 MSG = """
-------------------------------------
-BOPT 8-Way Keyboard Controller
-------------------------------------
-Moving around (Drive & Steer):
-   U    I    O
-   J    K    L
-   M    ,    .
+-----------------------------------------------------------------------
+                    BOPT Keyboard Teleoperation
+-----------------------------------------------------------------------
+Drive & Steer (Keypad or WASD / Arrows):
+      U    I    O                W
+      J    K    L       or     A S D     or    [Arrow Keys]
+      M    ,    .
 
-U/I/O : Forward-Left / Forward / Forward-Right
-J/K/L : Steer Left / STOP / Steer Right
-M/,/. : Back-Left / Backward / Back-Right
+  I / W / Up       : Forward
+  , / S / Down     : Backward
+  J / A / Left     : Steer Left  (+ angle)
+  L / D / Right    : Steer Right (- angle)
+  U                : Forward-Left
+  O                : Forward-Right
+  M                : Back-Left
+  .                : Back-Right
 
 Lift Control:
-Q : Raise Lift
-E : Lower Lift
+  Q                : Raise Lift
+  E                : Lower Lift
 
-Space / K : E-Stop (Zero speed/steering)
-R         : Reset all (Zero speed/steering/lift)
-CTRL-C    : Quit
-------------------------------------
+Emergency & Reset:
+  Space / K        : Stop Drive (Zero speed & steering)
+  R                : Reset All (Zero speed, steering & lift)
+  CTRL-C           : Quit
+-----------------------------------------------------------------------
 """
 
+
 class BOPTKeyboard(Node):
-    def __init__(self):
+    """Keyboard teleoperation node for BOPT pallet truck."""
+
+    def __init__(self, original_terminal_settings=None):
         super().__init__('bopt_keyboard')
+
+        # --- Parameters ---
+        self.declare_parameter('speed_step', 0.10)
+        self.declare_parameter('steering_step', 0.05)
+        self.declare_parameter('lift_step', 0.01)
+        self.declare_parameter('max_speed', 3.0)
+        self.declare_parameter('max_steering', 1.57)
+        self.declare_parameter('max_lift', 0.095)
+        self.declare_parameter('control_rate', 20.0)
+        self.declare_parameter('max_yaw_rate', 1.0)
+        self.declare_parameter('key_timeout', 0.15)
+
+        self.speed_step = self.get_parameter('speed_step').value
+        self.steering_step = self.get_parameter('steering_step').value
+        self.lift_step = self.get_parameter('lift_step').value
+        self.max_speed = self.get_parameter('max_speed').value
+        self.max_steering = self.get_parameter('max_steering').value
+        self.max_lift = self.get_parameter('max_lift').value
+        control_rate = self.get_parameter('control_rate').value
+        self.max_yaw_rate = self.get_parameter('max_yaw_rate').value
+        self.key_timeout = self.get_parameter('key_timeout').value
+        self.last_key_time = self.get_clock().now()
 
         # --- State Variables ---
         self.speed = 0.0
         self.steering = 0.0
         self.lift = 0.0
 
-        # --- Control Parameters ---
-        self.speed_step = 0.10
-        self.steering_step = 0.10
-        self.lift_step = 0.01
-
-        self.max_speed = 3.0
-        self.max_steering = 0.6
-        self.max_lift = 0.094
-
-        # --- Direction Mappings (Speed_multiplier, Steering_multiplier) ---
-        self.moveBindings = {
-            'i': (1, 0),
-            'o': (1, 1),
-            'j': (0, -1),
-            'l': (0, 1),
-            'u': (1, -1),
-            ',': (-1, 0),
-            '.': (-1, 1),
-            'm': (-1, -1),
+        # --- Direction Mappings: (speed_multiplier, steering_multiplier) ---
+        # Note: In standard ROS (REP 103), Left is positive (+) and Right is negative (-).
+        self.move_bindings = {
+            # -----------------------
+            # Forward movement keys
+            # -----------------------
+            'o': (1.0, 1.0),     # Forward-Left
+            'i': (1.0, 0.0),     # Forward
+            'u': (1.0, -1.0),    # Forward-Right
+            # -----------------------
+            # Backward movement keys
+            # -----------------------
+            '.': (-1.0, 1.0),   # Backward-Left
+            ',': (-1.0, 0.0),    # Backward
+            'm': (-1.0, -1.0),    # Backward-Right
+            # -----------------------
+            # Turning keys (zero speed)
+            # -----------------------
+            'j': (0.0, -1.0),    # Left
+            'l': (0.0, 1.0),     # Right
+            'k': (0.0, 0.0),     # Stop
         }
 
-        self.liftBindings = {
+        self.lift_bindings = {
             'q': 1,
             'e': -1,
         }
 
         # --- Publishers ---
-        self.ackermann_pub = self.create_publisher(AckermannDriveStamped, '/cmd_vel', 10)
-        self.lift_pub = self.create_publisher(Float64, '/lift_cmd', 10)
+        self.cmd_vel_pub = self.create_publisher(
+            Twist,
+            '/cmd_vel',
+            10
+        )
+        self.lift_pub = self.create_publisher(
+            Float64,
+            '/lift_cmd',
+            10
+        )
 
         # --- Terminal Setup ---
-        self.settings = termios.tcgetattr(sys.stdin)
-        tty.setcbreak(sys.stdin.fileno())
+        self.settings = original_terminal_settings
+        if self.settings is None:
+            try:
+                self.settings = termios.tcgetattr(sys.stdin)
+            except Exception:
+                self.settings = None
 
-        print(MSG)
+        if self.settings is not None:
+            try:
+                tty.setcbreak(sys.stdin.fileno())
+            except Exception:
+                pass
 
-        # Loop at 20 Hz
-        self.timer = self.create_timer(0.05, self.control_loop)
+        sys.stdout.write(MSG)
+        sys.stdout.flush()
+
+        # Control timer
+        timer_period = 1.0 / control_rate
+        self.timer = self.create_timer(timer_period, self.control_loop)
 
     def get_key(self):
-        # Non-blocking terminal read
-        if select.select([sys.stdin], [], [], 0)[0]:
-            return sys.stdin.read(1)
+        """Read key input non-blockingly, parsing escape sequences."""
+        if select.select([sys.stdin], [], [], 0.0)[0]:
+            try:
+                ch = sys.stdin.read(1)
+                if ch == '\x1b':
+                    # Check for ANSI escape sequences (Arrow keys)
+                    if select.select([sys.stdin], [], [], 0.02)[0]:
+                        ch2 = sys.stdin.read(1)
+                        if ch2 == '[' and select.select([sys.stdin], [], [], 0.02)[0]:
+                            ch3 = sys.stdin.read(1)
+                            if ch3 == 'A':
+                                return 'up'
+                            elif ch3 == 'B':
+                                return 'down'
+                            elif ch3 == 'C':
+                                return 'right'
+                            elif ch3 == 'D':
+                                return 'left'
+                return ch
+            except Exception:
+                return None
         return None
 
     def control_loop(self):
+        """Periodic control callback to read keyboard and publish commands."""
+        lift_changed=False
         key = self.get_key()
-        lift_changed = False
 
         if key:
-            if key in self.moveBindings:
-                self.speed += self.moveBindings[key][0] * self.speed_step
-                self.steering += self.moveBindings[key][1] * self.steering_step
-            elif key in self.liftBindings:
-                self.lift += self.liftBindings[key] * self.lift_step
-                lift_changed = True
-            elif key == 'k' or key == ' ':
-                self.speed = 0.0
-                self.steering = 0.0
-            elif key == 'r':
-                self.speed = 0.0
-                self.steering = 0.0
-                if self.lift != 0.0:
-                    self.lift = 0.0
-                    lift_changed = True
-            elif key == '\x03': # CTRL-C
+            self.last_key_time = self.get_clock().now()
+
+            if key == '\x03':
                 raise KeyboardInterrupt
+
+            lower_key = key.lower()
+
+            if lower_key in self.move_bindings:
+                speed_mult, yaw_mult = self.move_bindings[lower_key]
+
+                self.speed = speed_mult * self.max_speed
+                self.steering = yaw_mult * self.max_yaw_rate
+
+            elif lower_key in self.lift_bindings:
+                self.lift += self.lift_bindings[lower_key] * self.lift_step
+                lift_changed = True
+
+            elif lower_key == ' ':
+                self.speed = 0.0
+                self.steering = 0.0
+
+            elif lower_key == 'r':
+                self.speed = 0.0
+                self.steering = 0.0
+                self.lift = 0.0
+                lift_changed = True
+
+        # No key received recently → stop
+        elapsed = (
+            self.get_clock().now() - self.last_key_time
+        ).nanoseconds / 1e9
+
+        if elapsed > self.key_timeout:
+            self.speed = 0.0
+            self.steering = 0.0
 
         # Clamp values
         self.speed = self.clamp(self.speed, -self.max_speed, self.max_speed)
         self.steering = self.clamp(self.steering, -self.max_steering, self.max_steering)
-        
+
         old_lift = self.lift
         self.lift = self.clamp(self.lift, 0.0, self.max_lift)
         if self.lift != old_lift:
@@ -129,53 +217,93 @@ class BOPTKeyboard(Node):
         self.print_status()
 
     def publish_drive(self):
-        msg = AckermannDriveStamped()
-        msg.drive.speed = float(self.speed)
-        msg.drive.steering_angle = float(self.steering)
-        self.ackermann_pub.publish(msg)
+        msg = Twist()
+
+        msg.linear.x = float(self.speed)
+        msg.linear.y = 0.0
+        msg.linear.z = 0.0
+
+        msg.angular.x = 0.0
+        msg.angular.y = 0.0
+        msg.angular.z = float(self.steering)
+
+        self.cmd_vel_pub.publish(msg)
 
     def publish_lift(self):
+        """Publish lift position command."""
         msg = Float64()
         msg.data = float(self.lift)
         self.lift_pub.publish(msg)
 
     def print_status(self):
-        status = f"\rSpeed: {self.speed: .2f} m/s | Steering: {self.steering: .2f} rad | Lift: {self.lift: .3f} m    "
+        """Print formatted current state to terminal."""
+        steer_deg = math.degrees(self.steering)
+        status = (
+            f"\rSpeed: {self.speed:+.2f} m/s | "
+            f"Steering: {self.steering:+.2f} rad ({steer_deg:+.1f}°) | "
+            f"Lift: {self.lift:.3f} m     "
+        )
         sys.stdout.write(status)
         sys.stdout.flush()
 
     @staticmethod
-    def clamp(value, minimum, maximum):
+    def clamp(value: float, minimum: float, maximum: float) -> float:
+        """Clamp value between minimum and maximum."""
         return max(minimum, min(maximum, value))
 
     def shutdown(self):
+        """Stop the robot and restore terminal settings."""
         self.speed = 0.0
         self.steering = 0.0
-        self.publish_drive()
-        print("\nStopping robot...")
-        # Restore terminal settings
         try:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            self.publish_drive()
         except Exception:
             pass
+        sys.stdout.write("\nStopping robot...\n")
+        sys.stdout.flush()
+
+        if self.settings is not None:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            except Exception:
+                pass
+
 
 def main(args=None):
-    rclpy.init(args=args)
+    original_settings = None
+    try:
+        original_settings = termios.tcgetattr(sys.stdin)
+    except Exception:
+        pass
 
-    node = BOPTKeyboard()
+    rclpy.init(args=args)
+    node = None
 
     try:
+        node = BOPTKeyboard(original_terminal_settings=original_settings)
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        if node:
+            node.get_logger().error(f'Exception in BOPT Keyboard: {e}')
     finally:
-        print("\nExiting BOPT Keyboard...")
-        try:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, node.settings)
-        except Exception:
-            pass
-        node.destroy_node()
-        rclpy.shutdown()
+        sys.stdout.write("\nExiting BOPT Keyboard...\n")
+        sys.stdout.flush()
+        if node is not None:
+            try:
+                node.shutdown()
+                node.destroy_node()
+            except Exception:
+                pass
+        if original_settings is not None:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_settings)
+            except Exception:
+                pass
+        if rclpy.ok():
+            rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
