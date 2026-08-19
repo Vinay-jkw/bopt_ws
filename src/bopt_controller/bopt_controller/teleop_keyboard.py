@@ -50,7 +50,7 @@ class BOPTKeyboard(Node):
         self.declare_parameter('speed_step', 0.10)
         self.declare_parameter('steering_step', 0.05)
         self.declare_parameter('lift_step', 0.01)
-        self.declare_parameter('max_speed', 3.0)
+        self.declare_parameter('max_speed', 1.5)
         self.declare_parameter('max_steering', 1.57)
         self.declare_parameter('max_lift', 0.095)
         self.declare_parameter('control_rate', 20.0)
@@ -60,8 +60,8 @@ class BOPTKeyboard(Node):
         self.target_speed = 0.0
         self.target_steering = 0.0
 
-        self.declare_parameter('acceleration', 0.8)
-        self.declare_parameter('deceleration', 0.8)
+        self.declare_parameter('acceleration', 0.6)
+        self.declare_parameter('deceleration', 0.6)
 
         self.acceleration = self.get_parameter('acceleration').value
         self.deceleration = self.get_parameter('deceleration').value
@@ -72,7 +72,7 @@ class BOPTKeyboard(Node):
         self.max_speed = self.get_parameter('max_speed').value
         self.max_steering = self.get_parameter('max_steering').value
         self.max_lift = self.get_parameter('max_lift').value
-        control_rate = self.get_parameter('control_rate').value
+        self.control_rate = self.get_parameter('control_rate').value
         self.max_yaw_rate = self.get_parameter('max_yaw_rate').value
         self.key_timeout = self.get_parameter('key_timeout').value
         self.last_key_time = self.get_clock().now()
@@ -88,9 +88,9 @@ class BOPTKeyboard(Node):
             # -----------------------
             # Forward movement keys
             # -----------------------
-            'o': (1.0, 1.0),     # Forward-Left
+            'u': (1.0, 1.0),     # Forward-Left
             'i': (1.0, 0.0),     # Forward
-            'u': (1.0, -1.0),    # Forward-Right
+            'o': (1.0, -1.0),    # Forward-Right
             # -----------------------
             # Backward movement keys
             # -----------------------
@@ -140,32 +140,55 @@ class BOPTKeyboard(Node):
         sys.stdout.flush()
 
         # Control timer
-        timer_period = 1.0 / control_rate
+        timer_period = 1.0 / self.control_rate
         self.timer = self.create_timer(timer_period, self.control_loop)
 
     def get_key(self):
-        """Read key input non-blockingly, parsing escape sequences."""
-        if select.select([sys.stdin], [], [], 0.0)[0]:
+        """Read the newest available keyboard command.
+
+        Drain all currently buffered keyboard input so stale commands
+        cannot remain queued and override a newer command.
+        """
+
+        latest_key = None
+
+        while select.select([sys.stdin], [], [], 0.0)[0]:
             try:
                 ch = sys.stdin.read(1)
+
+                if ch == '\x03':
+                    return '\x03'
+
+                # Handle ANSI arrow keys
                 if ch == '\x1b':
-                    # Check for ANSI escape sequences (Arrow keys)
-                    if select.select([sys.stdin], [], [], 0.02)[0]:
+                    sequence = ''
+
+                    # Read the rest of the escape sequence if available
+                    if select.select([sys.stdin], [], [], 0.005)[0]:
                         ch2 = sys.stdin.read(1)
-                        if ch2 == '[' and select.select([sys.stdin], [], [], 0.02)[0]:
-                            ch3 = sys.stdin.read(1)
-                            if ch3 == 'A':
-                                return 'up'
-                            elif ch3 == 'B':
-                                return 'down'
-                            elif ch3 == 'C':
-                                return 'right'
-                            elif ch3 == 'D':
-                                return 'left'
-                return ch
+
+                        if ch2 == '[':
+                            if select.select([sys.stdin], [], [], 0.005)[0]:
+                                ch3 = sys.stdin.read(1)
+
+                                if ch3 == 'A':
+                                    latest_key = 'up'
+                                elif ch3 == 'B':
+                                    latest_key = 'down'
+                                elif ch3 == 'C':
+                                    latest_key = 'right'
+                                elif ch3 == 'D':
+                                    latest_key = 'left'
+
+                    continue
+
+                # Normal keyboard key
+                latest_key = ch
+
             except Exception:
-                return None
-        return None
+                break
+
+        return latest_key
 
     def control_loop(self):
         """Periodic control callback to read keyboard and publish commands."""
@@ -219,7 +242,7 @@ class BOPTKeyboard(Node):
             lift_changed = True
 
         # Smooth acceleration for speed
-        dt = 0.05
+        dt = 1.0 / self.control_rate
 
         # Speed ramp
         speed_error = self.target_speed - self.speed

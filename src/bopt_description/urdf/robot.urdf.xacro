@@ -28,7 +28,7 @@
         </collision>
         <inertial>
             <origin xyz="0 0 -0.2500" rpy="0 0 0"/>
-            <mass value="80.0"/>
+            <mass value="200.0"/>
             <inertia ixx="3.46" ixy="0.0" ixz="0.0"
                      iyy="7.73" iyz="0.0"
                      izz="9.06"/>
@@ -436,7 +436,7 @@
         </collision>
         <inertial>
             <origin xyz="0.177 0 0" rpy="0 0 0"/>
-            <mass value="25"/>
+            <mass value="125"/>
             <inertia ixx="1.0" ixy="0.0" ixz="0.0"
                      iyy="2.0" iyz="0.0"
                      izz="2.0"/>
@@ -449,7 +449,7 @@
         <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
         <limit lower="0" upper="0.095" effort="30000" velocity="0.05"/>
-        <dynamics damping="50" friction="20"/>
+        <dynamics damping="125" friction="15"/>
     </joint>
 
 
@@ -492,11 +492,11 @@
 
         <limit lower="0"
             upper="0.785"
-            effort="5000"
-            velocity="2"/>  s
+            effort="500000"
+            velocity="1"/>  
 
-        <dynamics damping="1.0"
-                friction="0.1"/>
+        <dynamics damping="80.0"
+                friction="0.8"/>
 
         <mimic joint="front_lift_joint"
                multiplier="7.725"
@@ -539,11 +539,11 @@
 
         <limit lower="0"
             upper="0.785"
-            effort="5000"
-            velocity="2"/>
+            effort="500000"
+            velocity="1"/>
 
-        <dynamics damping="1.0"
-                friction="0.1"/>
+        <dynamics damping="80.0"
+                friction="0.8"/>
 
         <mimic joint="front_lift_joint"
             multiplier="7.725"

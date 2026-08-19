@@ -112,19 +112,35 @@
          GAZEBO JOINT DYNAMICS
          ================================================================ -->
     <gazebo reference="front_lift_joint">
-        <implicitSpringDamper>true</implicitSpringDamper>
-    </gazebo>
-
-    <gazebo reference="front_wheel_shaft_left_joint">
-        <implicitSpringDamper>true</implicitSpringDamper>
+        <physics>
+            <ode>
+                <implicit_spring_damper>true</implicit_spring_damper>
+            </ode>
+        </physics>
     </gazebo>
     
     <gazebo reference="front_wheel_shaft_right_joint">
-        <implicitSpringDamper>true</implicitSpringDamper>
+        <physics>
+            <ode>
+                <implicit_spring_damper>true</implicit_spring_damper>
+            </ode>
+        </physics>
+    </gazebo>
+
+    <gazebo reference="front_wheel_shaft_left_joint">
+        <physics>
+            <ode>
+                <implicit_spring_damper>true</implicit_spring_damper>
+            </ode>
+        </physics>
     </gazebo>
 
     <gazebo reference="drive_wheel_Ass_joint">
-        <implicitSpringDamper>true</implicitSpringDamper>
+        <physics>
+            <ode>
+                <implicit_spring_damper>true</implicit_spring_damper>
+            </ode>
+        </physics>
     </gazebo>
 
     <!-- ================================================================
