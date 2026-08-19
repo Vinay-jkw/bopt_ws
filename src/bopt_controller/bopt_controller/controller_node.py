@@ -24,6 +24,8 @@ class BOPTController(Node):
         self.declare_parameter('lift_min', 0.0)
         self.declare_parameter('lift_max', 0.095)
         self.declare_parameter('cmd_vel_timeout', 0.5)
+        self.declare_parameter('steering_tolerance', 0.03)
+        self.declare_parameter('steering_delay', 0.15)
 
         # Retrieve parameters
         self.wheel_radius = self.get_parameter('wheel_radius').value
@@ -40,6 +42,9 @@ class BOPTController(Node):
         self.current_lift_position = 0.0
         self.current_wheel_velocity = 0.0
         self.current_steering_angle = 0.0
+        self.target_steering_angle = 0.0
+        self.target_wheel_velocity = 0.0
+        self.steering_reached_time = None
         self.is_stopped = True
 
         # --- Subscribers ---
@@ -183,7 +188,26 @@ class BOPTController(Node):
         self.is_stopped = abs(wheel_velocity) < 1e-4
 
         self.publish_steering(steering_angle)
-        self.publish_traction(wheel_velocity)
+        # Smooth traction reduction while steering is changing
+        steering_error = abs(
+            steering_angle - self.current_steering_angle
+        )
+
+        # Maximum steering error we consider significant
+        max_steering_error = 0.5  # rad ≈ 28.6°
+
+        # Calculate smooth speed factor
+        steering_factor = max(
+            0.0,
+            1.0 - (steering_error / max_steering_error)
+        )
+
+        # Don't reduce speed below 40% during steering
+        steering_factor = 0.4 + (0.6 * steering_factor)
+
+        smooth_wheel_velocity = wheel_velocity * steering_factor
+
+        self.publish_traction(smooth_wheel_velocity)
 
         self.get_logger().debug(
             f'BOPT | v={v:.3f} m/s | yaw_rate={yaw_rate:.3f} rad/s | '
@@ -217,7 +241,14 @@ class BOPTController(Node):
         )
 
     def joint_state_callback(self, msg: JointState):
-        """Track current joint positions from feedback."""
+        """Track current steering and lift joint positions."""
+
+        if 'drive_wheel_Ass_joint' in msg.name:
+            index = msg.name.index('drive_wheel_Ass_joint')
+
+            if index < len(msg.position):
+                self.current_steering_angle = msg.position[index]
+
         if 'front_lift_joint' in msg.name:
             index = msg.name.index('front_lift_joint')
             if index < len(msg.position):

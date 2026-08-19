@@ -60,8 +60,8 @@ class BOPTKeyboard(Node):
         self.target_speed = 0.0
         self.target_steering = 0.0
 
-        self.declare_parameter('acceleration', 0.6)
-        self.declare_parameter('deceleration', 0.6)
+        self.declare_parameter('acceleration', 0.8)
+        self.declare_parameter('deceleration', 1.0)
 
         self.acceleration = self.get_parameter('acceleration').value
         self.deceleration = self.get_parameter('deceleration').value
@@ -261,7 +261,7 @@ class BOPTKeyboard(Node):
         # Steering can return smoothly to center
         # Smooth steering ramp
         steering_error = self.target_steering - self.steering
-        steering_rate = 0.8
+        steering_rate = 1.2
         steering_step = steering_rate * dt
 
         if abs(steering_error) <= steering_step:
