@@ -17,7 +17,7 @@ class BoptOdometry(Node):
         super().__init__('bopt_odometry')
 
         # =====================================================
-        # BOPT ROBOT PARAMETERS
+        # PARAMETERS
         # =====================================================
 
         self.drive_wheel_radius = self.declare_parameter(
@@ -25,29 +25,13 @@ class BoptOdometry(Node):
             0.115
         ).value
 
-        self.front_wheel_radius = self.declare_parameter(
-            'front_wheel_radius',
-            0.0425
-        ).value
-
+        # Distance from base_footprint
+        # (front load-wheel axle midpoint)
+        # to the steerable drive wheel
         self.wheelbase = self.declare_parameter(
             'wheelbase',
             1.542
         ).value
-
-        self.front_wheel_center_x = self.declare_parameter(
-            'front_wheel_center_x',
-            1.539
-        ).value
-
-        self.front_wheel_center_y = self.declare_parameter(
-            'front_wheel_center_y',
-            -0.0035
-        ).value
-
-        # =====================================================
-        # JOINT NAMES
-        # =====================================================
 
         self.traction_joint = self.declare_parameter(
             'traction_joint',
@@ -59,23 +43,33 @@ class BoptOdometry(Node):
             'drive_wheel_Ass_joint'
         ).value
 
+        self.control_period = self.declare_parameter(
+            'control_period',
+            0.02
+        ).value
+
         # =====================================================
         # ODOMETRY STATE
         # =====================================================
 
+        # base_footprint pose in odom frame
         self.odom_x = 0.0
         self.odom_y = 0.0
         self.odom_yaw = 0.0
 
+        # Actual joint feedback
         self.actual_drive_position = 0.0
         self.actual_drive_velocity = 0.0
 
         self.actual_steering_position = 0.0
         self.actual_steering_velocity = 0.0
 
+        # Previous drive wheel position
         self.previous_drive_position = 0.0
 
-        self.odometry_initialized = True
+        # We need one valid JointState before starting
+        self.received_joint_state = False
+        self.odometry_initialized = False
 
         # =====================================================
         # JOINT STATE SUBSCRIBER
@@ -108,20 +102,13 @@ class BoptOdometry(Node):
         # TIMER
         # =====================================================
 
-        self.control_period = self.declare_parameter(
-            'control_period',
-            0.02
-        ).value
-
-        timer_period = self.control_period
-
         self.control_timer = self.create_timer(
-            timer_period,
+            self.control_period,
             self.update_odometry
         )
 
         # =====================================================
-        # START TIME
+        # TIME
         # =====================================================
 
         self.last_odometry_time = self.get_clock().now()
@@ -145,16 +132,6 @@ class BoptOdometry(Node):
         )
 
         self.get_logger().info(
-            f'Front wheel center X: '
-            f'{self.front_wheel_center_x:.4f} m'
-        )
-
-        self.get_logger().info(
-            f'Front wheel center Y: '
-            f'{self.front_wheel_center_y:.4f} m'
-        )
-
-        self.get_logger().info(
             f'Traction joint: '
             f'{self.traction_joint}'
         )
@@ -162,6 +139,11 @@ class BoptOdometry(Node):
         self.get_logger().info(
             f'Steering joint: '
             f'{self.steering_joint}'
+        )
+
+        self.get_logger().info(
+            'Odometry reference: base_footprint '
+            '(front load-wheel axle midpoint)'
         )
 
     # =========================================================
@@ -179,16 +161,10 @@ class BoptOdometry(Node):
             if name == self.traction_joint:
 
                 if i < len(msg.position):
-
-                    self.actual_drive_position = (
-                        msg.position[i]
-                    )
+                    self.actual_drive_position = msg.position[i]
 
                 if i < len(msg.velocity):
-
-                    self.actual_drive_velocity = (
-                        msg.velocity[i]
-                    )
+                    self.actual_drive_velocity = msg.velocity[i]
 
             # -------------------------------------------------
             # STEERING
@@ -197,22 +173,22 @@ class BoptOdometry(Node):
             elif name == self.steering_joint:
 
                 if i < len(msg.position):
-
-                    self.actual_steering_position = (
-                        msg.position[i]
-                    )
+                    self.actual_steering_position = msg.position[i]
 
                 if i < len(msg.velocity):
+                    self.actual_steering_velocity = msg.velocity[i]
 
-                    self.actual_steering_velocity = (
-                        msg.velocity[i]
-                    )
+        self.received_joint_state = True
 
     # =========================================================
     # UPDATE ODOMETRY
     # =========================================================
 
     def update_odometry(self):
+
+        # Don't calculate anything before joint feedback exists
+        if not self.received_joint_state:
+            return
 
         current_time = self.get_clock().now()
 
@@ -222,14 +198,13 @@ class BoptOdometry(Node):
         ).nanoseconds * 1e-9
 
         if dt <= 0.0:
-
             return
 
         self.last_odometry_time = current_time
 
-        # -----------------------------------------------------
+        # =====================================================
         # INITIALIZATION
-        # -----------------------------------------------------
+        # =====================================================
 
         if not self.odometry_initialized:
 
@@ -239,11 +214,17 @@ class BoptOdometry(Node):
 
             self.odometry_initialized = True
 
+            self.publish_odometry(
+                linear_velocity=0.0,
+                angular_velocity=0.0,
+                stamp=current_time
+            )
+
             return
 
-        # -----------------------------------------------------
+        # =====================================================
         # DRIVE WHEEL ROTATION
-        # -----------------------------------------------------
+        # =====================================================
 
         delta_drive = (
             self.actual_drive_position -
@@ -254,145 +235,125 @@ class BoptOdometry(Node):
             self.actual_drive_position
         )
 
-        # -----------------------------------------------------
+        # =====================================================
         # WHEEL ROTATION -> DISTANCE
-        # -----------------------------------------------------
+        # =====================================================
 
         drive_distance = (
             self.drive_wheel_radius *
             delta_drive
         )
 
-        # -----------------------------------------------------
-        # CURRENT STEERING ANGLE
-        # -----------------------------------------------------
+        # =====================================================
+        # ACTUAL STEERING ANGLE
+        # =====================================================
 
         steering_angle = (
             self.actual_steering_position
         )
 
-        # -----------------------------------------------------
-        # DISTANCE OF ODOMETRY REFERENCE POINT
-        # -----------------------------------------------------
+        # =====================================================
+        # BOPT KINEMATICS
+        #
+        # base_footprint is the front load-wheel axle
+        # midpoint.
+        #
+        # The drive wheel is wheelbase meters behind it.
+        #
+        # Drive-wheel velocity:
+        #
+        #     Vw_x = V
+        #     Vw_y = -omega * wheelbase
+        #
+        # Therefore:
+        #
+        #     V = Vw * cos(delta)
+        #
+        #     omega =
+        #       -Vw * sin(delta) / wheelbase
+        #
+        # =====================================================
 
-        center_distance = (
-            drive_distance *
+        drive_velocity = (
+            drive_distance / dt
+        )
+
+        linear_velocity = (
+            drive_velocity *
             math.cos(steering_angle)
         )
 
-        # -----------------------------------------------------
-        # CHANGE IN YAW
-        # -----------------------------------------------------
-
-        delta_yaw = (
-            -drive_distance *
+        angular_velocity = (
+            -drive_velocity *
             math.sin(steering_angle)
             / self.wheelbase
         )
 
-        # -----------------------------------------------------
-        # FRONT WHEEL CENTER POSITION
-        # -----------------------------------------------------
+        # =====================================================
+        # INTEGRATE BASE_FOOTPRINT POSE
+        # =====================================================
 
-        center_x = (
-            self.odom_x
-            + math.cos(self.odom_yaw)
-            * self.front_wheel_center_x
-            - math.sin(self.odom_yaw)
-            * self.front_wheel_center_y
+        delta_yaw = (
+            angular_velocity * dt
         )
 
-        center_y = (
-            self.odom_y
-            + math.sin(self.odom_yaw)
-            * self.front_wheel_center_x
-            + math.cos(self.odom_yaw)
-            * self.front_wheel_center_y
-        )
-
-        # -----------------------------------------------------
-        # MIDPOINT YAW
-        # -----------------------------------------------------
+        # Midpoint integration gives better accuracy during
+        # turning than using the old yaw for the entire step.
 
         yaw_mid = (
-            self.odom_yaw
-            + 0.5 * delta_yaw
-        )
-
-        # -----------------------------------------------------
-        # NEW FRONT WHEEL CENTER POSITION
-        # -----------------------------------------------------
-
-        new_center_x = (
-            center_x
-            + center_distance
-            * math.cos(yaw_mid)
-        )
-
-        new_center_y = (
-            center_y
-            + center_distance
-            * math.sin(yaw_mid)
-        )
-
-        # -----------------------------------------------------
-        # NEW YAW
-        # -----------------------------------------------------
-
-        new_yaw = (
             self.odom_yaw +
-            delta_yaw
+            0.5 * delta_yaw
         )
 
-        # -----------------------------------------------------
-        # TRANSFORM BACK TO BASE_FOOTPRINT
-        # -----------------------------------------------------
-
-        self.odom_x = (
-            new_center_x
-            - math.cos(new_yaw)
-            * self.front_wheel_center_x
-            + math.sin(new_yaw)
-            * self.front_wheel_center_y
+        distance_base = (
+            linear_velocity * dt
         )
 
-        self.odom_y = (
-            new_center_y
-            - math.sin(new_yaw)
-            * self.front_wheel_center_x
-            - math.cos(new_yaw)
-            * self.front_wheel_center_y
+        self.odom_x += (
+            distance_base *
+            math.cos(yaw_mid)
         )
 
-        self.odom_yaw = new_yaw
+        self.odom_y += (
+            distance_base *
+            math.sin(yaw_mid)
+        )
 
-        # -----------------------------------------------------
+        self.odom_yaw += delta_yaw
+
+        # =====================================================
         # NORMALIZE YAW
-        # -----------------------------------------------------
+        # =====================================================
 
-        while self.odom_yaw > math.pi:
+        self.odom_yaw = math.atan2(
+            math.sin(self.odom_yaw),
+            math.cos(self.odom_yaw)
+        )
 
-            self.odom_yaw -= 2.0 * math.pi
-
-        while self.odom_yaw < -math.pi:
-
-            self.odom_yaw += 2.0 * math.pi
-
-        # -----------------------------------------------------
+        # =====================================================
         # PUBLISH
-        # -----------------------------------------------------
+        # =====================================================
 
-        self.publish_odometry()
+        self.publish_odometry(
+            linear_velocity=linear_velocity,
+            angular_velocity=angular_velocity,
+            stamp=current_time
+        )
 
     # =========================================================
     # PUBLISH ODOMETRY
     # =========================================================
 
-    def publish_odometry(self):
+    def publish_odometry(
+        self,
+        linear_velocity,
+        angular_velocity,
+        stamp
+    ):
 
-        # -----------------------------------------------------
-        # QUATERNION FROM YAW
-        # -----------------------------------------------------
+        # =====================================================
+        # QUATERNION
+        # =====================================================
 
         qz = math.sin(
             self.odom_yaw / 2.0
@@ -402,15 +363,13 @@ class BoptOdometry(Node):
             self.odom_yaw / 2.0
         )
 
-        # -----------------------------------------------------
+        # =====================================================
         # ODOMETRY MESSAGE
-        # -----------------------------------------------------
+        # =====================================================
 
         odom = Odometry()
 
-        odom.header.stamp = (
-            self.get_clock().now().to_msg()
-        )
+        odom.header.stamp = stamp.to_msg()
 
         odom.header.frame_id = 'odom'
 
@@ -438,40 +397,13 @@ class BoptOdometry(Node):
 
         odom.pose.pose.orientation.w = qw
 
-        # -----------------------------------------------------
-        # VELOCITY
-        # -----------------------------------------------------
-
-        drive_velocity = (
-            self.drive_wheel_radius *
-            self.actual_drive_velocity
-        )
-
-        steering_angle = (
-            self.actual_steering_position
-        )
-
-        center_velocity = (
-            drive_velocity *
-            math.cos(steering_angle)
-        )
-
-        angular_velocity = (
-            -drive_velocity *
-            math.sin(steering_angle)
-            / self.wheelbase
-        )
+        # Velocity of base_footprint
 
         odom.twist.twist.linear.x = (
-            center_velocity
-            + angular_velocity
-            * self.front_wheel_center_y
+            linear_velocity
         )
 
-        odom.twist.twist.linear.y = (
-            -angular_velocity
-            * self.front_wheel_center_x
-        )
+        odom.twist.twist.linear.y = 0.0
 
         odom.twist.twist.linear.z = 0.0
 
@@ -485,15 +417,13 @@ class BoptOdometry(Node):
 
         self.odom_publisher.publish(odom)
 
-        # -----------------------------------------------------
-        # TF
-        # -----------------------------------------------------
+        # =====================================================
+        # TF: odom -> base_footprint
+        # =====================================================
 
         transform = TransformStamped()
 
-        transform.header.stamp = (
-            self.get_clock().now().to_msg()
-        )
+        transform.header.stamp = stamp.to_msg()
 
         transform.header.frame_id = 'odom'
 
