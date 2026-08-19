@@ -492,8 +492,8 @@
 
         <limit lower="0"
             upper="0.785"
-            effort="50"
-            velocity="2"/>  
+            effort="5000"
+            velocity="2"/>  s
 
         <dynamics damping="1.0"
                 friction="0.1"/>
@@ -539,7 +539,7 @@
 
         <limit lower="0"
             upper="0.785"
-            effort="50"
+            effort="5000"
             velocity="2"/>
 
         <dynamics damping="1.0"

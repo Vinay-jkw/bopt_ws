@@ -57,6 +57,15 @@ class BOPTKeyboard(Node):
         self.declare_parameter('max_yaw_rate', 1.0)
         self.declare_parameter('key_timeout', 0.15)
 
+        self.target_speed = 0.0
+        self.target_steering = 0.0
+
+        self.declare_parameter('acceleration', 0.8)
+        self.declare_parameter('deceleration', 0.8)
+
+        self.acceleration = self.get_parameter('acceleration').value
+        self.deceleration = self.get_parameter('deceleration').value
+
         self.speed_step = self.get_parameter('speed_step').value
         self.steering_step = self.get_parameter('steering_step').value
         self.lift_step = self.get_parameter('lift_step').value
@@ -174,20 +183,20 @@ class BOPTKeyboard(Node):
             if lower_key in self.move_bindings:
                 speed_mult, yaw_mult = self.move_bindings[lower_key]
 
-                self.speed = speed_mult * self.max_speed
-                self.steering = yaw_mult * self.max_yaw_rate
+                self.target_speed = speed_mult * self.max_speed
+                self.target_steering = yaw_mult * self.max_yaw_rate
 
             elif lower_key in self.lift_bindings:
                 self.lift += self.lift_bindings[lower_key] * self.lift_step
                 lift_changed = True
 
             elif lower_key == ' ':
-                self.speed = 0.0
-                self.steering = 0.0
+                self.target_speed = 0.0
+                self.target_steering = 0.0
 
             elif lower_key == 'r':
-                self.speed = 0.0
-                self.steering = 0.0
+                self.target_speed = 0.0
+                self.target_steering = 0.0
                 self.lift = 0.0
                 lift_changed = True
 
@@ -197,8 +206,8 @@ class BOPTKeyboard(Node):
         ).nanoseconds / 1e9
 
         if elapsed > self.key_timeout:
-            self.speed = 0.0
-            self.steering = 0.0
+            self.target_speed = 0.0
+            self.target_steering = 0.0
 
         # Clamp values
         self.speed = self.clamp(self.speed, -self.max_speed, self.max_speed)
@@ -208,6 +217,37 @@ class BOPTKeyboard(Node):
         self.lift = self.clamp(self.lift, 0.0, self.max_lift)
         if self.lift != old_lift:
             lift_changed = True
+
+        # Smooth acceleration for speed
+        dt = 0.05
+
+        # Speed ramp
+        speed_error = self.target_speed - self.speed
+
+        if abs(speed_error) > 1e-6:
+            if abs(self.target_speed) > abs(self.speed):
+                step = self.acceleration * dt
+            else:
+                step = self.deceleration * dt
+
+            if abs(speed_error) <= step:
+                self.speed = self.target_speed
+            else:
+                self.speed += math.copysign(step, speed_error)
+
+        # Steering can return smoothly to center
+        # Smooth steering ramp
+        steering_error = self.target_steering - self.steering
+        steering_rate = 0.8
+        steering_step = steering_rate * dt
+
+        if abs(steering_error) <= steering_step:
+            self.steering = self.target_steering
+        else:
+            self.steering += math.copysign(
+                steering_step,
+                steering_error
+            )
 
         self.publish_drive()
 

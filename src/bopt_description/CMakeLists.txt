@@ -25,14 +25,13 @@ endif()
 # Install resource directories
 install(
   DIRECTORY
-    launch
-    urdf
-    meshes
-    rviz
-    config
-    worlds
-    materials
-    models
+  launch
+  urdf
+  meshes
+  rviz
+  config
+  worlds
+  materials
   DESTINATION share/${PROJECT_NAME}
 )
 

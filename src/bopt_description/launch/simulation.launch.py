@@ -104,6 +104,12 @@ def generate_launch_description():
             }
         ]
     )
+    odometry_node = Node(
+        package='bopt_controller',
+        executable='odometry_node',
+        name='bopt_odometry',
+        output='screen',
+    )
 
 
 
@@ -143,6 +149,7 @@ def generate_launch_description():
         traction_controller,
         steering_controller,
         lift_controller,
+        odometry_node,
 
         bopt_controller_delayed,
         rviz
