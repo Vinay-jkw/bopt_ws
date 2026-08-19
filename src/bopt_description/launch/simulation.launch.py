@@ -109,6 +109,17 @@ def generate_launch_description():
         executable='odometry_node',
         name='bopt_odometry',
         output='screen',
+        parameters=[
+        {'use_sim_time': True}
+    ]
+    )
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
+        ],
+        output='screen'
     )
 
 
@@ -150,6 +161,7 @@ def generate_launch_description():
         steering_controller,
         lift_controller,
         odometry_node,
+        clock_bridge,
 
         bopt_controller_delayed,
         rviz
