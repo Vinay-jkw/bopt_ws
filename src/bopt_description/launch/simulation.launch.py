@@ -113,11 +113,17 @@ def generate_launch_description():
         {'use_sim_time': True}
     ]
     )
-    clock_bridge = Node(
+    sensor_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+
+            '/lidar/top3dl/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/lidar/front/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/lidar/back/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/lidar/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/lidar/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
         ],
         output='screen'
     )
@@ -161,7 +167,7 @@ def generate_launch_description():
         steering_controller,
         lift_controller,
         odometry_node,
-        clock_bridge,
+        sensor_bridge,
 
         bopt_controller_delayed,
         rviz
