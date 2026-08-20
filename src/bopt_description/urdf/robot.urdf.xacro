@@ -495,7 +495,7 @@
             effort="500000"
             velocity="1"/>  
 
-        <dynamics damping="80.0"
+        <dynamics damping="125.0"
                 friction="0.8"/>
 
         <mimic joint="front_lift_joint"
@@ -542,7 +542,7 @@
             effort="500000"
             velocity="1"/>
 
-        <dynamics damping="80.0"
+        <dynamics damping="125.0"
                 friction="0.8"/>
 
         <mimic joint="front_lift_joint"
