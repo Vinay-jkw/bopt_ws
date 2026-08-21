@@ -72,7 +72,7 @@
     <joint name="drive_wheel_Ass_joint" type="revolute">
         <parent link="base_link"/>
         <child link="drive_wheel_Ass"/>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.000849" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
         <limit lower="-3.14159" upper="3.14159" effort="1000" velocity="2"/>
         <dynamics damping="6" friction="0.1"/>
@@ -129,7 +129,7 @@
     <joint name="drive_wheel_joint" type="continuous">
         <parent link="drive_wheel_Ass"/>
         <child link="drive_wheel"/>
-        <origin xyz="0 0 -0.22315" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.21916" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="10" friction="6"/>
     </joint>
@@ -166,7 +166,7 @@
     <joint name="caster_wheel_ass_joint_right" type="continuous">
         <parent link="base_link"/>
         <child link="caster_wheel_ass_right"/>
-        <origin xyz="0 -0.255 -0.20524" rpy="0 0 0"/>
+        <origin xyz="0 -0.26066 -0.205" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
         <dynamics damping="1" friction="0.01"/>
     </joint>
@@ -198,7 +198,7 @@
     <joint name="caster_wheel_ass_joint_left" type="continuous">
         <parent link="base_link"/>
         <child link="caster_wheel_ass_left"/>
-        <origin xyz="0 0.255 -0.20524" rpy="0 0 0"/>
+        <origin xyz="0 0.26066 -0.205" rpy="0 0 0"/>
         <axis xyz="0 0 1"/>
         <dynamics damping="1" friction="0.01"/>
     </joint>
@@ -230,7 +230,7 @@
     <joint name="caster_wheel_joint_right" type="continuous">
         <parent link="caster_wheel_ass_right"/>
         <child link="caster_wheel_right"/>
-        <origin xyz="0 0 -0.082835" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="10" friction="6"/>
     </joint>
@@ -262,7 +262,7 @@
     <joint name="caster_wheel_joint_left" type="continuous">
         <parent link="caster_wheel_ass_left"/>
         <child link="caster_wheel_left"/>
-        <origin xyz="0 0 -0.082835" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="10" friction="6"/>
     </joint>
