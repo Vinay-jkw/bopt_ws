@@ -5,10 +5,13 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Status1
         - /RobotModel1
         - /TF1
+        - /Map1
+        - /Map1/Topic1
       Splitter Ratio: 0.5
-    Tree Height: 143
+    Tree Height: 781
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Views
@@ -39,7 +42,7 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
-      Collision Enabled: true
+      Collision Enabled: false
       Description File: ""
       Description Source: Topic
       Description Topic:
@@ -104,6 +107,16 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        front_lidar_frame_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_lidar_frame_right:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         front_lift_link:
           Alpha: 1
           Show Axes: false
@@ -129,6 +142,10 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         top3dl_link:
           Alpha: 1
           Show Axes: false
@@ -177,6 +194,10 @@ Visualization Manager:
           Value: true
         drive_wheel_Ass:
           Value: true
+        front_lidar_frame_left:
+          Value: true
+        front_lidar_frame_right:
+          Value: true
         front_lift_link:
           Value: true
         front_wheel_left:
@@ -186,6 +207,12 @@ Visualization Manager:
         front_wheel_shaft_left:
           Value: true
         front_wheel_shaft_right:
+          Value: true
+        imu_link:
+          Value: true
+        map:
+          Value: true
+        odom:
           Value: true
         top3dl_link:
           Value: true
@@ -214,7 +241,13 @@ Visualization Manager:
             drive_wheel_Ass:
               drive_wheel:
                 {}
+              imu_link:
+                {}
             front_lift_link:
+              front_lidar_frame_left:
+                {}
+              front_lidar_frame_right:
+                {}
               front_wheel_shaft_left:
                 front_wheel_left:
                   {}
@@ -227,12 +260,37 @@ Visualization Manager:
               {}
             toplidar_front:
               {}
+        map:
+          {}
+        odom:
+          {}
       Update Interval: 0
+      Value: true
+    - Alpha: 0.699999988079071
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Update Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map_updates
+      Use Timestamp: false
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_footprint
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -275,39 +333,37 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.326075553894043
+      Distance: 26.863683700561523
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -0.4050808548927307
+        Y: -0.6687533855438232
+        Z: 0.2573562264442444
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3200003206729889
+      Pitch: 1.4897964000701904
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.83360481262207
+      Yaw: 3.153608798980713
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 846
+  Height: 1376
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001cb000002f4fc0200000004fb000000100044006900730070006c006100790073010000003d0000011a000000c900fffffffb0000001200530065006c0065006300740069006f006e010000015d000000890000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007301000001ec000000880000005c00fffffffb0000000a00560069006500770073010000027a000000b7000000a400ffffff0000032f000002f400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001cb00000506fc0200000004fb000000100044006900730070006c006100790073010000003d00000398000000c900fffffffb0000001200530065006c0065006300740069006f006e0000000299000001210000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007301000001ec000000880000000000000000fb0000000a0056006900650077007301000003db00000168000000a400ffffff000004c40000050600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
-    collapsed: false
-  Tool Properties:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1280
-  X: 70
+  Width: 1685
+  X: 1990
   Y: 27

@@ -146,6 +146,59 @@
     <!-- ================================================================
          GAZEBO SENSOR PLUGINS
          ================================================================ -->
+
+    <!--imu link gazebo model-->
+    <gazebo reference="imu_link">
+      <sensor name="imu" type="imu">
+          <always_on>true</always_on>
+          <update_rate>100</update_rate>
+          <gz_frame_id>imu_link</gz_frame_id>
+          <visualize>true</visualize>
+          <topic>imu</topic>
+          <imu>
+            <angular_velocity>
+              <x>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>2e-4</stddev>
+                </noise>
+              </x>
+              <y>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>2e-4</stddev>
+                </noise>
+              </y>
+              <z>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>2e-4</stddev>
+                </noise>
+              </z>
+            </angular_velocity>
+            <linear_acceleration>
+              <x>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>1.7e-2</stddev>
+                </noise>
+              </x>
+              <y>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>1.7e-2</stddev>
+                </noise>
+              </y>
+              <z>
+                <noise type="gaussian">
+                  <mean>0.0</mean>
+                  <stddev>1.7e-2</stddev>
+                </noise>
+              </z>
+            </linear_acceleration>
+          </imu>
+      </sensor>
+    </gazebo>
          
     <!-- 1. Front Top 2D LiDAR -->
     <gazebo reference="toplidar_front">
@@ -158,10 +211,10 @@
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>360</samples>
+                        <samples>450</samples>
                         <resolution>1.0</resolution>
-                        <min_angle>-3.14159</min_angle>
-                        <max_angle>3.14159</max_angle>
+                        <min_angle>-1.570796</min_angle>
+                        <max_angle>1.570796</max_angle>
                     </horizontal>
                 </scan>
                 <range>
@@ -189,10 +242,10 @@
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>360</samples>
+                        <samples>450</samples>
                         <resolution>1.0</resolution>
-                        <min_angle>-3.14159</min_angle>
-                        <max_angle>3.14159</max_angle>
+                        <min_angle>1.570796</min_angle>
+                        <max_angle>4.712389</max_angle>
                     </horizontal>
                 </scan>
                 <range>
@@ -220,10 +273,10 @@
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>180</samples>
+                        <samples>450</samples>
                         <resolution>1.0</resolution>
-                        <min_angle>-1.5708</min_angle> <!-- 90 degree sweep -->
-                        <max_angle>1.5708</max_angle>
+                        <min_angle>-3.92699</min_angle>
+                        <max_angle>0.0</max_angle>
                     </horizontal>
                 </scan>
                 <range>
@@ -251,10 +304,10 @@
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>180</samples>
+                        <samples>450</samples>
                         <resolution>1.0</resolution>
-                        <min_angle>-1.5708</min_angle> <!-- 90 degree sweep -->
-                        <max_angle>1.5708</max_angle>
+                        <min_angle>0.0</min_angle>
+                        <max_angle>3.92699</max_angle>
                     </horizontal>
                 </scan>
                 <range>
@@ -304,6 +357,68 @@
                 <mean>0.0</mean>
                 <stddev>0.01</stddev>
             </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <!--front safety lidar-->
+
+    <gazebo reference="front_lidar_frame_right">
+        <sensor name="front_right_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/front/right/scan</topic>
+            <gz_frame_id>front_lidar_frame_right</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>450</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-0.785398</min_angle>
+                        <max_angle>0.785398</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="front_lidar_frame_left">
+        <sensor name="front_left_lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>10.0</update_rate>
+            <visualize>true</visualize>
+            <topic>/lidar/front/left/scan</topic>
+            <gz_frame_id>front_lidar_frame_left</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>450</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-0.785398</min_angle>
+                        <max_angle>0.785398</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.12</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
             </lidar>
         </sensor>
     </gazebo>

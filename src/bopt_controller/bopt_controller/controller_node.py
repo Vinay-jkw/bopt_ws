@@ -18,7 +18,7 @@ class BOPTController(Node):
         # --- Declare ROS 2 Parameters ---
         self.declare_parameter('wheel_radius', 0.115)
         self.declare_parameter('wheelbase', 1.542)
-        self.declare_parameter('max_wheel_velocity', 5.0)
+        self.declare_parameter('max_wheel_velocity', 3.0)
         self.declare_parameter('max_steering_angle', 1.5708)
         self.declare_parameter('control_dt', 0.05)
         self.declare_parameter('lift_min', 0.0)
@@ -36,6 +36,8 @@ class BOPTController(Node):
         self.lift_min = self.get_parameter('lift_min').value
         self.lift_max = self.get_parameter('lift_max').value
         self.cmd_vel_timeout = self.get_parameter('cmd_vel_timeout').value
+        self.steering_tolerance = self.get_parameter('steering_tolerance').value
+        self.steering_delay = self.get_parameter('steering_delay').value
 
         # --- State Variables ---
         self.last_cmd_vel_time = self.get_clock().now()
@@ -183,29 +185,41 @@ class BOPTController(Node):
             self.max_wheel_velocity
         )
 
-        self.current_steering_angle = steering_angle
+        # Smooth traction reduction while steering is changing.
+        # IMPORTANT: compare the new target against the *actual measured*
+        # steering angle (kept up to date by joint_state_callback) BEFORE
+        # updating any state — otherwise steering_error is always 0 and the
+        # truck drives at full speed before the wheel has physically turned.
+        steering_error = abs(steering_angle - self.current_steering_angle)
+
         self.current_wheel_velocity = wheel_velocity
         self.is_stopped = abs(wheel_velocity) < 1e-4
 
         self.publish_steering(steering_angle)
-        # Smooth traction reduction while steering is changing
-        steering_error = abs(
-            steering_angle - self.current_steering_angle
-        )
 
         # Maximum steering error we consider significant
-        max_steering_error = 0.5  # rad ≈ 28.6°
+        # max_steering_error = 0.5  # rad ≈ 28.6°
 
-        # Calculate smooth speed factor
-        steering_factor = max(
-            0.0,
-            1.0 - (steering_error / max_steering_error)
-        )
+        # # Calculate smooth speed factor
+        # steering_factor = max(
+        #     0.0,
+        #     1.0 - (steering_error / max_steering_error)
+        # )
 
-        # Don't reduce speed below 40% during steering
-        steering_factor = 0.4 + (0.6 * steering_factor)
+        # # Don't reduce speed below 40% during steering
+        # steering_factor = 0.4 + (0.6 * steering_factor)
 
-        smooth_wheel_velocity = wheel_velocity * steering_factor
+        # smooth_wheel_velocity = wheel_velocity * steering_factor
+        now = self.get_clock().now()
+
+        if steering_error > self.steering_tolerance:
+            self.steering_reached_time = None
+            smooth_wheel_velocity = 0.0
+        else:
+            if self.steering_reached_time is None:
+                self.steering_reached_time = now
+            settled_for = (now - self.steering_reached_time).nanoseconds / 1e9
+            smooth_wheel_velocity = wheel_velocity if settled_for >= self.steering_delay else 0.0
 
         self.publish_traction(smooth_wheel_velocity)
 

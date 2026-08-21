@@ -1,8 +1,10 @@
 import os
 from glob import glob
+
 from setuptools import find_packages, setup
 
-package_name = 'bopt_localization'
+
+package_name = 'bopt_mapping'
 
 setup(
     name=package_name,
@@ -34,7 +36,7 @@ setup(
     zip_safe=True,
     maintainer='jkw',
     maintainer_email='vinaysharma17005@gmail.com',
-    description='TODO: Package description',
+    description='BOPT SLAM mapping package',
     license='TODO: License declaration',
     extras_require={
         'test': [

@@ -1,0 +1,259 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+
+    <world name="empty_world">
+
+        <!-- Physics Configuration -->
+        <physics name="1ms" type="ignored">
+            <max_step_size>0.001</max_step_size>
+            <real_time_factor>1.0</real_time_factor>
+        </physics>
+
+        <!-- 1. Physics System Plugin (Required for simulation physics) -->
+        <plugin
+            filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics">
+        </plugin>
+
+        <!-- 2. User Commands Plugin (Required for spawning entities via ros_gz_sim) -->
+        <plugin
+            filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands">
+        </plugin>
+
+        <!-- 3. Scene Broadcaster Plugin (Required for GUI updates) -->
+        <plugin
+            filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster">
+        </plugin>
+
+        <!-- 4. Sensors System Plugin (For LiDAR, Cameras, etc.) -->
+        <plugin
+            filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+
+        <!-- 5. Contact System Plugin (For collision handling) -->
+        <plugin
+            filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact">
+        </plugin>
+
+        <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu">
+        </plugin>
+
+        <!-- Sun / Directional Light -->
+        <light type="directional" name="sun">
+            <cast_shadows>true</cast_shadows>
+            <pose>0 0 10 0 0 0</pose>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <attenuation>
+                <range>1000</range>
+                <constant>0.9</constant>
+                <linear>0.01</linear>
+                <quadratic>0.001</quadratic>
+            </attenuation>
+            <direction>-0.5 0.1 -0.9</direction>
+        </light>
+
+        <!-- Ground Plane -->
+        <model name="ground_plane">
+            <static>true</static>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>100 100</size>
+                        </plane>
+                    </geometry>
+                </collision>
+
+                <visual name="visual">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>100 100</size>
+                        </plane>
+                    </geometry>
+                    <material>
+                        <ambient>0.8 0.8 0.8 1</ambient>
+                        <diffuse>0.8 0.8 0.8 1</diffuse>
+                        <specular>0.8 0.8 0.8 1</specular>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+
+        <!-- ================= MAIN WALL ================= -->
+
+    <model name="warehouse_wall">
+      <include>
+        <uri>model://aws_robomaker_warehouse_WallB_01</uri>
+      </include>
+      <pose>0 0 0 0 0 0</pose>
+    </model>
+
+
+    <!-- ================= SHELVES ================= -->
+
+    <!-- <model name="shelf_f_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfF_01</uri>
+      </include>
+      <pose>-5.795143 -0.956635 0 0 0 0</pose>
+    </model> -->
+
+
+    <!-- <model name="shelf_e_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+      </include>
+      <pose>4.73156 0.57943 0 0 0 0</pose>
+    </model> -->
+
+    <model name="shelf_e_02">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+      </include>
+      <pose>4.73156 -4.827049 0 0 0 0</pose>
+    </model>
+
+    <model name="shelf_e_03">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+      </include>
+      <pose>4.73156 -8.6651 0 0 0 0</pose>
+    </model>
+
+
+    <!-- <model name="shelf_d_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfD_01</uri>
+      </include>
+      <pose>4.73156 -1.242668 0 0 0 0</pose>
+    </model> -->
+
+    <model name="shelf_d_02">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfD_01</uri>
+      </include>
+      <pose>4.73156 -3.038551 0 0 0 0</pose>
+    </model>
+
+    <model name="shelf_d_03">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ShelfD_01</uri>
+      </include>
+      <pose>4.73156 -6.750542 0 0 0 0</pose>
+    </model>
+
+
+    <!-- ================= BUCKETS ================= -->
+
+    <model name="bucket_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+      </include>
+      <pose>0.433449 9.631706 0 0 0 -1.563161</pose>
+    </model>
+
+    <model name="bucket_02">
+      <include>
+        <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+      </include>
+      <pose>-1.8321 -6.3752 0 0 0 -1.563161</pose>
+    </model>
+
+    <model name="bucket_03">
+      <include>
+        <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+      </include>
+      <pose>0.433449 8.59 0 0 0 -1.563161</pose>
+    </model>
+
+
+    <!-- ================= CLUTTER ================= -->
+
+    <model name="clutter_a_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+      </include>
+      <pose>5.708138 8.616844 -0.017477 0 0 0</pose>
+    </model>
+
+    <model name="clutter_a_02">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+      </include>
+      <pose>3.408638 8.616844 -0.017477 0 0 0</pose>
+    </model>
+
+    <model name="clutter_a_03">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+      </include>
+      <pose>-1.491287 5.222435 -0.017477 0 0 -1.583185</pose>
+    </model>
+
+
+    <model name="clutter_c_01">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringC_01</uri>
+      </include>
+      <pose>3.324959 3.822449 -0.012064 0 0 1.563871</pose>
+    </model>
+
+    <model name="clutter_c_02">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringC_01</uri>
+      </include>
+      <pose>5.54171 3.816475 -0.015663 0 0 -1.583191</pose>
+    </model>
+
+    <model name="clutter_c_03">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringC_01</uri>
+      </include>
+      <pose>5.384239 6.137154 0 0 0 3.15</pose>
+    </model>
+
+    <model name="clutter_c_04">
+      <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringC_01</uri>
+      </include>
+      <pose>3.236 6.137154 0 0 0 3.15</pose>
+    </model>
+
+
+    <!-- ================= TRASH CAN ================= -->
+
+    <model name="trash_can">
+      <include>
+        <uri>model://aws_robomaker_warehouse_TrashCanC_01</uri>
+      </include>
+      <pose>-1.592441 7.715420 0 0 0 0</pose>
+    </model>
+    <light name="warehouse_light" type="point">
+      <pose>0 0 9 0 0 0</pose>
+
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+
+      <attenuation>
+        <range>80</range>
+        <constant>0.3</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+
+      <cast_shadows>true</cast_shadows>
+    </light>
+
+
+    </world>
+</sdf>

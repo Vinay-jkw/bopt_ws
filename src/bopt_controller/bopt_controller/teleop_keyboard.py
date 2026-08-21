@@ -50,7 +50,7 @@ class BOPTKeyboard(Node):
         self.declare_parameter('speed_step', 0.10)
         self.declare_parameter('steering_step', 0.05)
         self.declare_parameter('lift_step', 0.01)
-        self.declare_parameter('max_speed', 1.5)
+        self.declare_parameter('max_speed', 1.0)
         self.declare_parameter('max_steering', 1.57)
         self.declare_parameter('max_lift', 0.095)
         self.declare_parameter('control_rate', 20.0)
@@ -61,7 +61,7 @@ class BOPTKeyboard(Node):
         self.target_steering = 0.0
 
         self.declare_parameter('acceleration', 0.8)
-        self.declare_parameter('deceleration', 1.0)
+        self.declare_parameter('deceleration', 1.2)
 
         self.acceleration = self.get_parameter('acceleration').value
         self.deceleration = self.get_parameter('deceleration').value
