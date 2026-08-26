@@ -1,0 +1,155 @@
+{
+    "loops": [
+        {
+            "start": "Column Pickup - Column 1",
+            "end": "Column Drop - Column 3",
+            "repetitions": 4
+        }
+    ],
+    "nodes": [
+        {
+            "id": 4,
+            "x": 1433.0,
+            "y": 702.0,
+            "width": 204.15625,
+            "height": 50.0,
+            "action": "Column Pickup - Column 1",
+            "type": 3
+        },
+        {
+            "id": 5,
+            "x": 1172.0,
+            "y": 814.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 1",
+            "type": 3
+        },
+        {
+            "id": 6,
+            "x": 982.0,
+            "y": 813.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 7,
+            "x": 701.0,
+            "y": 828.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 2",
+            "type": 3
+        },
+        {
+            "id": 8,
+            "x": 511.0,
+            "y": 825.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 9,
+            "x": 511.0,
+            "y": 944.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 3",
+            "type": 3
+        },
+        {
+            "id": 10,
+            "x": 789.0,
+            "y": 944.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 11,
+            "x": 1024.0,
+            "y": 950.0,
+            "width": 205.25,
+            "height": 50.0,
+            "action": "Go to Location - location 4",
+            "type": 3
+        },
+        {
+            "id": 12,
+            "x": 1287.0,
+            "y": 949.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 60 seconds",
+            "type": 3
+        },
+        {
+            "id": 13,
+            "x": 1267.0,
+            "y": 1053.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 3",
+            "type": 3
+        },
+        {
+            "id": 14,
+            "x": 1061.0,
+            "y": 1057.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 15,
+            "x": 803.0,
+            "y": 1060.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 2",
+            "type": 3
+        },
+        {
+            "id": 16,
+            "x": 609.0,
+            "y": 1058.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 17,
+            "x": 532.0,
+            "y": 1152.0,
+            "width": 208.75,
+            "height": 50.0,
+            "action": "Go to Location - Location 1",
+            "type": 3
+        },
+        {
+            "id": 18,
+            "x": 800.0,
+            "y": 1155.0,
+            "width": 145.671875,
+            "height": 50.0,
+            "action": "Wait - 30 seconds",
+            "type": 3
+        },
+        {
+            "id": 19,
+            "x": 1003.0,
+            "y": 1153.0,
+            "width": 193.171875,
+            "height": 50.0,
+            "action": "Column Drop - Column 3",
+            "type": 3
+        }
+    ]
+}

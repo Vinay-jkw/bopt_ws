@@ -29,6 +29,10 @@ def generate_launch_description():
         'bopt_description'
     )
 
+    localization_path = get_package_share_directory(
+        'bopt_localization'
+    )
+
 
 
     gazebo = IncludeLaunchDescription(
@@ -160,6 +164,23 @@ def generate_launch_description():
         ]
     )
 
+    localization_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                localization_path,
+                'launch',
+                'localization.launch.py'
+            )
+        )
+    )
+
+    localization_delayed = TimerAction(
+        period=2.0,
+        actions=[
+            localization_launch
+        ]
+    )
+
     return LaunchDescription([
         gui_arg,
         gazebo,
@@ -171,6 +192,7 @@ def generate_launch_description():
         odometry_node,
         sensor_bridge,
 
-        bopt_controller_delayed,
+        # bopt_controller_delayed,
+        localization_delayed,
         rviz
     ])

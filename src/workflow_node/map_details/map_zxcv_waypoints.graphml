@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"><key id="d0" for="node" attr.name="position" attr.type="string"/>
+<graph edgedefault="directed"><node id="1">
+  <data key="d0">6.715,6.65</data>
+</node>
+<node id="2">
+  <data key="d0">6.715,7.7</data>
+</node>
+<edge source="1" target="2" id="edge_1_to_2"/>
+<edge source="2" target="1" id="edge_2_to_1"/>
+</graph></graphml>
