@@ -1,0 +1,36 @@
+pallet_sizes:
+  - name: "North American Standard Pallet"
+    dimensions:
+      length: 1.219
+      width: 1.016
+    description: "Most common size in North America (48 x 40 inches). Standard size for pallets in the United States."
+
+  - name: "Euro Pallet (European Standard)"
+    dimensions:
+      length: 1.2
+      width: 0.8
+    description: "Widely used in Europe and recognized by the European Pallet Association (EPAL). (1200 x 800 mm)."
+
+  - name: "Square Pallet (42 x 42 inches)"
+    dimensions:
+      length: 1.067
+      width: 1.067
+    description: "Used in industries like automotive, where square pallets are preferred. (42 x 42 inches)."
+
+  - name: "Square Pallet (48 x 48 inches)"
+    dimensions:
+      length: 1.219
+      width: 1.219
+    description: "Larger square pallet, used for bulkier items or specific needs in retail or manufacturing. (48 x 48 inches)."
+
+  - name: "Australian Standard Pallet"
+    dimensions:
+      length: 1.0
+      width: 1.2
+    description: "Common in Australia and parts of Asia. (1000 x 1200 mm)."
+
+  - name: "Specialized Pallet"
+    dimensions:
+      length: 0.914
+      width: 0.914
+    description: "Used for smaller, specialized loads. (36 x 36 inches)."

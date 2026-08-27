@@ -10,7 +10,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy,QoSHistoryPolicy
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose
-from std_msgs.msg import Float64, Float64MultiArray, String
+from std_msgs.msg import Float64, String
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 import signal
 from nav_msgs.msg import Path  # Import the Path message
@@ -29,7 +29,7 @@ class RobotClient(Node):
         super().__init__('robot_client')
 
         self.declare_parameter('goal_tolerance', 0.05)
-        # self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/test_path.pkl')
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/test_path.pkl')
 
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.horizon = 5
@@ -40,23 +40,14 @@ class RobotClient(Node):
         self.path_received = False
         self.goal_reached = False
         self.goal_tolerance = None
-        # self.path_file = None
+        self.path_file = None
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.425.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
-        self.traction_publisher = self.create_publisher(
-            Float64MultiArray,
-            '/traction_joint_controller/commands',
-            10
-        )
-
-        self.steering_publisher = self.create_publisher(
-            Float64MultiArray,
-            '/steering_joint_controller/commands',
-            10
-        )
+        self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
         self.state_publisher = self.create_publisher(String, '/state', 10)
         self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
         self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker', 10)  # Marker publisher for target point
@@ -65,120 +56,39 @@ class RobotClient(Node):
 
         qos_settings = QoSProfile(depth=10)
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
-
         self.pose_sub = self.create_subscription(
             PoseStamped,
             '/current_pose',
             self.current_pose_callback,
             qos_settings)
 
-        self.path_sub = self.create_subscription(
-            Path,
-            '/reference_path',
-            self.path_callback,
-            qos_settings
-            )
-
     
 
         self.timer = self.create_timer(0.05, self.follow_path)
 
-        # self.read_path_from_file(self.get_parameter('path_file').value)
+        self.read_path_from_file(self.get_parameter('path_file').value)
 
-    # def set_parameters(self, path_file, goal_tolerance):
-    #     self.goal_tolerance = goal_tolerance
-    #     self.path_file = path_file
-    #     self.read_path_from_file(self.path_file)
-    #     self.get_logger().info(f'Path file set to: {self.path_file}')
-    #     self.get_logger().info(f'Goal tolerance set to: {self.goal_tolerance}')
+    def set_parameters(self, path_file, goal_tolerance):
+        self.goal_tolerance = goal_tolerance
+        self.path_file = path_file
+        self.read_path_from_file(self.path_file)
+        self.get_logger().info(f'Path file set to: {self.path_file}')
+        self.get_logger().info(f'Goal tolerance set to: {self.goal_tolerance}')
 
 
     def send_command(self, velocity, steering_angle):
-        """
-        Send direct commands to the BOPT ros2_control controllers.
+        self.velocity_publisher.publish(Float64(data=velocity))
+        self.steering_angle_publisher.publish(Float64(data=steering_angle))
+        self.get_logger().info(f'Sending command - Velocity: {velocity:.2f} m/s, Steering Angle: {steering_angle:.2f} degrees')
+        state_msg = String()
+        state_msg.data = 'Custom'
+        self.state_publisher.publish(state_msg)
 
-        velocity:
-            Vehicle linear velocity [m/s]
-
-        steering_angle:
-            Steering angle [degrees]
-        """
-
-        wheel_radius = 0.115
-
-        # Convert vehicle linear velocity [m/s]
-        # to wheel angular velocity [rad/s]
-        wheel_velocity = velocity / wheel_radius
-
-        # Convert steering angle from degrees to radians
-        steering_angle_rad = math.radians(steering_angle)
-
-        # -------------------------------
-        # Traction command
-        # -------------------------------
-
-        traction_msg = Float64MultiArray()
-        traction_msg.data = [
-            float(wheel_velocity)
-        ]
-
-        self.traction_publisher.publish(
-            traction_msg
-        )
-
-        # -------------------------------
-        # Steering command
-        # -------------------------------
-
-        steering_msg = Float64MultiArray()
-        steering_msg.data = [
-            float(steering_angle_rad)
-        ]
-
-        self.steering_publisher.publish(
-            steering_msg
-        )
-
-        self.get_logger().info(
-            f"ACTUATOR CMD | "
-            f"v={velocity:.3f} m/s | "
-            f"wheel={wheel_velocity:.3f} rad/s | "
-            f"steering={steering_angle_rad:.3f} rad"
-        )
-
-    # def read_path_from_file(self, file_path):
-    #     with open(file_path, 'rb') as f:
-    #         self.path = pickle.load(f)
-    #     self.path_received = True
-    #     self.publish_path_for_visualization() 
-
-    def path_callback(self, msg):
-
-        if len(msg.poses) == 0:
-
-            self.get_logger().warn(
-                "[PATH] Received empty reference path"
-            )
-
-            self.path_received = False
-            return
-
-        self.path = []
-
-        for pose_stamped in msg.poses:
-
-            x = pose_stamped.pose.position.x
-            y = pose_stamped.pose.position.y
-
-            self.path.append((x, y))
-
-        self.path_index = 0
+    def read_path_from_file(self, file_path):
+        with open(file_path, 'rb') as f:
+            self.path = pickle.load(f)
         self.path_received = True
-
-        self.get_logger().info(
-            f"[PATH] Received reference path | "
-            f"points={len(self.path)}"
-        )
+        self.publish_path_for_visualization() 
 
     def publish_path_for_visualization(self):
         """Convert the loaded path to a Path message and publish it."""
@@ -293,32 +203,8 @@ class RobotClient(Node):
         ttp = self.transform_point(target_point_on_plan, robot_x, robot_y, robot_orientation)
         self.get_logger().info(f'TTP: {ttp}')
 
-        # s, v, d = self.lookup_table.get(self.find_nearest_key(ttp))
-
-
-        # velocity, steering_angle = (MAX_VELOCITY / 0.2) * v, math.degrees(s)
-
-        s, v, d = self.lookup_table.get(
-            self.find_nearest_key(ttp)
-        )
-        self.get_logger().info(
-            f"DEBUG | "
-            f"robot=({robot_x:.3f}, {robot_y:.3f}) | "
-            f"target_local=({ttp[0]:.3f}, {ttp[1]:.3f}) | "
-            f"s={s:.3f} rad ({math.degrees(s):.1f} deg) | "
-            f"v={v:.3f}"
-        )
-
-        # TEMPORARY TEST
-        velocity = 0.05
-
-        steering_angle = math.degrees(s)
-
-        # Safety limit for first test
-        steering_angle = max(
-            -25.0,
-            min(25.0, steering_angle)
-        )
+        s, v, d = self.lookup_table.get(self.find_nearest_key(ttp))
+        velocity, steering_angle = (MAX_VELOCITY / 0.2) * v, math.degrees(s)
 
         self.steering_angles.append(steering_angle)  # Store the steering angle
 
@@ -420,24 +306,15 @@ def main(args=None):
     rclpy.init(args=args)
 
     parser = argparse.ArgumentParser(description='RobotClient Node')
-    # parser.add_argument('--path_file', type=str, required=True, help='Path to the file containing the path data')
-    # parser.add_argument('--goal_tolerance', type=float, default=0.1, help='Goal tolerance distance')
-
-    parser.add_argument(
-        '--goal_tolerance',
-        type=float,
-        default=0.1,
-        help='Goal tolerance distance'
-    )
+    parser.add_argument('--path_file', type=str, required=True, help='Path to the file containing the path data')
+    parser.add_argument('--goal_tolerance', type=float, default=0.1, help='Goal tolerance distance')
     parsed_args = parser.parse_args()
 
     client = RobotClient()
-    # client.set_parameters(
-    #     path_file=parsed_args.path_file,
-    #     goal_tolerance=parsed_args.goal_tolerance
-    # )
-
-    client.goal_tolerance = parsed_args.goal_tolerance
+    client.set_parameters(
+        path_file=parsed_args.path_file,
+        goal_tolerance=parsed_args.goal_tolerance
+    )
 
     def signal_handler(sig, frame):
         client.get_logger().info('Signal received, shutting down...')

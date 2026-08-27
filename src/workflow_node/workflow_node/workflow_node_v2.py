@@ -1,878 +1,592 @@
-import math
+import argparse
+import os
+import yaml
+import signal
+import sys
+import psutil
+import time
+import threading
+
+import networkx as nx
+from paho.mqtt import client as mqtt_client
+from collections import deque
+import sqlite3
+import pandas as pd
 
 import rclpy
 from rclpy.node import Node
-
-import tf2_ros
-
-from geometry_msgs.msg import PoseStamped
-from nav_msgs.msg import Path
-from std_msgs.msg import String
+from geometry_msgs.msg import PoseStamped, Twist
+from std_msgs.msg import String, Float64
+from ament_index_python.packages import get_package_share_directory
 
 
-class WorkflowHandler(Node):
+# ------------------------------------------------------------
+# UTILITY: KILL CHILD PROCESSES
+# ------------------------------------------------------------
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+    try:
+        parent = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+        return
 
-    # =========================================================
-    # STATES
-    # =========================================================
+    for child in parent.children(recursive=True):
+        child.terminate()
 
-    IDLE = "IDLE"
-    LOCALIZATION_CHECK = "LOCALIZATION_CHECK"
-    NAVIGATING = "NAVIGATING"
-    GOAL_REACHED = "GOAL_REACHED"
-    RECOVERY = "RECOVERY"
-    SAFETY_STOP = "SAFETY_STOP"
+    gone, alive = psutil.wait_procs(parent.children(recursive=True), timeout=5)
+    for p in alive:
+        p.kill()
 
+
+# ------------------------------------------------------------
+# STOP ROBOT HELPER (created once, used in signal handler)
+# ------------------------------------------------------------
+class StopRobotHelper:
+    def __init__(self, node: Node):
+        self.node = node
+
+        self.cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+        self.state_pub = node.create_publisher(String, '/state', 10)
+        self.vel_pub = node.create_publisher(Float64, '/velocity', 10)
+        self.steer_pub = node.create_publisher(Float64, '/steering_angle', 10)
+
+        # Prebuild messages
+        self.stop_twist = Twist()
+        self.stop_twist.linear.x = 0.0
+        self.stop_twist.angular.z = 0.0
+
+        self.state_msg = String()
+        self.state_msg.data = "auto"
+
+        self.zero_float = Float64()
+        self.zero_float.data = 0.0
+
+    def stop_robot(self):
+        for _ in range(60):
+            self.cmd_vel_pub.publish(self.stop_twist)
+            self.state_pub.publish(self.state_msg)
+            self.vel_pub.publish(self.zero_float)
+            self.steer_pub.publish(self.zero_float)
+            time.sleep(0.01)
+
+
+# -------- Global reference for the signal handler --------
+_stop_helper: StopRobotHelper = None
+
+
+# ------------------------------------------------------------
+# SIGNAL HANDLER (safe)
+# ------------------------------------------------------------
+def signal_handler(sig, frame):
+    print("\n[Signal] Stop requested, halting robot...")
+
+    # stop robot safely
+    if _stop_helper:
+        _stop_helper.stop_robot()
+
+    kill_child_processes(os.getpid())
+
+    rclpy.shutdown()
+    sys.exit(0)
+
+
+# ------------------------------------------------------------
+# PARAM LOADER
+# ------------------------------------------------------------
+
+
+def load_node_params(defaults, keys, config_file):
+
+    # --------------------------------------------------
+    # 1) Decide which YAML file to load
+    # --------------------------------------------------
+    yaml_data = {}
+
+    if config_file:
+        # User explicitly provided config --> must exist
+        if not os.path.isfile(config_file):
+            raise FileNotFoundError(f"Config file not found: {config_file}")
+        yaml_path = config_file
+
+        with open(yaml_path, "r") as f:
+            yaml_data = yaml.safe_load(f) or {}
+
+    else:
+        # Use package's default YAML
+        try:
+            pkg_share = get_package_share_directory("workflow_node")
+            yaml_path = os.path.join(pkg_share, "amr_config.yaml")
+        except:
+            yaml_path = None
+
+        # If YAML exists, load it
+        if yaml_path and os.path.isfile(yaml_path):
+            with open(yaml_path, "r") as f:
+                yaml_data = yaml.safe_load(f) or {}
+
+    # --------------------------------------------------
+    # 2) Drill into nested keys in YAML
+    # --------------------------------------------------
+    cfg = yaml_data
+    for k in keys:
+        cfg = cfg.get(k, {})
+
+    # --------------------------------------------------
+    # 3) Merge defaults + YAML
+    # --------------------------------------------------
+    merged = defaults.copy()
+    if isinstance(cfg, dict):
+        merged.update(cfg)
+
+    # --------------------------------------------------
+    # 4) Resolve paths (YAML OR DEFAULTS)
+    # --------------------------------------------------
+    pkg_share = get_package_share_directory("workflow_node")
+
+    path_keys = ["database_path", "graphml_path", "constructed_rs_path"]
+
+    for key in path_keys:
+        if key not in merged:
+            continue
+
+        val = merged[key]
+
+        if not isinstance(val, str):
+            continue
+
+        # If it starts with "/" but file does not exist -> treat as relative
+        if val.startswith("/") and not os.path.exists(val):
+            val = val.lstrip("/")
+
+        # Pure relative paths -> append to package share
+        if not os.path.isabs(val):
+            val = os.path.join(pkg_share, val)
+
+        merged[key] = val
+
+    return merged
+
+
+
+
+# ------------------------------------------------------------
+# SAFETY PUBLISHER
+# ------------------------------------------------------------
+class SafetyPublisher(Node):
     def __init__(self):
+        super().__init__('Task_allocator')
 
-        super().__init__("workflow_handler")
+        # Only ONE publisher for /byd/safety
+        self.safety_pub = self.create_publisher(String, '/byd/safety', 10)
 
-        # =====================================================
-        # WORKFLOW STATE
-        # =====================================================
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.task_pub = self.create_publisher(String, '/byd/current_task', 10)
+        self.state_pub = self.create_publisher(String, '/byd/status', 10)
 
-        self.current_state = self.IDLE
-        self.previous_state = None
+        print("[SafetyPublisher] Publishers created")
 
-        # =====================================================
-        # GOAL
-        # =====================================================
 
-        self.goal = None
+# ------------------------------------------------------------
+# MQTT CLIENT
+# ------------------------------------------------------------
+class mqttClient(mqtt_client.Client):
 
-        # =====================================================
-        # CURRENT ROBOT POSE
-        # =====================================================
-
-        self.current_pose = None
-        self.localization_valid = False
-
-        # =====================================================
-        # GOAL TOLERANCES
-        # =====================================================
-
-        self.position_tolerance = 0.15       # meters
-        self.yaw_tolerance = math.radians(10.0)
-
-        # =====================================================
-        # SAFETY
-        # =====================================================
-
-        self.safety_triggered = False
-
-        # =====================================================
-        # NAVIGATION STATUS
-        # =====================================================
-
-        # Temporary until NMPC integration.
-        # Later this will be replaced by actual NMPC status.
-        self.nmpc_active = False
-
-        # =====================================================
-        # TF
-        # =====================================================
-
-        self.tf_buffer = tf2_ros.Buffer()
-
-        self.tf_listener = tf2_ros.TransformListener(
-            self.tf_buffer,
-            self
+    def __init__(self, broker, port=1883, use_async_connect=False):
+        super().__init__(
+            mqtt_client.CallbackAPIVersion.VERSION2,
+            str(id(self)),
+            clean_session=True,
+            protocol=mqtt_client.MQTTv311
         )
 
-        self.map_frame = "map"
-        self.base_frame = "base_footprint"
+        self.broker = broker
+        self._client_host_ip = None
 
-        # =====================================================
-        # WORKFLOW STATE PUBLISHER
-        # =====================================================
-        
-        self.state_pub = self.create_publisher(
+        if use_async_connect:
+            self.connect_async(broker, port)
+        else:
+            self.connect(broker, port)
+
+        self._topic_callbacks = {}
+        self._queued_subs = deque()
+        self._queued_pubs = deque()
+
+    # ----------------------
+    def on_connect(self, client, userdata, flags, rc, props):
+        if rc == 0:
+            print("[MQTT] Connected")
+
+            subs, self._queued_subs = self._queued_subs, None
+            pubs, self._queued_pubs = self._queued_pubs, None
+
+            while subs:
+                self.subscribe2topic(*subs.pop())
+
+            while pubs:
+                self.publish2topic(*pubs.pop())
+        else:
+            print(f"[MQTT] Failed connect, code={rc}")
+
+    # ----------------------
+    def on_message(self, client, userdata, msg):
+        payload = msg.payload.decode()
+        div = payload.find('/')
+        if div != -1 and msg.topic in self._topic_callbacks:
+            head, body = payload[:div], payload[div + 1:]
+            threading.Thread(
+                target=self._topic_callbacks[msg.topic],
+                args=(head, body)
+            ).start()
+
+    # ----------------------
+    def subscribe2topic(self, topic, cb, qos=0):
+        if self._queued_subs is None:
+            if topic not in self._topic_callbacks:
+                self.subscribe(topic, qos)
+            self._topic_callbacks[topic] = cb
+        else:
+            self._queued_subs.append((topic, cb, qos))
+
+    # ----------------------
+    def publish2topic(self, topic, message, qos=0, ignore_result=False):
+        if self._queued_pubs is not None:
+            self._queued_pubs.append((topic, message, qos, ignore_result))
+            return
+
+        prefix = self._client_host_ip or self.broker
+        payload = prefix + '/' + message
+
+        while True:
+            result = self.publish(topic, payload, qos)
+            if ignore_result:
+                break
+            if result[0] == 0:
+                print(f"[MQTT] Sent `{payload}` → `{topic}`")
+                break
+            print(f"[MQTT] Retry send → `{topic}`")
+
+
+# ------------------------------------------------------------
+# WORKFLOW HANDLER
+# ------------------------------------------------------------
+class WorkflowHandler(Node):
+    def __init__(self, movement, action, params):
+        super().__init__('workflow_handler')
+
+        self.robot_id = params['robot_id']
+        self.robot_ip = params['robot_ip']
+        self.mqtt_broker = params['mqtt_broker']
+        self.database_path = params['database_path']
+        self.graphml_path = params['graphml_path']
+        self.constructed_rs_path = params['constructed_rs_path']
+        self.parking_gap_threshold = params['parking_gap_threshold']
+        self.movement_gap_threshold = params['movement_gap_threshold']
+        self.rs_path_scale = params['rs_path_scale']
+        self.rs_path_turn_radius = params['rs_path_turn_radius']
+        self._params_spline_path = params['spline_path']
+        self._params_parking_control = params['parking_control']
+        self._params_pp_control = params['pp_control']
+        self.movement = movement
+        self.action = action
+        self.operation_state = '0'
+
+        self.task_request_pub = self.create_publisher(
             String,
-            "/workflow/state",
+            f"{self.robot_id}/task_request",
             10
         )
 
-        # =====================================================
-        # GOAL SUBSCRIBER
-        # =====================================================
+        # MQTT
+        self.mqtt = mqttClient(self.mqtt_broker)
+        self.mqtt._client_host_ip = self.robot_ip
+        self.mqtt.loop_start()
 
-        self.goal_sub = self.create_subscription(
-            PoseStamped,
-            "/goal_pose",
-            self.goal_callback,
-            10
-        )
-        self.path_pub = self.create_publisher(
-            Path,
-            "/reference_path",
-            10
-        )
-        self.current_pose_pub = self.create_publisher(
-            PoseStamped,
-            '/current_pose',
-            10
-        )
+        print(f"[WorkflowHandler] Started for movement={movement}, action={action}")
 
-        
-        # =====================================================
-        # WORKFLOW LOOP
-        # =====================================================
+        # ------------------------------------------------------------
+# LOAD LOCATION DATA (DB)
+# ------------------------------------------------------------
+        self.error_status = None        
 
-        self.workflow_timer = self.create_timer(
-            0.1,
-            self.workflow_step
-        )
+# Extract location data from DB
+        try:
+            (
+                self.left_easy_dock_dict,
+                self.right_easy_dock_dict,
+                self.dock_location_dict,
+                self.dock_station_end_line_dict,
+                self.station_level_dict
+            ) = self.fetch_location_data_from_db()
 
-        # =====================================================
-        # STARTUP
-        # =====================================================
+            self.get_logger().info(f"Location dictionary loaded: {self.dock_location_dict}")
 
-        self.publish_state()
+        except Exception as e:
+            self.error_status = f"DB_LOAD_ERROR: {e}"
+            self.get_logger().error(f"Failed to load DB location data: {e}")
+            raise
 
-        self.get_logger().info(
-            "========================================"
-        )
 
-        self.get_logger().info(
-            "       BOPT WORKFLOW NODE STARTED"
-        )
+# ------------------------------------------------------------
+# VALIDATE MOVEMENT ID
+# ------------------------------------------------------------
 
-        self.get_logger().info(
-            "       Initial State: IDLE"
-        )
+        self.location_id = self.movement  # movement passed from CLI
 
-        self.get_logger().info(
-            "       Localization: map -> base_footprint"
-        )
+        if self.location_id not in self.station_level_dict:
+            raise KeyError(f"Unknown location_id '{self.location_id}' (not in station_level_dict)")
 
-        self.get_logger().info(
-            "========================================"
-        )
 
-    # =========================================================
-    # GOAL CALLBACK
-    # =========================================================
+        self.action_level = self.station_level_dict[self.location_id]
+        self.get_logger().info(f"Action level for {self.location_id}: {self.action_level}")
 
-    def goal_callback(self, msg):
 
-        # -----------------------------------------------------
-        # Only accept goals while idle
-        # -----------------------------------------------------
+# ------------------------------------------------------------
+# FETCH LOCATION PARAMETERS
+# ------------------------------------------------------------
 
-        if self.current_state != self.IDLE:
+        try:
+            self.left_easy_dock = self.left_easy_dock_dict[self.location_id]
+            self.right_easy_dock = self.right_easy_dock_dict[self.location_id]
+            self.dock_location = self.dock_location_dict[self.location_id]
+            self.dock_station_end_line = self.dock_station_end_line_dict[self.location_id]
 
-            self.get_logger().warn(
-                f"[GOAL] Ignoring goal. "
-                f"Workflow is currently {self.current_state}"
+            self.get_logger().info(
+                f"[Dock Params] Left={self.left_easy_dock}, "
+                f"Right={self.right_easy_dock}, "
+                f"Dock={self.dock_location}, "
+                f"EndLine={self.dock_station_end_line}"
             )
 
-            return
+        except KeyError as e:
+            self.error_status = f"LOCATION_PARAM_ERROR: {e}"
+            self.get_logger().error(f"Missing key in location dictionaries: {e}")
+            raise
 
-        # -----------------------------------------------------
-        # Check goal frame
-        # -----------------------------------------------------
 
-        goal_frame = msg.header.frame_id
+# ------------------------------------------------------------
+# LOAD GRAPHML & CLEAN POSITIONS
+# ------------------------------------------------------------
 
-        if goal_frame != self.map_frame:
+        self.path_in_nodes = []
 
-            self.get_logger().error(
-                f"[GOAL] Unsupported goal frame: "
-                f"{goal_frame}. Expected '{self.map_frame}'."
-            )
+        try:
+            G_loaded = nx.read_graphml(self.graphml_path)
+        except Exception as e:
+            self.error_status = f"GRAPHML_LOAD_ERROR: {e}"
+            self.get_logger().error(f"Failed to load GraphML: {e}")
+            raise
 
-            return
 
-        # -----------------------------------------------------
-        # Store goal
-        # -----------------------------------------------------
+        # Convert string positions to numeric tuples
+        for node, data in G_loaded.nodes(data=True):
+            pos_str = data.get('position')
+            if pos_str:
+                try:
+                    # ensure tuple(float,float)
+                    G_loaded.nodes[node]['position'] = tuple(map(float, pos_str.split(',')))
+                except Exception:
+                    self.get_logger().warn(f"Node {node} has invalid position format: '{pos_str}'")
 
-        self.goal = {
-            "frame_id": goal_frame,
+        self.G_loaded = G_loaded
+        self.get_logger().info("GraphML loaded and node positions parsed successfully.")
 
-            "x": msg.pose.position.x,
-            "y": msg.pose.position.y,
-            "z": msg.pose.position.z,
+    def fetch_location_data_from_db(self):
+        """
+        Loads all docking/location configuration from SQLite DB and returns:
+            left_easy_dock_dict,
+            right_easy_dock_dict,
+            dock_location_dict,
+            dock_station_end_line_dict,
+            station_level_dict
+        """
 
-            "qx": msg.pose.orientation.x,
-            "qy": msg.pose.orientation.y,
-            "qz": msg.pose.orientation.z,
-            "qw": msg.pose.orientation.w
+        db_path = self.database_path  # use param, not hardcoded
+        self.get_logger().info(f"[DB] Loading location data from {db_path}")
+
+
+        # Tables & queries
+        queries = {
+            'left_easy_dock': 'SELECT * FROM left_easy_dock;',
+            'right_easy_dock': 'SELECT * FROM right_easy_dock;',
+            'dock_location': 'SELECT * FROM dock_location;',
+            'dock_station_end_line': 'SELECT * FROM dock_station_end_line;'
         }
 
-        self.get_logger().info(
-            f"[GOAL] New goal received | "
-            f"x={self.goal['x']:.3f} | "
-            f"y={self.goal['y']:.3f}"
+        dataframes = {}
+
+        try:
+            conn = sqlite3.connect(db_path)
+
+            # Load all tables
+            for table_name, query in queries.items():
+                try:
+                    df = pd.read_sql(query, conn)
+                    dataframes[table_name] = df
+                    self.get_logger().info(f"[DB] Loaded table: {table_name} ({len(df)} rows)")
+                except Exception as e:
+                    self.get_logger().error(f"[DB] Failed loading table '{table_name}': {e}")
+                    dataframes[table_name] = pd.DataFrame()  # keep empty to avoid crash
+
+        except Exception as e:
+            self.get_logger().error(f"[DB] Could not open database: {e}")
+            raise
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
+
+        # ----------------------------------
+        # Convert dataframe → dict helper
+        # ----------------------------------
+        def create_location_dict(df, name_col, coord_cols, table_name):
+            if df.empty:
+                self.get_logger().warn(f"[DB] Table '{table_name}' is empty, returning empty dict")
+                return {}
+
+            # Check necessary columns exist
+            for col in [name_col] + coord_cols:
+                if col not in df.columns:
+                    self.get_logger().error(
+                        f"[DB] Missing column '{col}' in table '{table_name}'"
+                    )
+                    return {}
+
+            # Convert to dict[name] = [x, y, z, w]
+            return df.set_index(name_col)[coord_cols].astype(float).apply(
+                lambda row: row.tolist(), axis=1
+            ).to_dict()
+
+        # ----------------------------------
+        # Build dictionaries
+        # ----------------------------------
+
+        left_easy_dock_dict = create_location_dict(
+            dataframes['left_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W'],
+            table_name='left_easy_dock'
         )
 
-        self.get_logger().info(
-            f"[GOAL] Orientation | "
-            f"qx={self.goal['qx']:.3f} | "
-            f"qy={self.goal['qy']:.3f} | "
-            f"qz={self.goal['qz']:.3f} | "
-            f"qw={self.goal['qw']:.3f}"
+        right_easy_dock_dict = create_location_dict(
+            dataframes['right_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W'],
+            table_name='right_easy_dock'
         )
 
-    # =========================================================
-    # MAIN WORKFLOW LOOP
-    # =========================================================
+        dock_location_dict = create_location_dict(
+            dataframes['dock_location'],
+            name_col='dock_name',
+            coord_cols=['x_m', 'y_m', 'pose_z', 'pose_w'],
+            table_name='dock_location'
+        )
 
-    def workflow_step(self):
+        dock_station_end_line_dict = create_location_dict(
+            dataframes['dock_station_end_line'],
+            name_col='station_name',
+            coord_cols=['station_x', 'station_y', 'pose_z', 'pose_w'],
+            table_name='dock_station_end_line'
+        )
 
-        # -----------------------------------------------------
-        # SAFETY HAS HIGHEST PRIORITY
-        # -----------------------------------------------------
-
-        if self.safety_triggered:
-
-            if self.current_state != self.SAFETY_STOP:
-
-                self.change_state(
-                    self.SAFETY_STOP
-                )
-
-            return
-
-        # -----------------------------------------------------
-        # STATE MACHINE
-        # -----------------------------------------------------
-
-        if self.current_state == self.IDLE:
-
-            self.handle_idle()
-
-        elif self.current_state == self.LOCALIZATION_CHECK:
-
-            self.handle_localization_check()
-
-        elif self.current_state == self.NAVIGATING:
-
-            self.handle_navigation()
-
-        elif self.current_state == self.GOAL_REACHED:
-
-            self.handle_goal_reached()
-
-        elif self.current_state == self.RECOVERY:
-
-            self.handle_recovery()
-
-        elif self.current_state == self.SAFETY_STOP:
-
-            self.handle_safety_stop()
-
+        # ----------------------------------
+        # Station → Level dictionary
+        # ----------------------------------
+        station_level_dict = {}
+        df = dataframes['dock_station_end_line']
+        if not df.empty and 'station_name' in df.columns and 'level' in df.columns:
+            station_level_dict = dict(zip(df['station_name'], df['level'].astype(int)))
         else:
-
-            self.get_logger().error(
-                f"[WORKFLOW] Unknown state: "
-                f"{self.current_state}"
-            )
-
-            self.change_state(
-                self.SAFETY_STOP
-            )
-
-    # =========================================================
-    # STATE TRANSITION
-    # =========================================================
-
-    def change_state(self, new_state):
-
-        if new_state == self.current_state:
-            return
-
-        self.previous_state = self.current_state
-        self.current_state = new_state
-
-        self.get_logger().info(
-            f"[WORKFLOW] "
-            f"{self.previous_state} -> "
-            f"{self.current_state}"
-        )
-
-        self.publish_state()
-
-    # =========================================================
-    # PUBLISH STATE
-    # =========================================================
-
-    def publish_state(self):
-
-        msg = String()
-        msg.data = self.current_state
-
-        self.state_pub.publish(msg)
-
-    # =========================================================
-    # IDLE
-    # =========================================================
-
-    def handle_idle(self):
-
-        if self.goal is None:
-            return
-
-        self.get_logger().info(
-            "[IDLE] Goal available"
-        )
-
-        self.change_state(
-            self.LOCALIZATION_CHECK
-        )
-
-    # =========================================================
-    # LOCALIZATION CHECK
-    # =========================================================
-
-    def handle_localization_check(self):
-
-        if self.goal is None:
-
-            self.get_logger().warn(
-                "[LOCALIZATION] Goal disappeared"
-            )
-
-            self.change_state(
-                self.IDLE
-            )
-
-            return
-
-        try:
-
-            transform = self.tf_buffer.lookup_transform(
-                self.map_frame,
-                self.base_frame,
-                rclpy.time.Time()
-            )
-
-            # -------------------------------------------------
-            # Position
-            # -------------------------------------------------
-
-            x = transform.transform.translation.x
-            y = transform.transform.translation.y
-            z = transform.transform.translation.z
-
-            # -------------------------------------------------
-            # Orientation
-            # -------------------------------------------------
-
-            qx = transform.transform.rotation.x
-            qy = transform.transform.rotation.y
-            qz = transform.transform.rotation.z
-            qw = transform.transform.rotation.w
-
-            # -------------------------------------------------
-            # Save current pose
-            # -------------------------------------------------
-
-            self.current_pose = {
-                "x": x,
-                "y": y,
-                "z": z,
-
-                "qx": qx,
-                "qy": qy,
-                "qz": qz,
-                "qw": qw
-            }
-
-            self.localization_valid = True
-
-            self.get_logger().info(
-                f"[LOCALIZATION] Valid | "
-                f"x={x:.3f} | "
-                f"y={y:.3f}"
-            )
-
-            # -------------------------------------------------
-            # Localization is good
-            # -------------------------------------------------
-
-            self.change_state(
-                self.NAVIGATING
-            )
-
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException
-        ):
-
-            self.localization_valid = False
-
-            self.get_logger().warn(
-                "[LOCALIZATION] Waiting for "
-                "map -> base_footprint transform..."
-            )
-
-    # =========================================================
-    # NAVIGATING
-    # =========================================================
-    def generate_reference_path(self):
-
-        if self.current_pose is None:
-            return
-
-        if self.goal is None:
-            return
-
-        start_x = self.current_pose["x"]
-        start_y = self.current_pose["y"]
-
-        goal_x = self.goal["x"]
-        goal_y = self.goal["y"]
-
-        # Distance between robot and goal
-        distance = math.hypot(
-            goal_x - start_x,
-            goal_y - start_y
-        )
-
-        # Number of points
-        point_spacing = 0.1  # meters
-        num_points = max(
-            2,
-            int(distance / point_spacing) + 1
-        )
-
-        path_msg = Path()
-
-        path_msg.header.frame_id = self.map_frame
-        path_msg.header.stamp = self.get_clock().now().to_msg()
-
-        for i in range(num_points):
-
-            ratio = i / (num_points - 1)
-
-            x = start_x + ratio * (goal_x - start_x)
-            y = start_y + ratio * (goal_y - start_y)
-
-            pose = PoseStamped()
-
-            pose.header = path_msg.header
-
-            pose.pose.position.x = x
-            pose.pose.position.y = y
-            pose.pose.position.z = 0.0
-
-            # For now, orientation is not generated.
-            pose.pose.orientation.w = 1.0
-
-            path_msg.poses.append(pose)
-
-        self.path_pub.publish(path_msg)
-
-        self.get_logger().info(
-            f"[PATH] Generated reference path | "
-            f"points={len(path_msg.poses)} | "
-            f"distance={distance:.2f} m"
-        )
-
-    def handle_navigation(self):
-
-        if self.goal is None:
-
-            self.get_logger().warn(
-                "[NAVIGATION] No goal available"
-            )
-
-            self.stop_nmpc()
-
-            self.change_state(
-                self.IDLE
-            )
-
-            return
-
-        # -----------------------------------------------------
-        # Update current pose continuously
-        # -----------------------------------------------------
-
-        if not self.update_current_pose():
-
-            self.localization_valid = False
-
-            self.get_logger().warn(
-                "[NAVIGATION] Localization lost"
-            )
-
-            self.stop_nmpc()
-
-            self.change_state(
-                self.RECOVERY
-            )
-
-            return
-        # -----------------------------------------------------
-        # Generate reference path
-        # -----------------------------------------------------
-
-        self.generate_reference_path()
-
-        # -----------------------------------------------------
-        # Check whether goal has been reached
-        # -----------------------------------------------------
-
-        if self.goal_reached():
-
-            self.get_logger().info(
-                "[NAVIGATION] Goal tolerance reached"
-            )
-
-            self.stop_nmpc()
-
-            self.change_state(
-                self.GOAL_REACHED
-            )
-
-            return
-
-        # -----------------------------------------------------
-        # NMPC
-        # -----------------------------------------------------
-
-        self.run_nmpc()
-
-    # =========================================================
-    # UPDATE CURRENT POSE
-    # =========================================================
-
-    def update_current_pose(self):
-
-        try:
-
-            transform = self.tf_buffer.lookup_transform(
-                self.map_frame,
-                self.base_frame,
-                rclpy.time.Time()
-            )
-
-            self.current_pose = {
-
-                "x": transform.transform.translation.x,
-                "y": transform.transform.translation.y,
-                "z": transform.transform.translation.z,
-
-                "qx": transform.transform.rotation.x,
-                "qy": transform.transform.rotation.y,
-                "qz": transform.transform.rotation.z,
-                "qw": transform.transform.rotation.w
-            }
-
-            # -------------------------------------------------
-            # Publish current robot pose
-            # -------------------------------------------------
-
-            pose_msg = PoseStamped()
-
-            pose_msg.header.stamp = self.get_clock().now().to_msg()
-            pose_msg.header.frame_id = self.map_frame
-
-            pose_msg.pose.position.x = self.current_pose["x"]
-            pose_msg.pose.position.y = self.current_pose["y"]
-            pose_msg.pose.position.z = self.current_pose["z"]
-
-            pose_msg.pose.orientation.x = self.current_pose["qx"]
-            pose_msg.pose.orientation.y = self.current_pose["qy"]
-            pose_msg.pose.orientation.z = self.current_pose["qz"]
-            pose_msg.pose.orientation.w = self.current_pose["qw"]
-
-            self.current_pose_pub.publish(pose_msg)
-
-            self.localization_valid = True
-
-            return True
-
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException
-        ):
-
-            return False
-
-    # =========================================================
-    # GOAL REACHED CHECK
-    # =========================================================
-
-    def goal_reached(self):
-
-        if self.current_pose is None:
-            return False
-
-        if self.goal is None:
-            return False
-
-        # -----------------------------------------------------
-        # Position error
-        # -----------------------------------------------------
-
-        dx = (
-            self.goal["x"]
-            - self.current_pose["x"]
-        )
-
-        dy = (
-            self.goal["y"]
-            - self.current_pose["y"]
-        )
-
-        distance = math.hypot(
-            dx,
-            dy
-        )
-
-        # -----------------------------------------------------
-        # Orientation error
-        # -----------------------------------------------------
-
-        current_yaw = self.quaternion_to_yaw(
-            self.current_pose
-        )
-
-        goal_yaw = self.quaternion_to_yaw(
-            self.goal
-        )
-
-        yaw_error = self.normalize_angle(
-            goal_yaw - current_yaw
-        )
-
-        self.get_logger().debug(
-            f"[GOAL CHECK] "
-            f"distance={distance:.3f} m | "
-            f"yaw_error={math.degrees(yaw_error):.2f} deg"
-        )
-
-        # -----------------------------------------------------
-        # Check both position and orientation
-        # -----------------------------------------------------
+            self.get_logger().warn("[DB] station_level_dict could not be created (missing columns)")
+
+        # ----------------------------------
+        # Final Log
+        # ----------------------------------
+        self.get_logger().info(f"[DB] Dicts loaded successfully.")
 
         return (
-            distance <= self.position_tolerance
-            and
-            abs(yaw_error) <= self.yaw_tolerance
+            left_easy_dock_dict,
+            right_easy_dock_dict,
+            dock_location_dict,
+            dock_station_end_line_dict,
+            station_level_dict
         )
 
-    # =========================================================
-    # QUATERNION → YAW
-    # =========================================================
-
-    def quaternion_to_yaw(self, pose):
-
-        qx = pose["qx"]
-        qy = pose["qy"]
-        qz = pose["qz"]
-        qw = pose["qw"]
-
-        siny_cosp = (
-            2.0 * (qw * qz + qx * qy)
-        )
-
-        cosy_cosp = (
-            1.0
-            - 2.0 * (qy * qy + qz * qz)
-        )
-
-        return math.atan2(
-            siny_cosp,
-            cosy_cosp
-        )
-
-    # =========================================================
-    # NORMALIZE ANGLE
-    # =========================================================
-
-    def normalize_angle(self, angle):
-
-        while angle > math.pi:
-            angle -= 2.0 * math.pi
-
-        while angle < -math.pi:
-            angle += 2.0 * math.pi
-
-        return angle
-
-    # =========================================================
-    # NMPC INTERFACE
-    # =========================================================
-
-    def run_nmpc(self):
-
-        """
-        Temporary NMPC interface.
-
-        This is where we will connect your existing
-        NMPC package.
-
-        NMPC will eventually receive:
-
-            current_pose
-            goal_pose
-
-        and generate:
-
-            velocity
-            steering
-
-        or whatever interface your NMPC package uses.
-        """
-
-        if not self.nmpc_active:
-
-            self.get_logger().info(
-                "[NMPC] Starting navigation controller"
-            )
-
-            self.nmpc_active = True
-
-        # -----------------------------------------------------
-        # TODO:
-        #
-        # Send:
-        #     self.current_pose
-        #     self.goal
-        #
-        # to actual NMPC controller.
-        # -----------------------------------------------------
-
-    # =========================================================
-    # STOP NMPC
-    # =========================================================
-
-    def stop_nmpc(self):
-
-        if self.nmpc_active:
-
-            self.get_logger().info(
-                "[NMPC] Stopping navigation controller"
-            )
-
-        self.nmpc_active = False
-
-        # TODO:
-        # Send stop command to NMPC/controller.
-
-    # =========================================================
-    # GOAL REACHED
-    # =========================================================
-
-    def handle_goal_reached(self):
-
-        self.stop_nmpc()
-
-        self.get_logger().info(
-            "[WORKFLOW] Goal reached successfully"
-        )
-
-        # Clear current task
-
-        self.goal = None
-        self.current_pose = None
-
-        self.localization_valid = False
-
-        self.change_state(
-            self.IDLE
-        )
-
-    # =========================================================
-    # RECOVERY
-    # =========================================================
-
-    def handle_recovery(self):
-
-        self.stop_nmpc()
-
-        self.get_logger().warn(
-            "[RECOVERY] Attempting recovery"
-        )
-
-        # For now:
-        # go back and check localization.
-
-        if self.goal is not None:
-
-            self.change_state(
-                self.LOCALIZATION_CHECK
-            )
-
-        else:
-
-            self.change_state(
-                self.IDLE
-            )
-
-    # =========================================================
-    # SAFETY STOP
-    # =========================================================
-
-    def handle_safety_stop(self):
-
-        self.stop_nmpc()
-
-        self.get_logger().error(
-            "[SAFETY] SAFETY STOP ACTIVE"
-        )
-
-    # =========================================================
-    # SAFETY API
-    # =========================================================
-
-    def trigger_safety_stop(self):
-
-        self.safety_triggered = True
-
-        self.get_logger().error(
-            "[SAFETY] Safety stop triggered!"
-        )
-
-    def clear_safety_stop(self):
-
-        self.safety_triggered = False
-
-        self.get_logger().info(
-            "[SAFETY] Safety stop cleared"
-        )
-
-        if self.current_state == self.SAFETY_STOP:
-
-            self.change_state(
-                self.LOCALIZATION_CHECK
-            )
-
-
-# =============================================================
+# ------------------------------------------------------------
 # MAIN
-# =============================================================
-
+# ------------------------------------------------------------
 def main(args=None):
-
     rclpy.init(args=args)
 
-    node = WorkflowHandler()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config-file', '-c', default='', help="Path to YAML")
+    parser.add_argument('movement', help="Movement identifier")
+    parser.add_argument('action', help="Action identifier")
+    parser.add_argument('state', nargs='?', default='0', help="State ID")
+    parsed = parser.parse_args()
+    from pathlib import Path
+    cwd = Path().resolve()
+    # Load params
+    defaults = {
+        "database_path": "/map_details/piyush_demo_wn.db",
+        "graphml_path": "map_details/piyush_demo_waypoints.graphml",
+        "constructed_rs_path": "constructed_rs_path.pkl",   #/home/ashu/Ankit/fb_stacker.bak/workflow_node
+        "robot_id": "EP_006",
+        "mqtt_broker": "192.168.0.53",
+        "robot_ip": "192.168.0.50",
+        "parking_gap_threshold": 0.2,
+        "movement_gap_threshold": 0.2,
+        "rs_path_scale": 1,
+        "rs_path_turn_radius": 0.75,
+        "spline_path": {"scale": 1.0, "runway_length": 0.0, "spacing": 0.01, "runway_steps": 20},
+        "parking_control": {"scale": 1, "step_size": 0.01},
+        "pp_control": {"scale": 1, "step_size": 0.01}
+    }
+    params = load_node_params(defaults, ["workflow_node", "workflow_node"], parsed.config_file)
 
-    try:
+    print(f"[PID] {os.getpid()} running workflow_node")
 
-        rclpy.spin(node)
+    # Create root node for stop helper
+    root_node = rclpy.create_node("stop_root")
+    global _stop_helper
+    _stop_helper = StopRobotHelper(root_node)
 
-    except KeyboardInterrupt:
+    # SIGNAL HOOKS
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-        node.get_logger().info(
-            "Keyboard interrupt received."
-        )
+    # Main workflow handler
+    wh = WorkflowHandler(parsed.movement, parsed.action, params)
+    wh.operation_state = parsed.state
 
-    finally:
+    print("[workflow_node] Initialization complete.")
 
-        node.destroy_node()
+        # -----------------------------
+    # EXECUTION SEQUENCE
+    # -----------------------------
 
-        if rclpy.ok():
-            rclpy.shutdown()
+    operations = {
+        1: lambda: wh.operation(),
+        # Add more steps here if needed:
+        # 2: lambda: wh.docking(),
+        # 3: lambda: wh.parking(),
+    }
+
+    start_point = wh.operation_state  # int from CLI
+    start_point = int(start_point) if start_point else 1
+
+    # Run operations in sorted order
+    for state in sorted(operations.keys()):
+        if state >= start_point:
+            result = operations[state]()
+            wh.get_logger().info(f"Executed operation {state}, result={result}")
+
+    print("here")
+
+    wh.sequence_complete = True
+    wh.destroy_node()
+    root_node.destroy_node()
+    rclpy.shutdown()
 
 
 if __name__ == "__main__":
-
     main()

@@ -12,3 +12,6 @@ __pycache__/
 
 # Large model assets
 src/bopt_description/models/
+
+src/workflow_node/map_details/
+

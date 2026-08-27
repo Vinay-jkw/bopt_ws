@@ -1,0 +1,629 @@
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+
+import numpy as np
+import cv2
+import time
+
+from sensor_msgs.msg import LaserScan
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import Point, Vector3
+from std_msgs.msg import ColorRGBA, String
+
+from sklearn.cluster import KMeans
+from typing import List, Tuple, Optional
+
+
+########################################
+# Helper Functions
+########################################
+
+def calculate_rois(l: float, b: float) -> List[Tuple[float, float, float, float]]:
+    """
+    Calculate Regions of Interest (ROIs) on the pallet.
+    
+    Each ROI is defined by (xmin, xmax, ymin, ymax).
+    Adjust 'roi_width', 'roi_height', and 'lidar_offset' as needed.
+    """
+    b2 = b / 2  # Half of the breadth
+    l2 = l / 2  # Half of the length
+    lidar_offset = 0.15  # Approximate distance between LiDAR and pallet
+    roi_width = 0.3      # Width of each ROI (x range)
+    roi_height = 0.3     # Height of each ROI (y range)
+
+    rois = [
+        # Bottom row (ROI 1, 2)
+        (-b2 + 0.05 - roi_width / 2, -b2 + 0.05 + roi_width / 2, lidar_offset, lidar_offset + roi_height),
+        (b2 - 0.05 - roi_width / 2, b2 - 0.05 + roi_width / 2, lidar_offset, lidar_offset + roi_height),
+
+        # Middle row1 (ROI 3, 4)
+        (-b2 + 0.05 - roi_width / 2, -b2 + 0.05 + roi_width / 2, lidar_offset - 0.05 + l/3, lidar_offset - 0.05 + l/3 + roi_height),
+        (b2 - 0.05 - roi_width / 2, b2 - 0.05 + roi_width / 2, lidar_offset - 0.05 + l/3, lidar_offset - 0.05 + l/3 + roi_height),
+
+        # Middle row2 (ROI 5, 6)
+        (-b2 + 0.05 - roi_width / 2, -b2 + 0.05 + roi_width / 2, lidar_offset - 0.05 + 2*l/3, lidar_offset - 0.05 + 2*l/3 + roi_height),
+        (b2 - 0.05 - roi_width / 2, b2 - 0.05 + roi_width / 2, lidar_offset - 0.05 + 2*l/3, lidar_offset - 0.05 + 2*l/3 + roi_height),
+
+        # Top row (ROI 7, 8)
+        (-b2 + 0.05 - roi_width / 2, -b2 + 0.05 + roi_width / 2, lidar_offset / 2 + l, lidar_offset / 2 + l + roi_height),
+        (b2 - 0.05 - roi_width / 2, b2 - 0.05 + roi_width / 2, lidar_offset / 2 + l, lidar_offset / 2 + l + roi_height),
+    ]
+    return rois
+
+
+def apply_transformation(points: np.ndarray, translation: Tuple[float, float], rotation: Tuple[float, float, float]) -> np.ndarray:
+    """
+    Apply a static 2D translation and rotation (yaw) to the (x, y) points.
+    """
+    tx, ty = translation
+    yaw = rotation[2]  # Assuming 2D rotation about z-axis (yaw)
+
+    rotation_matrix = np.array([
+        [np.cos(yaw), -np.sin(yaw)],
+        [np.sin(yaw),  np.cos(yaw)]
+    ])
+
+    transformed_points = np.dot(points, rotation_matrix.T) + np.array([tx, ty])
+    return transformed_points
+
+
+########################################
+# Node 1: Right LIDAR Node
+########################################
+
+class LidarClusteringNodeRight(Node):
+    """
+    Node for the Right LIDAR device.
+    Subscribes to /Lidar_RFTU and publishes cluster centers to the 'map1' topic.
+    Also publishes ROI visualization markers to 'roi_marker'.
+    """
+    def __init__(self):
+        super().__init__('lidar_clustering_node_right')
+        self.roi_pub = self.create_publisher(Marker, 'roi_marker', 10)
+        self.cluster_pub = self.create_publisher(String, 'map1', 10)  # Publishes cluster info
+        self.subscription = self.create_subscription(
+            LaserScan,
+            '/Lidar_RFTU',  # Right LIDAR topic
+            self.lidar_callback,
+            10
+        )
+        # Transformation from base_laser_1 to base_link
+        self.translation = (-0.239, 0.0) 
+        self.rotation = (0.0, 0.0, 0.0)
+
+        # Predefine ROI cluster info
+        self.roi_cluster_mapping = {}
+        self.processed = False  # Flag to ensure single processing
+        self.get_logger().info("Right Lidar Clustering Node Initialized")
+
+    def lidar_callback(self, msg: LaserScan):
+        # if self.processed:
+        #     return  # Already processed once, ignore further messages
+
+        rois = calculate_rois(0.80, 1.40)  # or adjust pallet size
+        points = self.calculate_points(msg)
+        self.roi_cluster_mapping = {i + 1: "No Data" for i in range(len(rois))}
+
+        # Transform points into base_link frame
+        transformed_points = apply_transformation(points, self.translation, self.rotation)
+
+        # Process clusters
+        self.pro_lidar_callback(transformed_points, rois, "LIDAR_1")
+
+        # Set the processed flag to True to prevent reprocessing
+        # self.processed = True
+
+        # # Optionally, destroy the subscription to stop receiving messages
+        # self.destroy_subscription(self.subscription)
+
+    def calculate_points(self, msg: LaserScan) -> np.ndarray:
+        """Convert LaserScan to valid (x, y) points in the LIDAR frame."""
+        ranges = np.array(msg.ranges)
+        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
+        valid_mask = (ranges >= msg.range_min) & (ranges <= msg.range_max)
+
+        x_points = ranges[valid_mask] * np.cos(angles[valid_mask])
+        y_points = ranges[valid_mask] * np.sin(angles[valid_mask])
+        points = np.stack((x_points, y_points), axis=-1)
+        return points
+
+    def pro_lidar_callback(self, points: np.ndarray, rois: List[Tuple[float, float, float, float]], window_name: str):
+        """
+        Process the points in each ROI and perform clustering, then visualize results.
+        """
+        # Separate points by ROI
+        points_all_rois = {f'roi_{i+1}': self.filter_points_in_roi(points, roi) 
+                           for i, roi in enumerate(rois)}
+
+        # KMeans clustering (1 cluster per ROI if data > threshold)
+        cluster_centers_all_rois = self.perform_clustering(points_all_rois)
+
+        # Visualize on local OpenCV window
+        # self.visualize_clusters(points, rois, cluster_centers_all_rois, window_name)
+
+        # Publish ROI markers for RViz
+        for i, roi in enumerate(rois):
+            self.publish_roi_marker(roi, i + 1)
+
+        # Publish cluster centers as string data
+        self.publish_cluster_centers(cluster_centers_all_rois)
+
+    def filter_points_in_roi(self, points: np.ndarray, roi: Tuple[float, float, float, float]) -> np.ndarray:
+        """Filter points inside the bounding box roi=(xmin, xmax, ymin, ymax)."""
+        xmin, xmax, ymin, ymax = roi
+        mask = (xmin <= points[:, 0]) & (points[:, 0] <= xmax) & \
+               (ymin <= points[:, 1]) & (points[:, 1] <= ymax)
+        return points[mask]
+
+    def perform_clustering(self, points_all_rois: dict) -> List[Tuple[int, Optional[np.ndarray]]]:
+        """
+        Perform KMeans clustering for each ROI if enough points (>3).
+        Return a list of (roi_index, cluster_center) or (roi_index, None).
+        """
+        cluster_centers = []
+        for roi_index, (roi_name, roi_points) in enumerate(points_all_rois.items(), start=1):
+            if roi_points.shape[0] > 3:
+                kmeans = KMeans(n_clusters=1, random_state=42)
+                kmeans.fit(roi_points)
+                center = kmeans.cluster_centers_[0]
+                cluster_centers.append((roi_index, center))
+            else:
+                cluster_centers.append((roi_index, None))
+        return cluster_centers
+
+    def visualize_clusters(self, 
+                           points: np.ndarray, 
+                           rois: List[Tuple[float, float, float, float]], 
+                           cluster_centers: List[Tuple[int, Optional[np.ndarray]]], 
+                           window_name: str):
+        """
+        Simple OpenCV-based visualization of points, ROIs, and cluster centers.
+        This runs continuously, but you can comment out if no local display is needed.
+        """
+        img = np.zeros((1000, 1000, 3), dtype=np.uint8)
+        scale, offset = 300, 500
+
+        # Draw each ROI rectangle in white
+        for roi in rois:
+            xmin, xmax, ymin, ymax = roi
+            cv2.rectangle(
+                img,
+                (int(xmin * scale + offset), int(ymin * scale + offset)),
+                (int(xmax * scale + offset), int(ymax * scale + offset)),
+                (255, 255, 255), 1
+            )
+
+        # Plot all valid points in green
+        for point in points:
+            x, y = int(point[0] * scale + offset), int(point[1] * scale + offset)
+            cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
+
+        # Plot cluster centers in red + text
+        for i, (roi_index, center) in enumerate(cluster_centers):
+            if center is not None:
+                self.roi_cluster_mapping[roi_index] = (center[0], center[1])
+                x_center = int(center[0] * scale + offset)
+                y_center = int(center[1] * scale + offset)
+                cv2.circle(img, (x_center, y_center), 8, (0, 0, 255), -1)
+                cluster_text = f"R{roi_index}:({center[0]:.2f},{center[1]:.2f})"
+                cv2.putText(img, cluster_text, (10, 20 + i * 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            else:
+                self.roi_cluster_mapping[roi_index] = "No Data"
+
+        cv2.imshow(window_name, img)
+        cv2.waitKey(1)
+
+    def publish_roi_marker(self, roi: Tuple[float, float, float, float], marker_id: int):
+        """Publish ROI rectangle as a LINE_STRIP marker in RViz."""
+        rectangle_points = self.calculate_roi_rectangle(roi)
+
+        marker = Marker()
+        marker.header.frame_id = "base_link"  # or your base frame
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.id = marker_id
+        marker.type = Marker.LINE_STRIP
+        marker.action = Marker.ADD
+        marker.scale = Vector3(x=0.05, y=0.0, z=0.0)
+        marker.color = ColorRGBA(a=1.0, r=0.0, g=0.0, b=1.0)  # Blue
+
+        # Convert rectangle points to geometry_msgs/Point
+        marker.points = [Point(x=p[0], y=p[1], z=0.0) for p in rectangle_points]
+        self.roi_pub.publish(marker)
+
+    def calculate_roi_rectangle(self, roi: Tuple[float, float, float, float]) -> List[Tuple[float, float]]:
+        """Return the 5 points (corners + repeat the first) for a rectangle in order."""
+        xmin, xmax, ymin, ymax = roi
+        return [
+            (xmin, ymin),
+            (xmax, ymin),
+            (xmax, ymax),
+            (xmin, ymax),
+            (xmin, ymin)  # close the rectangle
+        ]
+
+    def publish_cluster_centers(self, cluster_centers_all_rois: List[Tuple[int, Optional[np.ndarray]]]):
+        """Publish cluster center info as a String message on 'map1'."""
+        message_data = []
+        for roi_index, cluster_center in cluster_centers_all_rois:
+            if cluster_center is not None:
+                msg_str = f"ROI {roi_index}: ({cluster_center[0]:.2f}, {cluster_center[1]:.2f})"
+            else:
+                msg_str = f"ROI {roi_index}: No Cluster"
+            message_data.append(msg_str)
+        # Convert to a single String message
+        msg = String()
+        msg.data = "\n".join(message_data)
+        self.cluster_pub.publish(msg)
+        self.get_logger().info("Published cluster centers to 'map1'.")
+
+
+########################################
+# Node 2: Left LIDAR Node
+########################################
+
+class LidarClusteringNodeLeft(Node):
+    """
+    Node for the Left LIDAR device.
+    Subscribes to /Lidar_LFTU and publishes cluster centers to the 'map2' topic.
+    Also publishes ROI visualization markers to 'roi_marker'.
+    """
+    def __init__(self):
+        super().__init__('lidar_clustering_node_left')
+        self.roi_pub = self.create_publisher(Marker, 'roi_marker', 10)
+        self.cluster_pub = self.create_publisher(String, 'map2', 10)  # Publishes cluster info
+        self.subscription = self.create_subscription(
+            LaserScan,
+            '/Lidar_LFTU',  # Left LIDAR topic
+            self.lidar_callback,
+            10
+        )
+        # Transformation from base_laser_2 to base_link
+        self.translation = (0.239, 0.0)
+        self.rotation = (0.0, 0.0, 0.0)
+
+        # Predefine ROI cluster info
+        self.roi_cluster_mapping = {}
+        self.processed = False  # Flag to ensure single processing
+        self.get_logger().info("Left Lidar Clustering Node Initialized")
+
+    def lidar_callback(self, msg: LaserScan):
+        # if self.processed:
+        #     return  # Already processed once, ignore further messages
+
+        rois = calculate_rois(0.80, 1.45)
+        points = self.calculate_points(msg)
+        self.roi_cluster_mapping = {i + 1: "No Data" for i in range(len(rois))}
+
+        # Transform points into base_link frame
+        transformed_points = apply_transformation(points, self.translation, self.rotation)
+
+        # Process clusters
+        self.pro_lidar_callback(transformed_points, rois, "LIDAR_2")
+
+        # Set the processed flag to True to prevent reprocessing
+        # self.processed = True
+
+        # # Optionally, destroy the subscription to stop receiving messages
+        # self.destroy_subscription(self.subscription)
+
+    def calculate_points(self, msg: LaserScan) -> np.ndarray:
+        """Convert LaserScan to valid (x, y) points in the LIDAR frame."""
+        ranges = np.array(msg.ranges)
+        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
+        valid_mask = (ranges >= msg.range_min) & (ranges <= msg.range_max)
+
+        x_points = ranges[valid_mask] * np.cos(angles[valid_mask])
+        y_points = ranges[valid_mask] * np.sin(angles[valid_mask])
+        points = np.stack((x_points, y_points), axis=-1)
+        return points
+
+    def pro_lidar_callback(self, points: np.ndarray, rois: List[Tuple[float, float, float, float]], window_name: str):
+        """
+        Process the points in each ROI and perform clustering, then visualize results.
+        """
+        # Separate points by ROI
+        points_all_rois = {f'roi_{i+1}': self.filter_points_in_roi(points, roi) 
+                           for i, roi in enumerate(rois)}
+
+        # KMeans clustering (1 cluster per ROI if data > threshold)
+        cluster_centers_all_rois = self.perform_clustering(points_all_rois)
+
+        # Visualize on local OpenCV window
+        # self.visualize_clusters(points, rois, cluster_centers_all_rois, window_name)
+
+        # Publish ROI markers for RViz
+        for i, roi in enumerate(rois):
+            self.publish_roi_marker(roi, i + 1)
+
+        # Publish cluster centers as string data
+        self.publish_cluster_centers(cluster_centers_all_rois)
+
+    def filter_points_in_roi(self, points: np.ndarray, roi: Tuple[float, float, float, float]) -> np.ndarray:
+        """Filter points inside the bounding box roi=(xmin, xmax, ymin, ymax)."""
+        xmin, xmax, ymin, ymax = roi
+        mask = (xmin <= points[:, 0]) & (points[:, 0] <= xmax) & \
+               (ymin <= points[:, 1]) & (points[:, 1] <= ymax)
+        return points[mask]
+
+    def perform_clustering(self, points_all_rois: dict) -> List[Tuple[int, Optional[np.ndarray]]]:
+        """
+        Perform KMeans clustering for each ROI if enough points (>3).
+        Return a list of (roi_index, cluster_center) or (roi_index, None).
+        """
+        cluster_centers = []
+        for roi_index, (roi_name, roi_points) in enumerate(points_all_rois.items(), start=1):
+            if roi_points.shape[0] > 3:
+                kmeans = KMeans(n_clusters=1, random_state=42)
+                kmeans.fit(roi_points)
+                center = kmeans.cluster_centers_[0]
+                cluster_centers.append((roi_index, center))
+            else:
+                cluster_centers.append((roi_index, None))
+        return cluster_centers
+
+    def visualize_clusters(self, 
+                           points: np.ndarray, 
+                           rois: List[Tuple[float, float, float, float]], 
+                           cluster_centers: List[Tuple[int, Optional[np.ndarray]]], 
+                           window_name: str):
+        """
+        Simple OpenCV-based visualization of points, ROIs, and cluster centers.
+        This runs continuously, but you can comment out if no local display is needed.
+        """
+        img = np.zeros((1000, 1000, 3), dtype=np.uint8)
+        scale, offset = 300, 500
+
+        # Draw each ROI rectangle in white
+        for roi in rois:
+            xmin, xmax, ymin, ymax = roi
+            cv2.rectangle(
+                img,
+                (int(xmin * scale + offset), int(ymin * scale + offset)),
+                (int(xmax * scale + offset), int(ymax * scale + offset)),
+                (255, 255, 255), 1
+            )
+
+        # Plot all valid points in green
+        for point in points:
+            x, y = int(point[0] * scale + offset), int(point[1] * scale + offset)
+            cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
+
+        # Plot cluster centers in red + text
+        for i, (roi_index, center) in enumerate(cluster_centers):
+            if center is not None:
+                self.roi_cluster_mapping[roi_index] = (center[0], center[1])
+                x_center = int(center[0] * scale + offset)
+                y_center = int(center[1] * scale + offset)
+                cv2.circle(img, (x_center, y_center), 8, (0, 0, 255), -1)
+                cluster_text = f"R{roi_index}:({center[0]:.2f},{center[1]:.2f})"
+                cv2.putText(img, cluster_text, (10, 20 + i * 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            else:
+                self.roi_cluster_mapping[roi_index] = "No Data"
+
+        cv2.imshow(window_name, img)
+        cv2.waitKey(1)
+
+    def publish_roi_marker(self, roi: Tuple[float, float, float, float], marker_id: int):
+        """Publish ROI rectangle as a LINE_STRIP marker in RViz."""
+        rectangle_points = self.calculate_roi_rectangle(roi)
+
+        marker = Marker()
+        marker.header.frame_id = "base_link"  # or your base frame
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.id = marker_id
+        marker.type = Marker.LINE_STRIP
+        marker.action = Marker.ADD
+        marker.scale = Vector3(x=0.05, y=0.0, z=0.0)
+        marker.color = ColorRGBA(a=1.0, r=0.0, g=0.0, b=1.0)  # Blue
+
+        # Convert rectangle points to geometry_msgs/Point
+        marker.points = [Point(x=p[0], y=p[1], z=0.0) for p in rectangle_points]
+        self.roi_pub.publish(marker)
+
+    def calculate_roi_rectangle(self, roi: Tuple[float, float, float, float]) -> List[Tuple[float, float]]:
+        """Return the 5 points (corners + repeat the first) for a rectangle in order."""
+        xmin, xmax, ymin, ymax = roi
+        return [
+            (xmin, ymin),
+            (xmax, ymin),
+            (xmax, ymax),
+            (xmin, ymax),
+            (xmin, ymin)  # close the rectangle
+        ]
+
+    def publish_cluster_centers(self, cluster_centers_all_rois: List[Tuple[int, Optional[np.ndarray]]]):
+        """Publish cluster center info as a String message on 'map2'."""
+        message_data = []
+        for roi_index, cluster_center in cluster_centers_all_rois:
+            if cluster_center is not None:
+                msg_str = f"ROI {roi_index}: ({cluster_center[0]:.2f}, {cluster_center[1]:.2f})"
+            else:
+                msg_str = f"ROI {roi_index}: No Cluster"
+            message_data.append(msg_str)
+        # Convert to a single String message
+        msg = String()
+        msg.data = "\n".join(message_data)
+        self.cluster_pub.publish(msg)
+        self.get_logger().info("Published cluster centers to 'map2'.")
+
+
+########################################
+# Node 3: Twin LIDAR Aggregator Node
+########################################
+class TwinLidarNode(Node):
+    """
+    Aggregates cluster data from 'map1' (right LIDAR) and 'map2' (left LIDAR).
+    Once both data are received, processes them, publishes combined results,
+    and shuts down the node.
+    """
+    def __init__(self):
+        super().__init__('twin_lidar_node')
+
+        # Subscribing to cluster center topics
+        self.subscription_1 = self.create_subscription(String, 'map1', self.callback_1, 10)
+        self.subscription_2 = self.create_subscription(String, 'map2', self.callback_2, 10)
+
+        # Publisher for final result
+        self.result_publisher = self.create_publisher(String, 'pallet_detection_results', 10)
+
+        # Buffers for accumulating data
+        self.lidar1_data = None
+        self.lidar2_data = None
+
+        self.get_logger().info("Twin Lidar Node Initialized for Single Processing")
+
+    def callback_1(self, msg: String):
+        """Callback for the cluster data from the Right LIDAR (map1)."""
+        self.get_logger().info("Received data from map1")
+        self.lidar1_data = self.parse_cluster_data(msg.data)
+        self.try_process_combined_data()
+
+    def callback_2(self, msg: String):
+        """Callback for the cluster data from the Left LIDAR (map2)."""
+        self.get_logger().info("Received data from map2")
+        self.lidar2_data = self.parse_cluster_data(msg.data)
+        self.try_process_combined_data()
+
+    def parse_cluster_data(self, data: str) -> List[Optional[Tuple[float, float]]]:
+        """
+        Parse lines like:
+          "ROI 1: (x,y)"
+          "ROI 2: No Cluster"
+        into a list of (x,y) or None in corresponding ROI index order.
+        """
+        clusters = [None] * 9  # Assuming 9 ROIs
+        lines = data.split('\n')
+        for line in lines:
+            line = line.strip()
+            if "No Cluster" in line:
+                try:
+                    roi_index = int(line.split(':')[0].split()[1]) - 1
+                    clusters[roi_index] = None
+                except (IndexError, ValueError):
+                    self.get_logger().error(f"Failed to parse ROI index in line: {line}")
+            elif '(' in line and ')' in line:
+                try:
+                    roi_part, coords_part = line.split(':')
+                    roi_index = int(roi_part.split()[1]) - 1
+                    coords = coords_part.strip().strip('()')
+                    x, y = map(float, coords.split(','))
+                    clusters[roi_index] = (x, y)
+                except (IndexError, ValueError) as e:
+                    self.get_logger().error(f"Failed to parse line: {line} with error {e}")
+        return clusters
+
+    def try_process_combined_data(self):
+        """
+        Check if data from both Lidar nodes have been received.
+        If so, process and publish the combined data, then shutdown.
+        """
+        if self.lidar1_data is not None and self.lidar2_data is not None:
+            # Combine the data from both LIDARs
+            combined_data = []
+            for c1, c2 in zip(self.lidar1_data, self.lidar2_data):
+                if c1 is not None and c2 is not None:
+                    combined_data.append((
+                        round((c1[0] + c2[0]) / 2, 2),
+                        round((c1[1] + c2[1]) / 2, 2)
+                    ))
+                elif c1 is not None:
+                    combined_data.append(c1)
+                elif c2 is not None:
+                    combined_data.append(c2)
+                else:
+                    combined_data.append(None)
+
+            # Publish the results
+            self.publish_results(combined_data)
+
+            # Shutdown the ROS2 system
+            # self.get_logger().info("Shutting down after publishing results.") 
+            # rclpy.shutdown()
+
+    def publish_results(self, combined_data: List[Optional[Tuple[float, float]]]):
+        """
+        Publish:
+          1) Pallet presence (Yes/No) if >=6 clusters are detected
+          2) Middle offset: difference from an "ideal" position, e.g., ROI #2 vs. (0.0, 0.3)
+          3) Angle offset: angle computed from ROI #1 and ROI #3
+        """
+        # 1) Pallet presence
+        clusters_detected = sum(1 for c in combined_data if c is not None)
+        pallet_present = (clusters_detected >= 6)
+
+        # 2) Middle offset (example: ROI #2 is "middle")
+        ideal_position = (0.0, 0.3)
+
+
+        # 3) Angle offset (example: using ROI #1 and ROI #3)
+        if len(combined_data) >= 3 and combined_data[0] is not None and combined_data[1] is not None:
+            x1, y1 = combined_data[0]
+            x2, y2 = combined_data[2]
+            obs_x, obs_y = (x1+x2)/2 , (y1+y2)/2
+            dx = obs_x - ideal_position[0]
+            dy = obs_y - ideal_position[1]
+            middle_offset = f"dx={dx:.2f}, dy={dy:.2f}"
+
+            if abs(x2 - x1) > 1e-9:
+                slope = (y2 - y1) / (x2 - x1)
+                angle_rad = np.arctan(slope)
+                angle_deg = np.degrees(angle_rad)
+                angle_offset = f"{angle_deg:.2f} degrees"
+            else:
+                angle_offset = "90.00 degrees (vertical line)"
+        else:
+            angle_offset = "No Data"
+            middle_offset = "No Data"
+        # Build final string
+        result_message = (
+            f"Pallet Present: {'Yes' if pallet_present else 'No'}, "
+            f"Middle Offset: {middle_offset}, "
+            f"Angle Offset: {angle_offset}"
+        )
+        self.result_publisher.publish(String(data=result_message))
+        self.get_logger().info(f"Published Results: {result_message}")
+        print(result_message)
+
+
+########################################
+# Main: Spin all 3 nodes together
+########################################
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Create the three nodes
+    node_right = LidarClusteringNodeRight()
+    node_left = LidarClusteringNodeLeft()
+    node_twin = TwinLidarNode()
+
+    # Use a MultiThreadedExecutor to run multiple nodes concurrently
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(node_right)
+    executor.add_node(node_left)
+    executor.add_node(node_twin)
+
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Shutdown procedure
+        executor.shutdown()
+        node_right.destroy_node()
+        node_left.destroy_node()
+        node_twin.destroy_node()
+        if rclpy.ok():
+            try:
+                rclpy.shutdown()
+            except RuntimeError as e:
+                # Log the error and continue
+                print(f"Shutdown error: {e}")
+
+if __name__ == '__main__':
+    main()

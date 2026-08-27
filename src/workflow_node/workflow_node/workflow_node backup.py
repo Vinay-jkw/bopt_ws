@@ -1,11 +1,8 @@
-import argparse
 import random
 import subprocess
 import signal
 import sys
 import time
-
-import yaml
 from geometry_msgs.msg import PoseStamped
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import rclpy
@@ -66,6 +63,7 @@ import can
 import networkx as nx
 import json
 from sys import argv
+
 from collections import deque
 import threading
 from paho.mqtt import client as mqtt_client
@@ -78,9 +76,6 @@ ws_path = os.getenv('WS_PATH')
 databasepath = '/home/lenovo/bopt_ws/src/task_allocator/Vehicles.db'#os.getenv('DATABASE_PATH_VEH')
 databasepathuser=os.getenv('DATABASE_PATH_USERS')
 bt_path=os.getenv('BT_PATH')
-ROBOT_IP = os.getenv("ROBOT_IP") 
-ROBOT_ID = os.getenv("ROBOT_ID") 
-MQTT_BROKER =os.getenv('MQTT_BROKER') 
 
 global cancel_status
 
@@ -96,73 +91,50 @@ class SafetyPublisher(Node):
         print("publishers_created")
 
 class WorkflowHandler(Node):
-    def __init__(self, movement=None, action=None, params=None):
+    def __init__(self, movement=None, action=None):
         super().__init__('workflow_handler')
-
-        self.robot_id = params['robot_id']
-        self.robot_ip = params['robot_ip']
-        self.mqtt_broker = params['mqtt_broker']
-        self.database_path = params['database_path']
-        self.graphml_path = params['graphml_path']
-        self.constructed_rs_path = params['constructed_rs_path']
-        self.parking_gap_threshold = params['parking_gap_threshold']
-        self.movement_gap_threshold = params['movement_gap_threshold']
-        self.rs_path_scale = params['rs_path_scale']
-        self.rs_path_turn_radius = params['rs_path_turn_radius']
-        self._params_spline_path = params['spline_path']
-        self._params_parking_control = params['parking_control']
-        self._params_pp_control = params['pp_control']
-
+        
         # self.ltn_feedback_publisher = self.create_publisher(String, '/load_transporter_feedback', 10)
         # self.ltn_task_publisher = self.create_publisher(String, '/load_transporter_current_task', 10)
         # self.ltn_current_state_publisher = self.create_publisher(String, '/load_transporter_current_state', 10)
 
         # SERVER_HOST = '192.168.68.53'  # Replace with your server's IP address
         # SERVER_PORT = 12345
-        # self.task_id=task_id
         self.movement = movement
         self.action = action
         self.operation_state = '0'
         publisher = SafetyPublisher()
         self.publisher_ = publisher.publisher_ #safety pub
 
-        self.task_request_pub = self.create_publisher(String, f'{self.robot_id}/task_request', 10)
-        print(f"BROKER: {self.mqtt_broker}, ROBOT IP: {self.robot_ip}")
-        self.mqtt_node = mqttClient(self.mqtt_broker) # sys manager address
-        self.mqtt_node._client_host_ip = self.robot_ip # robot address
+        self.task_request_pub = self.create_publisher(String, 'Bopt1/task_request', 10)
+
+        self.mqtt_node = mqttClient('192.168.68.63') # sys manager address
+        self.mqtt_node._client_host_ip = "192.168.68.55" # robot address
         self.mqtt_node.loop_start()
 
         #get location data from db
         self.error_status = None
         
 
-        self.left_easy_dock_dict, self.right_easy_dock_dict, self.dock_location_dict, self.dock_station_end_line_dict, self.station_level_dict = self.fetch_location_data_from_db()
+        self.left_easy_dock_dict, self.right_easy_dock_dict, self.dock_location_dict, self.dock_station_end_line_dict = self.fetch_location_data_from_db()
         print(self.dock_location_dict, 'loc_dict')
+        
         
 
         self.location_id = self.movement
         print(self.location_id)
-        print(self.station_level_dict)
-
-        self.action_level = self.station_level_dict[self.location_id]
-
-        print(self.action_level, 'action level')
-
-
 
         self.left_easy_dock = self.left_easy_dock_dict[self.location_id]
         self.right_easy_dock = self.right_easy_dock_dict[self.location_id]
         self.dock_location = self.dock_location_dict[self.location_id]
         self.dock_station_end_line = self.dock_station_end_line_dict[self.location_id]
 
-        # self.parking_location = self.dock_station_end_line_dict['Parking']
-        # self.parking_dock_location = self.dock_location_dict['Parking']
+        self.parking_location = self.dock_station_end_line_dict['Parking']
+        self.parking_dock_location = self.dock_location_dict['Parking']
 
         print(self.left_easy_dock, self.right_easy_dock, self.dock_location, self.dock_station_end_line, 'check this')
-
-        self.path_in_nodes=[]
-
-        G_loaded = nx.read_graphml(self.graphml_path)
+        
+        G_loaded = nx.read_graphml('/home/fbots/bopt_v2_ws/src/workflow_node/map_details/FB_warehouse_V2_waypoints.graphml')
         # Convert position strings back to tuples
 
         for node, data in G_loaded.nodes(data=True):
@@ -177,8 +149,7 @@ class WorkflowHandler(Node):
 
     def fetch_location_data_from_db(self):
         # Path to the SQLite database file
-        db_path = '/home/jkw/bopt_ws/src/workflow_node/map_details/demo_map_wn.db'
-        print("DB========", db_path)
+        db_path = '/home/fbots/bopt_v2_ws/src/workflow_node/map_details/FB_warehouse_V2_wn.db'
 
         # Connect to the SQLite database
         conn = sqlite3.connect(db_path)
@@ -197,7 +168,7 @@ class WorkflowHandler(Node):
         # Execute each query and store the results in a DataFrame
         for table_name, query in queries.items():
             dataframes[table_name] = pd.read_sql(query, conn)
-        # print('printing',dataframes['dock_station_end_line'])
+        print(dataframes)
 
         # Execute each query and store the results in a DataFrame
         for table_name, query in queries.items():
@@ -235,20 +206,11 @@ class WorkflowHandler(Node):
             coord_cols=['station_x', 'station_y', 'pose_z', 'pose_w']
         )
 
-        # Create a station_name : level dictionary from dock_station_end_line
-        station_level_dict = {}
-
-        df = dataframes['dock_station_end_line']
-        if 'station_name' in df.columns and 'level' in df.columns:
-            station_level_dict = dict(zip(df['station_name'], df['level']))
-
         # Close the database connection
         conn.close()
-        # print(left_easy_dock_dict, right_easy_dock_dict, dock_location_dict, dock_station_end_line_dict, station_level_dict, 'fetched from db')
+        return left_easy_dock_dict, right_easy_dock_dict, dock_location_dict, dock_station_end_line_dict
 
-        return left_easy_dock_dict, right_easy_dock_dict, dock_location_dict, dock_station_end_line_dict, station_level_dict
 
-    
     def send_data(self, message, retries=1, delay=3):
         """
         Attempt to send data to a specified IP and port with retries.
@@ -263,7 +225,7 @@ class WorkflowHandler(Node):
         Returns:
         str: The response from the server or an error message.
         """
-        ip = '192.168.68.52'
+        ip = '192.168.68.65'
         port = 12345
         for attempt in range(retries):
             try:
@@ -346,38 +308,41 @@ class WorkflowHandler(Node):
 
     def apds(self):
         result = subprocess.run(["ros2", "run", "lidar_clustering", "lidar_clustering_node_once"], capture_output=True, text=True)
-        output = result.stdout if result.stdout.strip() else result.stderr
+        
+
         # Define the regex pattern to extract the required information
         pattern = (
             r'Pallet Present:\s*(?P<present>\w+),\s*'
-            r'Middle Offset:\s*dx=(?P<dx>[-+]?\d*\.?\d+),\s*dy=(?P<dy>[-+]?\d*\.?\d+)'
-            r'(?:,\s*Angle Offset:\s*(?P<angle>[-+]?\d*\.?\d+)\s*degrees)?'
+            r'Middle Offset:\s*dx=(?P<dx>[-\d.]+),\s*dy=(?P<dy>[-\d.]+),\s*'
+            #r'Angle Offset:\s*(?P<angle>[-\d.]+)\s*degrees'
         )
 
-        match = re.search(pattern, output)
+        # Search for the pattern in stdout
+        match = re.search(pattern, result.stdout)
 
         if match:
+            # Extracted values
             present = match.group('present')
             dx = float(match.group('dx'))
             dy = float(match.group('dy'))
-            angle = match.group('angle')
-            angle = float(angle) if angle is not None else None
+            #angle = float(match.group('angle'))
 
+            # Display the extracted results
             print("\nExtracted Results:")
             print(f"Pallet Present: {present}")
             print(f"Middle Offset: dx={dx}, dy={dy}")
-            print(f"Angle Offset: {angle}")
-            
-            return present, dx, dy, angle
-
+            #print(f"Angle Offset: {angle} degrees")
+        
+            return present, dx, dy#, angle
         else:
+            # Handle the case where no match was found
             print("No pallet found")
-            return None, None, None, None
+            return None, None, None#, None
 
     def is_movement_needed(self):
         gap_from_dock = self.euclidean_distance(get_current_pose(), self.dock_location)
         print('GFD',gap_from_dock)
-        if gap_from_dock > self.movement_gap_threshold:
+        if gap_from_dock > 0.2:
             return True
         else:
             return False
@@ -385,7 +350,7 @@ class WorkflowHandler(Node):
     def is_at_parking(self):
         gap = self.euclidean_distance(get_current_pose(), self.parking_location)
         # print('GFD',gap_from_dock)
-        if gap < self.parking_gap_threshold:
+        if gap < 0.2:
             return True
         else:
             return False
@@ -396,43 +361,35 @@ class WorkflowHandler(Node):
         self.thread1= Thread(target=self.normal_field,) #to change later
         self.thread1.start()
 
+
         print(self.movement, self.action)
         # is_movement_needed?
         # print(self.is_movement_needed(), 'IMN')
-        # print('before M' , get_pap_status())
+        print('before M' , get_pap_status())
 
-        # if self.is_at_parking() == True:
-        #     print('at parking')
-        #     self.thread1= Thread(target=self.pickdrop_field,) #to change later
-        #     self.thread1.start()
-        #     self.drive_rs_path(self.parking_dock_location, 'slow')
+        if self.is_at_parking() == True:
+            print('at parking')
+            self.thread1= Thread(target=self.pickdrop_field,) #to change later
+            self.thread1.start()
+            self.drive_rs_path(self.parking_dock_location, 'slow')
 
-        #     self.thread1= Thread(target=self.normal_field,) #to change later
-        #     self.thread1.start()
+            self.thread1= Thread(target=self.normal_field,) #to change later
+            self.thread1.start()
+
 
         if self.is_movement_needed() == False:
             pass
         else:
             self.movement_operation(self.movement)
-
-        # print('After M')
-        # # self.movement_operation(self.movement)
-        # print('After M')
-        # self.action_operation(self.action)
+        print('After M')
+        self.action_operation(self.action)
         print('after A')
-
-
         if self.error_status != None:
             pass
         else:
             self.mqtt_node.publish2topic("machine/task/status", "Task ended")
-        #     self.task_request_pub.publish(String(data=f"Task Completed:{self.task_id}"))
-        print("Movement operation completed successfully.")
-        msg = String()
-        msg.data = f"Task Completed"
-        self.task_request_pub.publish(msg)
 
-        # self.mqtt_node.disconnect()
+        self.mqtt_node.disconnect()
         return True
 
     def parking_control(self, lateral_offset):
@@ -442,7 +399,7 @@ class WorkflowHandler(Node):
         rs_path_waypoints = []
         LATERAL_OFFSET = lateral_offset
         BACKUP_DISTANCE = 0.8
-        PALLET_LENGTH = 1.4
+        PALLET_LENGTH = 1.3
         current_pose = get_current_pose()
         rx = current_pose[0]
         ry = current_pose[1]
@@ -476,11 +433,11 @@ class WorkflowHandler(Node):
         #     pickle.dump(waypoints, file)
 
         # rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=0.75, rev_drive=False)
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(waypoints, file)
 
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-            "--path_file", self.constructed_rs_path
+            "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
             ], capture_output=True, text=True)
         
         
@@ -517,22 +474,22 @@ class WorkflowHandler(Node):
             current_pose = end_pose_tuple
 
 
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(waypoints, file)
 
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_park",
-            "--path_file", self.constructed_rs_path
+            "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
             ], capture_output=True, text=True)
         #add pose_correction
 
     def pp_control(self, lateral_offset):
         print('inside pp')
-        SCALE = self._params_pp_control['scale']
-        step_size = self._params_pp_control['step_size']
+        SCALE = 1
+        step_size = 0.01
         rs_path_waypoints = []
         LATERAL_OFFSET = lateral_offset
-        BACKUP_DISTANCE = self._params_pp_control['backup_distance']
-        PALLET_LENGTH = self._params_pp_control['pallet_length']
+        BACKUP_DISTANCE = 0.6
+        PALLET_LENGTH = 1.3
         current_pose = get_current_pose()
         rx = current_pose[0]
         ry = current_pose[1]
@@ -542,13 +499,13 @@ class WorkflowHandler(Node):
             ((rx / SCALE) * SCALE,
                 (ry / SCALE) * SCALE,
                 robotO,
-                self._params_pp_control['turn_radius_first'] * SCALE, self._params_pp_control['runway_length_first'] * SCALE),
+                0.9 * SCALE, 0 * SCALE),
             
 
             ((rx / SCALE - math.cos(robotO) * BACKUP_DISTANCE) * SCALE,
                 (ry / SCALE - math.sin(robotO) * BACKUP_DISTANCE) * SCALE,
                 robotO,
-                self._params_pp_control['turn_radius_second'] * SCALE, self._params_pp_control['runway_length_second'] * SCALE),  # x, y, orientation, tr, runway
+                0.9 * SCALE, 1 * SCALE),  # x, y, orientation, tr, runway
             
         ]
 
@@ -566,11 +523,11 @@ class WorkflowHandler(Node):
         #     pickle.dump(waypoints, file)
 
         # rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=0.75, rev_drive=False)
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(waypoints, file)
 
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-            "--path_file", self.constructed_rs_path
+            "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
             ], capture_output=True, text=True)
         
         
@@ -583,17 +540,17 @@ class WorkflowHandler(Node):
             ((rx/ SCALE) * SCALE,
                 (ry / SCALE) * SCALE,
                 robotO,
-                self._params_pp_control['turn_radius_third'] * SCALE, self._params_pp_control['runway_length_third'] * SCALE),
+                0.3 * SCALE, 0 * SCALE),
 
             (rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO),
                 ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO),
-                robotO, self._params_pp_control['turn_radius_fourth'] * SCALE, self._params_pp_control['runway_length_fourth'] * SCALE),  # x, y, orientation, tr, runway
+                robotO, 0.3 * SCALE, 0 * SCALE),  # x, y, orientation, tr, runway
 
 
             ( rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO) + PALLET_LENGTH * math.cos(robotO),
                 ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO) + PALLET_LENGTH * math.sin(robotO),
                 robotO,
-            self._params_pp_control['turn_radius_fifth'] * SCALE, self._params_pp_control['runway_length_fifth'] * SCALE),
+            0.3 * SCALE, -1 * SCALE),
         ]
 
         waypoints = []
@@ -607,24 +564,24 @@ class WorkflowHandler(Node):
             current_pose = end_pose_tuple
 
 
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(waypoints, file)
 
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_pp",
-            "--path_file", self.constructed_rs_path
+            "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
             ], capture_output=True, text=True)
         #add pose_correction
 
 
     def drive_rs_path(self, location, drive_type, adjust=True):
         #drive back to dock
-        rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=self.rs_path_turn_radius, rev_drive=False, SCALE=self.rs_path_scale)
+        rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=0.75, rev_drive=False)
 
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(rs_path, file)
         
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_" + drive_type,
-        "--path_file", self.constructed_rs_path
+        "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
         ], capture_output=True, text=True)
 
         if adjust == True:
@@ -635,14 +592,12 @@ class WorkflowHandler(Node):
         return True
 
     def action_operation(self, action):
-        print('in action op', action, self.action_level)
-        #drive-`12` 
+        #drive-`12`
         self.thread1= Thread(target=self.pickdrop_field,) #to change later
         self.thread1.start()
         
-        # print('======',self.action_level == '0')
 
-        if action == 'Pickup' and self.action_level == '0':
+        if action == 'Pickup':
             print('inpickup')
             #go for deep pickup till pallet found
             #replace with drive_rs_path
@@ -650,18 +605,13 @@ class WorkflowHandler(Node):
             if self.operation_state < '3':
                 self.drive_rs_path(self.dock_station_end_line, 'dp')
                 #align if needed
-                present, dx, dy, angle = self.apds()
-                # time.sleep(5)
-                # print(present)
-                # print(dx)
-                # print(dy)
+                present, dx, dy = self.apds()
+
                 if dx is None:
                     self.mqtt_node.publish2topic("machine/task/status", "Pallet_Not_Present")
                     self.error_status = "Pallet_Not_Present"
                     # #drive back to dock
                     self.drive_rs_path(self.dock_location, 'slow', adjust=False)
-                    self.thread1= Thread(target=self.pickdrop_field,) #to change later
-                    
                     self.thread1.start()
                     return True
                 
@@ -674,91 +624,19 @@ class WorkflowHandler(Node):
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
                 
             if self.operation_state < '4':
-                #modufy forkup command for stacker
-                self.set_lift_height(0.40)     #  --- Height of lift during pallet pickup
+                #forkup
+                self.fork_up()
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
 
             if self.operation_state < '5':
                 #drive back to dock
                 self.drive_rs_path(self.dock_location, 'slow', adjust=False)
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
-
-                
-        elif action == 'Pickup' and self.action_level == '1':
-            print('inpickup max')
-            #go for deep pickup till pallet found
-            #replace with drive_rs_path
-
-            # raise height till platform
-            
-            self.set_lift_height(1.56)
-            time.sleep(12)
-            self.set_lift_height(1.5)
-
-                #if get_low_status():
-
-            # check if space at the bottom
-            # if there is
-
-            if get_low_status() == True:
-                print('no space at bottom')
-                self.mqtt_node.publish2topic("machine/task/status", "No_Space_At_Bottom")
-                self.error_status = "No_Space_At_Bottom"
-                self.mqtt_node.disconnect()
-                self.thread1= Thread(target=self.pickdrop_field,)
-                self.thread1.start()
-                return True
-
-
-            # detect and slot pallet
-            # lift upto L1
-            # return to dock
-
-
-            
-            if self.operation_state < '3':
-                self.drive_rs_path(self.dock_station_end_line, 'dp')
-                #align if needed
-                present, dx, dy, angle = self.apds()
-
-                if dx is None:
-                    self.mqtt_node.publish2topic("machine/task/status", "Pallet_Not_Present")
-                    self.error_status = "Pallet_Not_Present"
-                    # #drive back to dock
-                    self.drive_rs_path(self.dock_location, 'slow', adjust=False)
-                    self.thread1= Thread(target=self.pickdrop_field,) #to change later
-                    
-                    self.thread1.start()
-                    return True
-                
-                #drive for pallet
-                if abs(dx) >= 0.04:
-                    self.pp_control(dx)
-                else:
-                    self.drive_rs_path(self.dock_station_end_line, 'pp', adjust=False)
-                    
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
-                
-            if self.operation_state < '4':
-                #modufy forkup command for stacker
-                self.set_lift_height(1.56)
-                print('lifted to 1.56')
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
-
-            if self.operation_state < '5':
-                #drive back to dock
-                self.drive_rs_path(self.dock_location, 'slow', adjust=False)
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
-
-            time.sleep(5)
-            self.set_lift_height(0.25)
-            time.sleep(10)
-
             
 
             
         
-        elif action == 'Drop' and self.action_level == '0':
+        elif action == 'Drop':
             print('pap==', get_pap_status())
 
             if self.operation_state < '3':
@@ -767,7 +645,6 @@ class WorkflowHandler(Node):
                     self.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
                     self.error_status = "Pallet_Already_Present"
                     self.mqtt_node.disconnect()
-                    self.thread1= Thread(target=self.pickdrop_field,)
                     self.thread1.start()
                     return True
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
@@ -781,18 +658,18 @@ class WorkflowHandler(Node):
             if self.operation_state < '5':
                 #align if needed
                 #forkdown
-                self.set_lift_height(0.0)
+                self.fork_down()
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
 
 
             #drive back to dock
-            rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=self.rs_path_turn_radius, rev_drive=False, SCALE=self.rs_path_scale)
+            rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=0.75, rev_drive=False)
 
-            with open(self.constructed_rs_path, 'wb') as file:
+            with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
                 pickle.dump(rs_path, file)
 
             result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-            "--path_file", self.constructed_rs_path
+            "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
             ], capture_output=True, text=True)
 
             command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
@@ -802,72 +679,9 @@ class WorkflowHandler(Node):
             if self.operation_state < '6':
                 run_command_with_retry(command)
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
-
-        elif action == 'Drop' and self.action_level == '1':
-            self.set_lift_height(1.56)
-            #timer so op completes
-            time.sleep(12)
-
-            #check low status
-            #if clear, yet to be done
-            if get_low_status() == True:
-                self.mqtt_node.publish2topic("machine/task/status", "No_Space_At_Bottom")
-                self.error_status = "No_Space_At_Bottom"
-                self.mqtt_node.disconnect()
-                self.thread1= Thread(target=self.pickdrop_field,)
-                self.thread1.start()
-                return True
-            
-
-
-            print('pap==', get_pap_status())
-
-            if self.operation_state < '3':
-                if get_pap_status():
-                    # self.send_data(b"Error:E001")
-                    self.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
-                    self.error_status = "Pallet_Already_Present"
-                    self.mqtt_node.disconnect()
-                    self.thread1= Thread(target=self.pickdrop_field,)
-                    self.thread1.start()
-                    return True
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
-                
-
-            if self.operation_state < '4':
-                print(' indrop', self.dock_station_end_line)
-                self.drive_rs_path(self.dock_station_end_line, 'dd')
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
-
-            if self.operation_state < '5':
-                #align if needed
-                #forkdown
-                self.set_lift_height(1.54)
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
-
-
-            #drive back to dock
-            rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=self.rs_path_turn_radius, rev_drive=False, SCALE=self.rs_path_scale)
-
-            with open(self.constructed_rs_path, 'wb') as file:
-                pickle.dump(rs_path, file)
-
-            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-            "--path_file", self.constructed_rs_path
-            ], capture_output=True, text=True)
-
-            command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
-                                    str(self.dock_location[1]), str(self.dock_location[2]),
-                                    str(self.dock_location[3])]
-            
-            if self.operation_state < '6':
-                run_command_with_retry(command)
-                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
-
-            self.set_lift_height(0.0)
 
         elif 'Parking' == action:
-            present, dx, dy, angle = self.apds()
+            present, dx, dy = self.apds()
             print('parking dx', dx)
             self.parking_control(dx)
             # self.drive_rs_path(self.dock_station_end_line, 'park', adjust=False)
@@ -935,8 +749,6 @@ class WorkflowHandler(Node):
                 self.drive_rs_path(self.dock_location, 'slow')
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
 
-        else:
-            print("Action Mismatch")
         if action != 'Parking':
             self.thread1 = Thread(target=self.normal_field,) #to change later
             self.thread1.start()
@@ -951,22 +763,6 @@ class WorkflowHandler(Node):
         command = "ros2 service call /byd/send_command example_interfaces/srv/Command \"{command: 'up'}\""
         # subprocess.call() is blocking by default
         retcode = subprocess.call(command, shell=True)
-
-    def set_lift_height(self, height: float):
-        """Set the lift/fork height in meters via ROS 2 service."""
-        cmd = [
-            "ros2", "service", "call",
-            "/set_lift_height",
-            "example_interfaces/srv/SetHeight",
-            f"{{height: {height}}}",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"set_lift_height failed (code {result.returncode}): "
-                f"{result.stderr or result.stdout}"
-            )
-        return result.returncode
 
     def find_left_or_right_dock(self, left_dock_pose, right_dock_pose, dock_pose, pose_to_compare, is_last_pose):
 
@@ -1042,27 +838,11 @@ class WorkflowHandler(Node):
         # Identify closest nodes to the input points
         node1 = closest_node(G, point1)
         node2 = closest_node(G, point2)
-        print(f'Closest node to point1 {point1} is {node1}')
-        print(f'Closest node to point2 {point2} is {node2}')
-        # try:
-        #     with open("/home/fbots/Nichiyu_RT/src/workflow_node/workflow_node/path_list.json", "r") as f:  # Use the same path you saved to
-        #         data = json.load(f)
-        #         path = data.get("path", [])
-        #         print(f'Loaded path: {path}')
-        # except Exception as e:
-        #     self.get_logger().error(f"Failed to load path_list from file: {e}")
+    
         # Find the shortest path between these two nodes
         path = nx.shortest_path(G, source=node1, target=node2)
-        print(path)
-
-        self.path_in_nodes=path
-
-        # path = path[:-1]
-        print("path in nodes ------------------------------------------------------------------------------",self.path_in_nodes)
-        
-
         path_coords = [G.nodes[node]['position'] for node in path]
-        print("hkjhhkjhhjkhkjhk", path_coords)
+    
         # Calculate angles between successive coordinates
         path_coords_with_quaternions = []
         for i in range(len(path_coords) - 1):
@@ -1149,13 +929,6 @@ class WorkflowHandler(Node):
 
         # Extract coordinates (scaled)
         points = [(wp[0] * scale, wp[1] * scale) for wp in graph_path]
-        unique_points = [points[0]]
-        for p in points[1:]:
-            if p != unique_points[-1]:
-                unique_points.append(p)
-            else:
-                print(f"Duplicate point {p} removed.")
-        points = unique_points
         xs = [p[0] for p in points]
         ys = [p[1] for p in points]
 
@@ -1216,7 +989,7 @@ class WorkflowHandler(Node):
         # ----------------------------------------------------------------
         # Compute final heading at the end of the path
         # If you want it strictly to match final_yaw, you can do so
-        runway_steps = self._params_spline_path['runway_steps']  # number of sub-steps for runway
+        runway_steps = 20  # number of sub-steps for runway
         step_length = runway_length / runway_steps if runway_steps > 0 else 0.0
 
         if runway_length > 0:
@@ -1225,7 +998,7 @@ class WorkflowHandler(Node):
                 x_new = final_point[0] + i * step_length * math.cos(final_yaw)
                 y_new = final_point[1] + i * step_length * math.sin(final_yaw)
                 smoothed_coords.append((float(x_new), float(y_new)))
-        # print(smoothed_coords, 'asdjkladsjkldasjkldasjkladsjkl')
+
         return smoothed_coords       
 
     def generate_rs_path(self, start_pose, graph_path, turn_radius, rev_drive, SCALE=1):
@@ -1283,79 +1056,68 @@ class WorkflowHandler(Node):
         
         point1 = get_current_pose()[:2]
         point2 = self.dock_location[:2] #smart selection of easy dock 
-        print(f"Current Pose: {point1}, Dock Location: {point2}")
+
         path_coords_with_quaternions = self.find_path_and_angles_between_points(self.G_loaded, point1, point2)
-        print(f"path with quaternanions:---{path_coords_with_quaternions}")
         path_coords_with_quaternions = self.filter_points_within_radius(point1, path_coords_with_quaternions, 2.0)
         path_coords_with_quaternions = self.filter_points_within_radius(point2, path_coords_with_quaternions, 2.0)
 
-        # if self.operation_state < '1':
-        if len(path_coords_with_quaternions) != 0:
-            print('check=======')
-            end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, path_coords_with_quaternions[-1], is_last_pose=True)
+        if self.operation_state < '1':
+            if len(path_coords_with_quaternions) != 0:
+                end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, path_coords_with_quaternions[-1], is_last_pose=True)
 
-            waypoints = []
-            waypoints.append(get_current_pose())
+                waypoints = []
+                waypoints.append(get_current_pose())
 
-            for waypoint in path_coords_with_quaternions:
-                waypoints.append(waypoint)
-            
-            waypoints.append(end_easy_dock)
-            # waypoints.append(self.dock_location)
-            # waypoints.append(self.dock_station_end_line)
-            ##Generate spline path using waypoints
-            spline_path = self.generate_spline_path(waypoints[0], waypoints[1:], scale=self._params_spline_path['scale'], runway_length=self._params_spline_path['runway_length'], spacing=self._params_spline_path['spacing'])
+                for waypoint in path_coords_with_quaternions:
+                    waypoints.append(waypoint)
+                
+                waypoints.append(end_easy_dock)
+                ##Generate spline path using waypoints
+                spline_path = self.generate_spline_path(waypoints[0], waypoints[1:])
 
-            with open('/home/jkw/Nichiyu_RT_Single/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
-                pickle.dump(self.path_in_nodes, file)
+                with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+                    pickle.dump(spline_path, file)
 
-            with open(self.constructed_rs_path, 'wb') as file:
-                pickle.dump(spline_path, file)
+                result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
+                "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+                ], capture_output=True, text=True)
+            else:
+                current_pose = get_current_pose()
+                end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, current_pose, is_last_pose=True)
+                
+                waypoints = []
+                waypoints.append(current_pose)
+                
+                waypoints.append(end_easy_dock)
+                ##Generate spline path using waypoints
+                spline_path = self.generate_spline_path(waypoints[0], waypoints[1:])
 
-            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
-            "--path_file", self.constructed_rs_path
-            ], capture_output=True, text=True)
+                with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+                    pickle.dump(spline_path, file)
 
-        else:
-            current_pose = get_current_pose()
-            end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, current_pose, is_last_pose=True)
-            
-            waypoints = []
-            waypoints.append(current_pose)
-            
-            waypoints.append(end_easy_dock)
-            ##Generate spline path using waypoints
-            spline_path = self.generate_spline_path(waypoints[0], waypoints[1:])
-            
-            with open('/home/jkw/Nichiyu_RT_Single/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
-                pickle.dump(self.path_in_nodes, file)
-
-            with open(self.constructed_rs_path, 'wb') as file:
-                pickle.dump(spline_path, file)
-
-            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
-            "--path_file", self.constructed_rs_path
-            ], capture_output=True, text=True)
-        self.mqtt_node.publish2topic('machine/task/status', 'operation_state=1')
+                result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
+                "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+                ], capture_output=True, text=True)
+            self.mqtt_node.publish2topic('machine/task/status', 'operation_state=1')
 
         if self.operation_state < '2':
             ##Generate path from easy dock to dock
             self.drive_rs_path(self.dock_location, 'slow', adjust=True)
             self.mqtt_node.publish2topic('machine/task/status', 'operation_state=2')
 
-        rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=0.75, rev_drive=False)
+        # rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=0.75, rev_drive=False)
 
-        with open('/home/jkw/Nichiyu_RT_Single/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
-            pickle.dump(rs_path, file)
+        # with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+        #     pickle.dump(rs_path, file)
 
-        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-        "--path_file", "/home/jkw/Nichiyu_RT_Single/src/workflow_node/workflow_node/constructed_rs_path.pkl"
-        ], capture_output=True, text=True)
+        # result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
+        # "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+        # ], capture_output=True, text=True)
 
-        command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
-                                str(self.dock_location[1]), str(self.dock_location[2]),
-                                str(self.dock_location[3])]
-        run_command_with_retry(command)
+        # command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
+        #                         str(self.dock_location[1]), str(self.dock_location[2]),
+        #                         str(self.dock_location[3])]
+        # run_command_with_retry(command)
 
         return True
         
@@ -1403,59 +1165,59 @@ class WorkflowHandler(Node):
         return distance
     
 
-    # def get_locations_and_waypoints(self):
-    #     print(os.path.exists(self.databasepath))  # Should return True
-    #     connection = sqlite3.connect(self.databasepath)
-    #     cur = connection.cursor()
-    #     station_locations={}
-    #     flow_matrix={}
-    #     flow_matrix_park={}
-    #     rev_flow_matrix={}
-    #     easy_station_locations={}
-    #     easy_station_location_rev={}
-    #     doc_station_locations={}
-    #     pick_flow={}
-    #     rev_pick_flow={}
+    def get_locations_and_waypoints(self):
+        print(os.path.exists(self.databasepath))  # Should return True
+        connection = sqlite3.connect(self.databasepath)
+        cur = connection.cursor()
+        station_locations={}
+        flow_matrix={}
+        flow_matrix_park={}
+        rev_flow_matrix={}
+        easy_station_locations={}
+        easy_station_location_rev={}
+        doc_station_locations={}
+        pick_flow={}
+        rev_pick_flow={}
      
-    #     for rows in cur.execute("SELECT * FROM location"):
-    #         station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #     i=0
-    #     for rows in cur.execute("SELECT * FROM waypoints"):
-    #         flow_matrix[i]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #         i+=1
+        for rows in cur.execute("SELECT * FROM location"):
+            station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        i=0
+        for rows in cur.execute("SELECT * FROM waypoints"):
+            flow_matrix[i]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            i+=1
 
-    #     l=0
-    #     for rows in cur.execute("SELECT * FROM waypoints_pick"):
-    #         pick_flow[l]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #         l+=1  
+        l=0
+        for rows in cur.execute("SELECT * FROM waypoints_pick"):
+            pick_flow[l]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            l+=1  
 
-    #     m=14
-    #     for rows in cur.execute("SELECT * FROM rev_waypoints_pick"):
-    #         rev_pick_flow[m]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #         m-=1        
+        m=14
+        for rows in cur.execute("SELECT * FROM rev_waypoints_pick"):
+            rev_pick_flow[m]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            m-=1        
         
-    #     k=70    
-    #     for rows in cur.execute("SELECT * FROM waypoints_park"):
-    #         flow_matrix_park[k]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        k=70    
+        for rows in cur.execute("SELECT * FROM waypoints_park"):
+            flow_matrix_park[k]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
             
-    #         k-=1
+            k-=1
 
-    #     j=73    
-    #     for rows in cur.execute("SELECT * FROM waypoints_rev"):
-    #         rev_flow_matrix[j]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        j=73    
+        for rows in cur.execute("SELECT * FROM waypoints_rev"):
+            rev_flow_matrix[j]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
             
-    #         j-=1    
-    #     print("pick_flow---",pick_flow)    
-    #     for rows in cur.execute("SELECT * FROM easy_station_loc"):
-    #         easy_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #     for rows in cur.execute("SELECT * FROM easy_station_loc_rev"):
-    #         easy_station_location_rev[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            j-=1    
+        print("pick_flow---",pick_flow)    
+        for rows in cur.execute("SELECT * FROM easy_station_loc"):
+            easy_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        for rows in cur.execute("SELECT * FROM easy_station_loc_rev"):
+            easy_station_location_rev[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
 
-    #     for rows in cur.execute("SELECT * FROM doc_station_loc"):
-    #         doc_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
-    #     print(station_locations, easy_station_locations, flow_matrix, doc_station_locations)
+        for rows in cur.execute("SELECT * FROM doc_station_loc"):
+            doc_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        print(station_locations, easy_station_locations, flow_matrix, doc_station_locations)
         
-    #     return station_locations, easy_station_locations, flow_matrix, doc_station_locations,rev_flow_matrix,easy_station_location_rev,flow_matrix_park,pick_flow,rev_pick_flow
+        return station_locations, easy_station_locations, flow_matrix, doc_station_locations,rev_flow_matrix,easy_station_location_rev,flow_matrix_park,pick_flow,rev_pick_flow
     
     def pub_fb(self,fb_string):
         pub_str = fb_string
@@ -1539,137 +1301,43 @@ def kill_child_processes(parent_pid, sig=signal.SIGTERM):
     for p in still_alive:
         p.kill()
 
-def load_node_params(defaults, config_keys, config_file_arg):
-    """
-    Load and merge YAML parameters for one node.
-
-    :param defaults: dict of default param_name -> default_value
-    :param config_keys: list of nested keys to reach this node's section in the YAML
-                        e.g. ['apds', 'lidar_clustering', 'lidar_clustering_combined_once']
-    :param config_file_arg: path from --config-file, or empty string
-    :return: merged dict of param_name -> value
-    """
-    # 1) decide which file to use
-    if config_file_arg and os.path.isfile(config_file_arg):
-        path = config_file_arg
-    else:
-        cwd_path = os.path.join(os.getcwd(), 'amr_config.yaml')
-        path = cwd_path if os.path.isfile(cwd_path) else None
-
-    # 2) load YAML if available
-    if path:
-        with open(path, 'r') as f:
-            full_cfg = yaml.safe_load(f) or {}
-        # drill down into the nested keys
-        node_cfg = full_cfg
-        for key in config_keys:
-            node_cfg = node_cfg.get(key, {})
-        if not isinstance(node_cfg, dict):
-            node_cfg = {}
-        # merge, giving precedence to file
-        merged = defaults.copy()
-        merged.update(node_cfg)
-        return merged
-
-    # 3) fallback: no file found
-    return defaults.copy()
-
 
 def main(args=None):
     rclpy.init(args=args)
-    parser = argparse.ArgumentParser(
-        description="Workflow Node ROS2 node loading params from YAML"
-    )
-    parser.add_argument(
-        '--config-file', '-c',
-        default='',
-        help='Full path to amr_config.yaml (overrides workspace root file)'
-    )
-    args, ros_cli_args = parser.parse_known_args()
-    robot_id = os.getenv('ROBOT_ID', 'EP_006')  # Default to 'EP_006' if not set
-    defaults = {
-        "database_path": "/home/jkw/Nichiyu_RT_Single/src/workflow_node/map_details/demo_map_wn.db",
-        "graphml_path": "/home/jkw/Nichiyu_RT_Single/src/workflow_node/map_details/demo_map_waypoints.graphml",
-        "constructed_rs_path": "/home/jkw/Nichiyu_RT_Single/src/workflow_node/constructed_rs_path.pkl",
-        "robot_id": "EP_006",
-        "mqtt_broker": "127.0.0.1",
-        "robot_ip": "192.168.68.102",
-        "parking_gap_threshold": 0.2,
-        "movement_gap_threshold": 0.2,
-        "rs_path_scale": 1,
-        "rs_path_turn_radius": 0.75,
-        "spline_path": {
-            "scale": 1.0,
-            "runway_length": 0.0,
-            "spacing": 0.01,
-            "runway_steps": 20
-        },
-        "parking_control": {
-            "scale": 1,
-            "step_size": 0.01,
-            "backup_distance": 0.8,
-            "pallet_length": 1.3,
-            "turn_radius_first": 0.9,
-            "runway_length_first": 0,
-            "turn_radius_second": 0.9,
-            "runway_length_second": 1,
-            "turn_radius_third": 0.3,
-            "runway_length_third": 0,
-            "turn_radius_fourth": 0.3,
-            "runway_length_fourth": 0,
-            "turn_radius_fifth": 0.3,
-            "runway_length_fifth": -1
-        },
-        "pp_control": {
-            "scale": 1,
-            "step_size": 0.01,
-            "backup_distance": 0.6,
-            "pallet_length": 1.3,
-            "turn_radius_first": 0.9,
-            "runway_length_first": 0,
-            "turn_radius_second": 0.9,
-            "runway_length_second": 1,
-            "turn_radius_third": 0.3,
-            "runway_length_third": 0,
-            "turn_radius_fourth": 0.3,
-            "runway_length_fourth": 0,
-            "turn_radius_fifth": 0.3,
-            "runway_length_fifth": -1
-        }
-    }
-    
-    config_keys = [
-        'workflow_node',  # Top-level key for this node
-        'workflow_node',       # Second-level key for MQTT bridge settings
-    ]
 
-    params = load_node_params(defaults, config_keys, args.config_file)
-    signal.signal(signal.SIGRTMIN, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
     # signal.signal(signal.SIGTERM, signal_handler)  # Handle SIGTERM (termination signal)
     print(os.getpid())
 
 
     # Check if source and destination are provided as command-line arguments
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print("Usage: ros2 run <your_package_name> workflow_node <movement> <action>")
         rclpy.shutdown()
         return
     print(sys.argv)
-    # movement = sys.argv[1]  
-    # action = sys.argv[2]
-
-    # operation_state = str(sys.argv[3]) if len(sys.argv) > 3 else '0'
-    # task_id=sys.argv[1]
     movement = sys.argv[1]
     action = sys.argv[2]
-    state_id = int(sys.argv[3]) if len(sys.argv) > 3 else '0'
+    operation_state = str(sys.argv[3]) if len(sys.argv) > 3 else '0'
+
     # Create an instance of WorkflowHandler and set action and movement
-    workflow_handler = WorkflowHandler(movement, action, params)
-    workflow_handler.operation_state = state_id
+    workflow_handler = WorkflowHandler(movement, action)
+    workflow_handler.operation_state = operation_state
     
     
     operations = {
         1: lambda: workflow_handler.operation(),
+        # 2: lambda: workflow_handler.precise_control_to_dock(),
+        # 3: lambda: transporter.go_for_pallet_pickup(),
+        # 4: lambda: transporter.drive_back_to_dock(),
+        # 5: lambda: transporter.reorient_to_flow(),
+        # 6: lambda: transporter.pose_correct_on_flow_after_lift(),
+        # 7: lambda: transporter.go_to_drop_off_easy_dock_using_flow(),
+        # 8: lambda: transporter.precise_control_to_drop_off_dock(),
+        # 9: lambda: transporter.go_for_pallet_drop(),
+        # 10: lambda: transporter.drive_back_from_drop_off(),
+        # 11: lambda: transporter.reorient_to_flow_after_drop_off(),
+        # 12: lambda: transporter.pose_correct_on_flow_after_drop()
     }
 
     # # Start from a specific point in the sequence if state_id is provided
@@ -1680,7 +1348,65 @@ def main(args=None):
     for state, operation in operations.items():
         if state >= start_point:
             stat=operation()  # Execute the operation
-           
+            # if stat == False:
+            #     if state==3:
+            #         error_state=3
+            #         start_point=11
+            #     elif state==8:
+            #         error_state=8
+            #         start_point=13    
+            #         des=transporter.destination_name
+            #         # subprocess.run(["ros2 run load_transporter_node load_transporter_node_v6 "+str(des)+" "+'buffer'+" 5","arguments"],shell=True)
+            #         break
+            #     elif state==9:
+            #         error_state=9
+            #         start_point=13    
+            #         des=transporter.destination_name
+            #         # subprocess.run(["ros2 run load_transporter_node load_transporter_node_v6 "+str(des)+" "+'buffer'+" 5","arguments"],shell=True)
+            #         break
+            # Add any necessary error handling or status checking here
+    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #         s.connect(('192.168.68.57', 65434))
+    #         s.sendall(b"Request Info")
+    #         data = s.recv(1024).decode()
+    #         print(f"Received: {data}")
+
+    
+    # des=transporter.destination_name
+    # if des!="buffer":
+        
+    #     try:
+    #         # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #         #         s.connect(('192.168.68.57', 65434))
+    #         if error_found == False:
+    #             if error_state==3:
+    #                 transporter.send_data(b"Pallet_Not_Present")
+    #                 # transporter.send_data(b"Task ended")
+    #             elif error_state in [8, 9]:
+    #                 transporter.send_data(b"task_incomplete_pallet_not_dropped")
+    #                 # transporter.send_data(b"Task ended")    
+    #             else:
+    #                 transporter.send_data(b"Task ended")    
+    #         else:
+    #             transporter.send_data(b"Task ended")
+    #                 # data = s.recv(1024).decode()
+    #         print('Transporter sequence completed:', transporter.sequence_complete)
+    #     except Exception as e:
+    #         print(e)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # time.sleep(3)
+    # transporter.sequence_complete = True
+    # print(transporter.next_task)
+    # if transporter.next_task=="Parking":
+    #     transporter.task_park()
+    
+
+    # transporter.destroy_node()
     print('here')
 
     workflow_handler.sequence_complete = True
@@ -1783,29 +1509,6 @@ class PapNode(Node):
 
     def pap_callback(self, msg):
         self.pap_status = msg.data
-
-def get_low_status():
-    node = LowNode()
-    while rclpy.ok():
-        rclpy.spin_once(node)
-        if node.low_status is not None:
-            break
-    low_status = node.low_status
-
-    node.destroy_node()
-    return low_status
-
-class LowNode(Node):
-    def __init__(self):
-        super().__init__('low_field_oocupied_node')
-        qos_settings = QoSProfile(depth=10)
-        qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
-        
-        self.pose_sub = self.create_subscription(Bool, '/low_field_status', self.low_callback, qos_settings)
-        self.low_status=False
-
-    def low_callback(self, msg):
-        self.low_status = msg.data
 
 def get_current_odot_state():
     node = CurrentOdotStateNode()
