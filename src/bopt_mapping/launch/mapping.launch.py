@@ -37,9 +37,24 @@ def generate_launch_description():
             {"use_sim_time": use_sim_time},
         ],
     )
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[
+            os.path.join(
+                get_package_share_directory("bopt_mapping"),
+                "config",
+                "ekf.yaml"
+            ),
+            {"use_sim_time": use_sim_time},
+        ],
+    )
 
     return LaunchDescription([
         use_sim_time_arg,
         slam_config_arg,
-        slam_toolbox,
+        ekf_node,
+        slam_toolbox
     ])
