@@ -195,7 +195,7 @@ def generate_launch_description():
         odometry_node,
         sensor_bridge,
 
-        # bopt_controller_delayed,
+        bopt_controller_delayed,
         localization_delayed,
         rviz
     ])
