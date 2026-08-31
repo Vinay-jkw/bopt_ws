@@ -23,7 +23,7 @@ def generate_launch_description():
     # 🔴 Use full filename directly
     world_name_arg = DeclareLaunchArgument(
         name="world_name",
-        default_value="test.world"
+        default_value="empty.world"
     )
 
     # 🟢 Clean path join (NO PythonExpression)

@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:arg name="robot_namespace" default=""/>
+    <xacro:arg name="robot_param_node" default="robot_state_publisher"/>
 
     <!-- ================================================================
          GAZEBO MATERIALS
@@ -427,10 +429,20 @@
          ROS 2 CONTROL PLUGIN
          ================================================================ -->
     <gazebo>
-        <plugin name="ign_ros2_control::IgnitionROS2ControlPlugin" filename="ign_ros2_control-system">
+        <plugin name="ign_ros2_control::IgnitionROS2ControlPlugin"
+                filename="ign_ros2_control-system">
+
             <robot_param>robot_description</robot_param>
             <robot_param_node>robot_state_publisher</robot_param_node>
-            <parameters>$(find bopt_description)/config/controller.yaml</parameters>
+
+            <parameters>
+                $(find bopt_description)/config/controller.yaml
+            </parameters>
+
+            <ros>
+                <namespace>$(arg robot_name)</namespace>
+            </ros>
+
         </plugin>
     </gazebo>
 
