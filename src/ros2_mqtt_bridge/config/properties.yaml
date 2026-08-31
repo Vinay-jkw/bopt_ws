@@ -1,0 +1,40 @@
+ros2_mqtt_bridge:
+  mqtt_bridge:
+    mqtt_broker: "127.0.0.1"      # Or use: !ENV ${MQTT_BROKER}
+    mqtt_port: 1883
+    reconnect_delay: 5
+    robot_id: "BYD005"              # Or use: !ENV ${ROBOT_ID}
+    robot_ip: "192.168.68.95"         # Or use: !ENV ${ROBOT_IP}
+    robot_length: 0.45
+    robot_width: 0.45
+    ros2_topics:
+      current_pose: "current_pose"
+      path: "path"
+      holded_nodes: "holded_nodes"
+      odometry: "odometry/filtered"
+      remaining_path: "remaining_path"
+      task_request: "/task_request"
+      add_nodes: "add_nodes"
+      local_path_active: "BYD005/local_path_active"
+      task: "BYD005/task"
+      conflict_action: "/conflict_action"
+      task_action: "BYD005/task_action"
+      safety_status: "/safety_status"
+      robot_dimensions: "robot_dimensions"
+    mqtt_topics:
+      path: "BYD005/path"
+      task: "BYD005/task"
+      holded_nodes: "BYD005/holded_nodes"
+      conflict_action: "BYD005/conflict_action"
+      task_action: "BYD005/task_action"
+      action_response: "fms/action_response"
+      local_path_active: "BYD005/local_path_active"
+      current_pose: "BYD005/current_pose"
+      task_request: "BYD005/task_request"
+      dimensions: "BYD005/dimensions"
+      odometry: "BYD005/odometry"
+      remaining_path: "BYD005/remaining_path"
+      safety_status: "BYD005/safety_status"
+      add_nodes: "BYD005/add_nodes"
+    publish_dimensions_period: 5.0
+    path_list_file: "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/path_list.json"

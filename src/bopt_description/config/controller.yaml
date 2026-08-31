@@ -1,4 +1,4 @@
-controller_manager:
+/**/controller_manager:
   ros__parameters:
     update_rate: 100
 
@@ -14,7 +14,8 @@ controller_manager:
     lift_joint_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
-traction_joint_controller:
+
+/**/traction_joint_controller:
   ros__parameters:
     joints:
       - drive_wheel_joint
@@ -22,7 +23,7 @@ traction_joint_controller:
     interface_name: velocity
 
 
-steering_joint_controller:
+/**/steering_joint_controller:
   ros__parameters:
     joints:
       - drive_wheel_Ass_joint
@@ -30,7 +31,7 @@ steering_joint_controller:
     interface_name: position
 
 
-lift_joint_controller:
+/**/lift_joint_controller:
   ros__parameters:
     joints:
       - front_lift_joint
@@ -42,19 +43,16 @@ lift_joint_controller:
       - position
       - velocity
 
-    # Trajectory execution settings
     allow_partial_joints_goal: false
     open_loop_control: false
 
     constraints:
-      stopped_velocity_tolerance: 0.2   # m/s  — tolerance to consider "stopped"
-      goal_time: 3.0                     # seconds — max time to reach goal
+      stopped_velocity_tolerance: 0.2
+      goal_time: 3.0
 
-    # PID gains for the trajectory follower
     gains:
       front_lift_joint:
         p: 220000.0
         i: 50000.0
-        d: 4000.0 
+        d: 4000.0
         i_clamp: 50000.0
-
