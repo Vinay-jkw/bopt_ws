@@ -52,21 +52,21 @@ class BOPTController(Node):
         # --- Subscribers ---
         self.create_subscription(
             Twist,
-            '/cmd_vel',
+            'cmd_vel',
             self.cmd_vel_twist_callback,
             10
         )
 
         self.create_subscription(
             Float64,
-            '/lift_cmd',
+            'lift_cmd',
             self.lift_cmd_callback,
             10
         )
 
         self.create_subscription(
             JointState,
-            '/joint_states',
+            'joint_states',
             self.joint_state_callback,
             10
         )
@@ -74,19 +74,19 @@ class BOPTController(Node):
         # --- Publishers ---
         self.traction_pub = self.create_publisher(
             Float64MultiArray,
-            '/traction_joint_controller/commands',
+            'traction_joint_controller/commands',
             10
         )
 
         self.steering_pub = self.create_publisher(
             Float64MultiArray,
-            '/steering_joint_controller/commands',
+            'steering_joint_controller/commands',
             10
         )
 
         self.lift_pub = self.create_publisher(
             JointTrajectory,
-            '/lift_joint_controller/joint_trajectory',
+            'lift_joint_controller/joint_trajectory',
             10
         )
 
@@ -327,7 +327,10 @@ def main(args=None):
         except Exception:
             pass
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

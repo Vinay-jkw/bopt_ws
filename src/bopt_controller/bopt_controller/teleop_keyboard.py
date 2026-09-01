@@ -113,12 +113,12 @@ class BOPTKeyboard(Node):
         # --- Publishers ---
         self.cmd_vel_pub = self.create_publisher(
             Twist,
-            '/cmd_vel',
+            'cmd_vel',
             10
         )
         self.lift_pub = self.create_publisher(
             Float64,
-            '/lift_cmd',
+            'lift_cmd',
             10
         )
 

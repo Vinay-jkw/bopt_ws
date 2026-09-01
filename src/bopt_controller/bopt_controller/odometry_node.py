@@ -19,6 +19,22 @@ class BoptOdometry(Node):
         # =====================================================
         # PARAMETERS
         # =====================================================
+        self.robot_name = self.declare_parameter(
+            'robot_name',
+            ''
+        ).value
+
+        self.odom_frame = (
+            f'{self.robot_name}/odom'
+            if self.robot_name
+            else 'odom'
+        )
+
+        self.base_frame = (
+            f'{self.robot_name}/base_footprint'
+            if self.robot_name
+            else 'base_footprint'
+        )
 
         self.drive_wheel_radius = self.declare_parameter(
             'drive_wheel_radius',
@@ -77,7 +93,7 @@ class BoptOdometry(Node):
 
         self.joint_state_subscription = self.create_subscription(
             JointState,
-            '/joint_states',
+            'joint_states',
             self.joint_state_callback,
             50
         )
@@ -88,7 +104,7 @@ class BoptOdometry(Node):
 
         self.odom_publisher = self.create_publisher(
             Odometry,
-            '/odom',
+            'odom',
             10
         )
 
@@ -371,9 +387,10 @@ class BoptOdometry(Node):
 
         odom.header.stamp = stamp.to_msg()
 
-        odom.header.frame_id = 'odom'
+        odom.header.frame_id = self.odom_frame
 
-        odom.child_frame_id = 'base_footprint'
+        odom.child_frame_id = self.base_frame
+
 
         # Position
 
@@ -425,9 +442,9 @@ class BoptOdometry(Node):
 
         transform.header.stamp = stamp.to_msg()
 
-        transform.header.frame_id = 'odom'
+        transform.header.frame_id = self.odom_frame
 
-        transform.child_frame_id = 'base_footprint'
+        transform.child_frame_id = self.base_frame
 
         transform.transform.translation.x = (
             self.odom_x
@@ -470,7 +487,10 @@ def main(args=None):
 
         node.destroy_node()
 
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
