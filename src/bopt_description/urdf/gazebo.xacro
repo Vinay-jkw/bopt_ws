@@ -156,7 +156,7 @@
           <update_rate>100</update_rate>
           <gz_frame_id>imu_link</gz_frame_id>
           <visualize>true</visualize>
-          <topic>imu</topic>
+          <topic>$(arg robot_namespace)/imu</topic>
           <imu>
             <angular_velocity>
               <x>
@@ -208,7 +208,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/front/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/front/scan</topic>
             <gz_frame_id>toplidar_front</gz_frame_id>
             <lidar>
                 <scan>
@@ -239,7 +239,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/back/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/back/scan</topic>
             <gz_frame_id>toplidar_back</gz_frame_id>
             <lidar>
                 <scan>
@@ -270,7 +270,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/left/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/left/scan</topic>
             <gz_frame_id>LLt</gz_frame_id>
             <lidar>
                 <scan>
@@ -301,7 +301,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/right/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/right/scan</topic>
             <gz_frame_id>LRt</gz_frame_id>
             <lidar>
                 <scan>
@@ -332,11 +332,11 @@
             <always_on>true</always_on>
             <visualize>true</visualize>
 
-            <topic>/lidar/top3dl/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/top3dl/scan</topic>
 
             <update_rate>20</update_rate>
 
-            <gz_frame_id>top3dl_link</gz_frame_id>
+            <gz_frame_id>$(arg robot_namespace)/top3dl_link</gz_frame_id>
 
             <lidar>
             <scan>
@@ -370,7 +370,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/front/right/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/front/right/scan</topic>
             <gz_frame_id>front_lidar_frame_right</gz_frame_id>
             <lidar>
                 <scan>
@@ -400,7 +400,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>/lidar/front/left/scan</topic>
+            <topic>$(arg robot_namespace)/lidar/front/left/scan</topic>
             <gz_frame_id>front_lidar_frame_left</gz_frame_id>
             <lidar>
                 <scan>

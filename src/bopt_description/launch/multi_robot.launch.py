@@ -57,6 +57,9 @@ def spawn_robot_with_params(
 
             "amcl.ros__parameters.odom_frame_id":
                 f"{robot_name}/odom",
+
+            "amcl.ros__parameters.scan_topic":
+                f"/{robot_name}/lidar/top3dl/scan",
         },
         convert_types=True,
     )
@@ -207,6 +210,8 @@ def spawn_robot_with_params(
             {
                 "robot_description": robot_description,
                 "use_sim_time": True,
+                "frame_prefix": f"{robot_name}/",
+
             }
         ],
         output="screen",
@@ -259,6 +264,27 @@ def spawn_robot_with_params(
             [
 
                 PushRosNamespace(robot_name),
+                # ==================================================
+                # LIDAR BRIDGE
+                # ==================================================
+
+                Node(
+                    package="ros_gz_bridge",
+                    executable="parameter_bridge",
+                    name="lidar_bridge",
+                    output="screen",
+                    arguments=[
+                        f"/{robot_name}/lidar/top3dl/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/front/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/back/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/front/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/lidar/front/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+                        f"/{robot_name}/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
+                    ],
+                ),
+
 
                 # ==================================================
                 # BOPT CONTROLLER
