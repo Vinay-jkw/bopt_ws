@@ -73,7 +73,8 @@ class RobotClient(Node):
         self.pallet_detected = False
         self.finished = False
         # Load the lookup table
-        with open('/home/fbots/Nichiyu_RT/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        lookup_table_path = os.path.join(os.path.dirname(__file__), 'mpc_lookup_table_1.515.pkl')
+        with open(lookup_table_path, 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, self.linear_velocity_publisher_topic, 10)
@@ -220,6 +221,9 @@ class RobotClient(Node):
         self.state_publisher.publish(state_msg)
 
     def read_path_in_nodes_from_file(self, file_path):
+        if not file_path or not os.path.exists(file_path):
+            self.get_logger().warn(f"Path in nodes file does not exist or not provided yet: {file_path}")
+            return
         with open(file_path, 'rb') as f:
             self.path_in_nodes = pickle.load(f)
         self.path_in_nodes_received = True
@@ -227,6 +231,9 @@ class RobotClient(Node):
         print("DEstinatioon",self.destination)
         
     def read_path_from_file(self, file_path):
+        if not file_path or not os.path.exists(file_path):
+            self.get_logger().warn(f"Path file does not exist or not provided yet: {file_path}")
+            return
         with open(file_path, 'rb') as f:
             self.path = pickle.load(f)
         self.path_received = True

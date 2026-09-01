@@ -1,4 +1,5 @@
 import argparse
+import os
 import math
 import json
 import time
@@ -29,7 +30,7 @@ class RobotClient(Node):
         super().__init__('robot_client')
 
         self.declare_parameter('goal_tolerance', 0.05)
-        self.declare_parameter('path_file', '/home/fbots/Nichiyu_RT/src/load_transporter_node/load_transporter_node/constructed_rs_path.pkl')
+        self.declare_parameter('path_file', '')
 
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.horizon = 5
@@ -45,7 +46,8 @@ class RobotClient(Node):
         self.finished = False
 
         # Load the lookup table
-        with open('/home/fbots/Nichiyu_RT/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        lookup_table_path = os.path.join(os.path.dirname(__file__), 'mpc_lookup_table_1.515.pkl')
+        with open(lookup_table_path, 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
@@ -106,6 +108,9 @@ class RobotClient(Node):
         self.state_publisher.publish(state_msg)
 
     def read_path_from_file(self, file_path):
+        if not file_path or not os.path.exists(file_path):
+            self.get_logger().warn(f"Path file does not exist or not provided yet: {file_path}")
+            return
         with open(file_path, 'rb') as f:
             self.path = pickle.load(f)
         self.path_received = True
