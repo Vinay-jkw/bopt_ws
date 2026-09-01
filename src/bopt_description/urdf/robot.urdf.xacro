@@ -3,6 +3,7 @@
 
     <xacro:arg name="robot_name" default=""/>
     <xacro:arg name="robot_namespace" default=""/>
+    <xacro:arg name="lidar_frame" default="top3dl_link"/>
     <xacro:arg name="robot_param_node" default="robot_state_publisher"/>
 
     <xacro:property name="robot_name" value="$(arg robot_name)"/>

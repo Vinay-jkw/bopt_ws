@@ -190,6 +190,8 @@ def spawn_robot_with_params(
             robot_name,
             " robot_namespace:=",
             robot_name,
+            " lidar_frame:=",
+            f"{robot_name}/top3dl_link",
         ]),
         value_type=str,
     )

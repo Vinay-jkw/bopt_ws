@@ -336,7 +336,7 @@
 
             <update_rate>20</update_rate>
 
-            <gz_frame_id>$(arg robot_namespace)/top3dl_link</gz_frame_id>
+            <gz_frame_id>$(arg lidar_frame)</gz_frame_id>
 
             <lidar>
             <scan>
