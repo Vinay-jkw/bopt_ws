@@ -73,8 +73,7 @@ class RobotClient(Node):
         self.pallet_detected = False
         self.finished = False
         # Load the lookup table
-        lookup_table_path = os.path.join(os.path.dirname(__file__), 'mpc_lookup_table_1.515.pkl')
-        with open(lookup_table_path, 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, self.linear_velocity_publisher_topic, 10)
@@ -221,9 +220,6 @@ class RobotClient(Node):
         self.state_publisher.publish(state_msg)
 
     def read_path_in_nodes_from_file(self, file_path):
-        if not file_path or not os.path.exists(file_path):
-            self.get_logger().warn(f"Path in nodes file does not exist or not provided yet: {file_path}")
-            return
         with open(file_path, 'rb') as f:
             self.path_in_nodes = pickle.load(f)
         self.path_in_nodes_received = True
@@ -231,9 +227,6 @@ class RobotClient(Node):
         print("DEstinatioon",self.destination)
         
     def read_path_from_file(self, file_path):
-        if not file_path or not os.path.exists(file_path):
-            self.get_logger().warn(f"Path file does not exist or not provided yet: {file_path}")
-            return
         with open(file_path, 'rb') as f:
             self.path = pickle.load(f)
         self.path_received = True
@@ -278,7 +271,7 @@ class RobotClient(Node):
 
     def fetch_location_data_from_db(self):
         # Path to the SQLite database file
-        db_path = '/home/fbots/Nichiyu_RT/src/workflow_node/map_details/ground_floor_map_color_wn.db'
+        db_path = '/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_wn.db'
 
         # Connect to the SQLite database
         conn = sqlite3.connect(db_path)
@@ -471,9 +464,9 @@ class RobotClient(Node):
             self.path_in_nodes = local_path
 
             # Optionally save to files if needed:
-            with open('/home/fbots/Nichiyu_RT/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
+            with open('/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
                 pickle.dump(self.path_in_nodes, file)
-            with open('/home/fbots/Nichiyu_RT/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+            with open('/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
                 pickle.dump(spline_path, file)
 
             self.path_received = True

@@ -177,11 +177,8 @@ class WorkflowHandler(Node):
 
     def fetch_location_data_from_db(self):
         # Path to the SQLite database file
-        db_path = self.database_path
+        db_path = '/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_wn.db'
         print("DB========", db_path)
-
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Database file not found: {db_path}")
 
         # Connect to the SQLite database
         conn = sqlite3.connect(db_path)
@@ -196,6 +193,11 @@ class WorkflowHandler(Node):
 
         # Dictionary to store the data from each table
         dataframes = {}
+
+        # Execute each query and store the results in a DataFrame
+        for table_name, query in queries.items():
+            dataframes[table_name] = pd.read_sql(query, conn)
+        # print('printing',dataframes['dock_station_end_line'])
 
         # Execute each query and store the results in a DataFrame
         for table_name, query in queries.items():
@@ -689,9 +691,9 @@ class WorkflowHandler(Node):
 
             # raise height till platform
             
-            self.set_lift_height(0.95)
+            self.set_lift_height(1.56)
             time.sleep(12)
-            self.set_lift_height(0.9)
+            self.set_lift_height(1.5)
 
                 #if get_low_status():
 
@@ -739,8 +741,8 @@ class WorkflowHandler(Node):
                 
             if self.operation_state < '4':
                 #modufy forkup command for stacker
-                self.set_lift_height(0.95)
-                print('lifted to 0.94')
+                self.set_lift_height(1.56)
+                print('lifted to 1.56')
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
 
             if self.operation_state < '5':
@@ -802,7 +804,7 @@ class WorkflowHandler(Node):
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
 
         elif action == 'Drop' and self.action_level == '1':
-            self.set_lift_height(0.95)
+            self.set_lift_height(1.56)
             #timer so op completes
             time.sleep(12)
 
@@ -1304,8 +1306,7 @@ class WorkflowHandler(Node):
             ##Generate spline path using waypoints
             spline_path = self.generate_spline_path(waypoints[0], waypoints[1:], scale=self._params_spline_path['scale'], runway_length=self._params_spline_path['runway_length'], spacing=self._params_spline_path['spacing'])
 
-            constructed_nodes_path = os.path.join(os.path.dirname(self.constructed_rs_path), 'constructed_rs_path_in_nodes.pkl')
-            with open(constructed_nodes_path, 'wb') as file:
+            with open('/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
                 pickle.dump(self.path_in_nodes, file)
 
             with open(self.constructed_rs_path, 'wb') as file:
@@ -1314,8 +1315,6 @@ class WorkflowHandler(Node):
             result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
             "--path_file", self.constructed_rs_path
             ], capture_output=True, text=True)
-            if result.returncode != 0:
-                self.get_logger().error(f"nmpc_controller_v2_fast failed: {result.stderr}")
 
         else:
             current_pose = get_current_pose()
@@ -1328,8 +1327,7 @@ class WorkflowHandler(Node):
             ##Generate spline path using waypoints
             spline_path = self.generate_spline_path(waypoints[0], waypoints[1:])
             
-            constructed_nodes_path = os.path.join(os.path.dirname(self.constructed_rs_path), 'constructed_rs_path_in_nodes.pkl')
-            with open(constructed_nodes_path, 'wb') as file:
+            with open('/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
                 pickle.dump(self.path_in_nodes, file)
 
             with open(self.constructed_rs_path, 'wb') as file:
@@ -1338,8 +1336,6 @@ class WorkflowHandler(Node):
             result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
             "--path_file", self.constructed_rs_path
             ], capture_output=True, text=True)
-            if result.returncode != 0:
-                self.get_logger().error(f"nmpc_controller_v2_fast failed: {result.stderr}")
         self.mqtt_node.publish2topic('machine/task/status', 'operation_state=1')
 
         if self.operation_state < '2':
@@ -1349,14 +1345,12 @@ class WorkflowHandler(Node):
 
         rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=0.75, rev_drive=False)
 
-        with open(self.constructed_rs_path, 'wb') as file:
+        with open('/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
             pickle.dump(rs_path, file)
 
         result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
-        "--path_file", self.constructed_rs_path
+        "--path_file", "/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
         ], capture_output=True, text=True)
-        if result.returncode != 0:
-            self.get_logger().error(f"nmpc_controller_v2_slow failed: {result.stderr}")
 
         command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
                                 str(self.dock_location[1]), str(self.dock_location[2]),
@@ -1581,29 +1575,6 @@ def load_node_params(defaults, config_keys, config_file_arg):
     return defaults.copy()
 
 
-def resolve_package_path(subpath):
-    """
-    Search for a resource file in package share directory, workspace source directory,
-    or current directory.
-    """
-    candidates = []
-    try:
-        from ament_index_python.packages import get_package_share_directory
-        share_dir = get_package_share_directory('workflow_node')
-        candidates.append(os.path.join(share_dir, subpath))
-    except Exception:
-        pass
-
-    ws_path = os.getenv('WS_PATH', '/home/jkw/bopt_ws')
-    candidates.append(os.path.join(ws_path, 'src', 'workflow_node', subpath))
-    candidates.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), subpath))
-
-    for p in candidates:
-        if os.path.exists(p):
-            return p
-    return candidates[0] if candidates else subpath
-
-
 def main(args=None):
     rclpy.init(args=args)
     parser = argparse.ArgumentParser(
@@ -1614,22 +1585,13 @@ def main(args=None):
         default='',
         help='Full path to amr_config.yaml (overrides workspace root file)'
     )
-    parser.add_argument('movement', nargs='?', default=None, help='Target movement location')
-    parser.add_argument('action', nargs='?', default=None, help='Target action')
-    parser.add_argument('state_id', nargs='?', default=None, help='Initial state ID')
-    parsed_args, ros_cli_args = parser.parse_known_args()
-
+    args, ros_cli_args = parser.parse_known_args()
     robot_id = os.getenv('ROBOT_ID', 'EP_006')  # Default to 'EP_006' if not set
-
-    # Determine default paths
-    ws_path = os.getenv('WS_PATH', '/home/jkw/bopt_ws')
-    constructed_rs_path_default = os.path.join(ws_path, 'src', 'workflow_node', 'constructed_rs_path.pkl')
-
     defaults = {
-        "database_path": os.getenv("DATABASE_PATH_WN", resolve_package_path(os.path.join("map_details", "demo_map_wn.db"))),
-        "graphml_path": os.getenv("GRAPHML_PATH_WN", resolve_package_path(os.path.join("map_details", "demo_map_waypoints.graphml"))),
-        "constructed_rs_path": constructed_rs_path_default,
-        "robot_id": robot_id,
+        "database_path": "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_wn.db",
+        "graphml_path": "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_waypoints.graphml",
+        "constructed_rs_path": "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl",
+        "robot_id": "EP_006",
         "mqtt_broker": "127.0.0.1",
         "robot_ip": "192.168.68.102",
         "parking_gap_threshold": 0.2,
@@ -1681,47 +1643,43 @@ def main(args=None):
         'workflow_node',       # Second-level key for MQTT bridge settings
     ]
 
-    params = load_node_params(defaults, config_keys, parsed_args.config_file)
+    params = load_node_params(defaults, config_keys, args.config_file)
     signal.signal(signal.SIGRTMIN, signal_handler)
+    # signal.signal(signal.SIGTERM, signal_handler)  # Handle SIGTERM (termination signal)
     print(os.getpid())
 
-    # Extract movement, action, state_id
-    if parsed_args.movement is not None and parsed_args.action is not None:
-        movement = parsed_args.movement
-        action = parsed_args.action
-        try:
-            state_id = int(parsed_args.state_id) if parsed_args.state_id is not None else 0
-        except (ValueError, TypeError):
-            state_id = 0
-    else:
-        # Check non-flag args from sys.argv as fallback
-        non_flag_args = [a for a in sys.argv[1:] if not a.startswith('-') and a not in [parsed_args.config_file]]
-        if len(non_flag_args) >= 2:
-            movement = non_flag_args[0]
-            action = non_flag_args[1]
-            try:
-                state_id = int(non_flag_args[2]) if len(non_flag_args) > 2 else 0
-            except (ValueError, TypeError):
-                state_id = 0
-        else:
-            print("Usage: ros2 run workflow_node workflow_node <movement> <action> [state_id]")
-            rclpy.shutdown()
-            return
 
-    print(f"Movement: {movement}, Action: {action}, State ID: {state_id}")
+    # Check if source and destination are provided as command-line arguments
+    if len(sys.argv) < 2:
+        print("Usage: ros2 run <your_package_name> workflow_node <movement> <action>")
+        rclpy.shutdown()
+        return
+    print(sys.argv)
+    # movement = sys.argv[1]  
+    # action = sys.argv[2]
 
+    # operation_state = str(sys.argv[3]) if len(sys.argv) > 3 else '0'
+    # task_id=sys.argv[1]
+    movement = sys.argv[1]
+    action = sys.argv[2]
+    state_id = int(sys.argv[3]) if len(sys.argv) > 3 else '0'
     # Create an instance of WorkflowHandler and set action and movement
     workflow_handler = WorkflowHandler(movement, action, params)
     workflow_handler.operation_state = state_id
+    
     
     operations = {
         1: lambda: workflow_handler.operation(),
     }
 
+    # # Start from a specific point in the sequence if state_id is provided
+    # error_found=False
+    # error_state=None
+    state_id = None
     start_point = state_id if state_id else 1
     for state, operation in operations.items():
         if state >= start_point:
-            stat = operation()  # Execute the operation
+            stat=operation()  # Execute the operation
            
     print('here')
 
