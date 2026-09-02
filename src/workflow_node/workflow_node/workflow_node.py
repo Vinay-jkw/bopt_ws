@@ -689,9 +689,9 @@ class WorkflowHandler(Node):
 
             # raise height till platform
             
-            self.set_lift_height(1.56)
+            self.set_lift_height(0.95)
             time.sleep(12)
-            self.set_lift_height(1.5)
+            self.set_lift_height(0.9)
 
                 #if get_low_status():
 
@@ -739,8 +739,8 @@ class WorkflowHandler(Node):
                 
             if self.operation_state < '4':
                 #modufy forkup command for stacker
-                self.set_lift_height(1.56)
-                print('lifted to 1.56')
+                self.set_lift_height(0.95)
+                print('lifted to 0.94')
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
 
             if self.operation_state < '5':
@@ -802,7 +802,7 @@ class WorkflowHandler(Node):
                 self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
 
         elif action == 'Drop' and self.action_level == '1':
-            self.set_lift_height(1.56)
+            self.set_lift_height(0.95)
             #timer so op completes
             time.sleep(12)
 

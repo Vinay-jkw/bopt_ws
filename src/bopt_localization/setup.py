@@ -43,6 +43,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'current_pose_publisher = bopt_localization.current_pose_publisher:main',
         ],
     },
 )

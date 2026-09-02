@@ -115,6 +115,26 @@ def generate_launch_description():
         ],
     )
 
+    # --------------------------------------------------
+    # Current Pose Publisher (TF -> /current_pose)
+    # --------------------------------------------------
+
+    current_pose_publisher = Node(
+        package="bopt_localization",
+        executable="current_pose_publisher",
+        name="current_pose_publisher",
+        output="screen",
+        parameters=[
+            {
+                "use_sim_time": use_sim_time,
+                "map_frame": "map",
+                "base_frame": "base_footprint",
+                "pose_topic": "current_pose",
+                "publish_rate": 20.0,
+            },
+        ],
+    )
+
     return LaunchDescription([
         map_name_arg,
         amcl_config_arg,
@@ -122,4 +142,5 @@ def generate_launch_description():
         nav2_map_server,
         nav2_amcl,
         nav2_lifecycle_manager,
+        current_pose_publisher,
     ])
