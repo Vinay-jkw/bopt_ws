@@ -1,0 +1,4 @@
+std_msgs/Header header
+float64 traction_velocity
+float64 steering_angle
+float64 lift_height

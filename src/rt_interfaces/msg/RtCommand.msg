@@ -1,5 +1,0 @@
-float64 traction_velocity
-float64 steering_angle
-float64 lift_height
-float64 reach_distance
-float64 tilt_angle

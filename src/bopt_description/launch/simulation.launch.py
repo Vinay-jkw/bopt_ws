@@ -117,15 +117,6 @@ def generate_launch_description():
         {'use_sim_time': True}
     ]
     )
-    velocity_steering_bridge = Node(
-        package='bopt_controller',
-        executable='velocity_steering_bridge',
-        name='velocity_steering_bridge',
-        output='screen',
-        parameters=[
-            {'use_sim_time': True}
-        ]
-    )
     sensor_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -202,7 +193,6 @@ def generate_launch_description():
         steering_controller,
         lift_controller,
         odometry_node,
-        velocity_steering_bridge,
         sensor_bridge,
 
         bopt_controller_delayed,

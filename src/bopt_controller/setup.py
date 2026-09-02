@@ -36,7 +36,10 @@ setup(
            'bopt_controller = bopt_controller.controller_node:main',
            'bopt_keyboard = bopt_controller.teleop_keyboard:main',
            'odometry_node = bopt_controller.odometry_node:main',
-           'velocity_steering_bridge = bopt_controller.velocity_steering_bridge:main',
+           'bopt_key = bopt_controller.bopt_key_node:main',
+           'bopt_twist_relay = bopt_controller.bopt_twist_relay:main',
+           'bopt_main_controller = bopt_controller.bopt_main_controller:main',
+           'bopt_hydraulic_controller = bopt_controller.bopt_hydraulic_controller:main',
         ],
     },
 )
