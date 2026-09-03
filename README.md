@@ -1,6 +1,6 @@
 # BOPT Autonomous Mobile Robot (AMR) Workspace
 
-Welcome to the **BOPT (Battery Operated Pallet Truck)** ROS 2 workspace. This repository provides a complete software stack for an autonomous, rear-steered reverse-tricycle pallet truck, including simulation in Gazebo Sim, kinematic control, odometry estimation, AMCL localization, SLAM mapping, NMPC path tracking, Automated Pallet Detection (APDS), mission workflow management, and Fleet Management System (FMS) connectivity via MQTT.
+Welcome to the **BOPT (Battery Operated Pallet Truck)** ROS 2 workspace. This repository provides a complete software stack for an autonomous, rear-steered reverse-tricycle pallet truck, including simulation in Gazebo Sim, modular kinematic and hydraulic control, odometry estimation, AMCL localization, SLAM mapping, NMPC path tracking, Automated Pallet Detection (APDS), mission workflow management, and Fleet Management System (FMS) connectivity via MQTT.
 
 ---
 
@@ -25,7 +25,7 @@ Welcome to the **BOPT (Battery Operated Pallet Truck)** ROS 2 workspace. This re
 
 ## 🏗 System Architecture
 
-The following diagram illustrates how the packages, nodes, simulation, and external systems interact:
+The following diagram illustrates how the modular packages, nodes, controllers, simulation, and external systems interact:
 
 ```mermaid
 flowchart TD
@@ -42,21 +42,31 @@ flowchart TD
         LOC -->|Pose Updates| MQTT
     end
 
-    subgraph Low-Level Kinematics & Controllers
-        NMPC -->|/velocity, /steering_angle| BCTRL[bopt_controller]
-        TELEOP[bopt_keyboard] -->|/cmd_vel, /lift_cmd| BCTRL
-        BCTRL -->|traction commands| ROS2_CTRL[ros2_control Manager]
-        BCTRL -->|steering commands| ROS2_CTRL
-        BCTRL -->|lift trajectory| ROS2_CTRL
+    subgraph Modular Controller Pipeline [bopt_controller]
+        TELEOP[bopt_keyboard] -->|cmd_vel| KEY_NODE[bopt_key_node]
+        TELEOP -->|lift_cmd| HYD_CTRL[bopt_hydraulic_controller]
+        
+        NMPC -->|bopt/nmpc_cmd| RELAY[bopt_twist_relay]
+        KEY_NODE -->|bopt/key_cmd| RELAY
+        HYD_CTRL -->|bopt/hydraulic_cmd| RELAY
+
+        RELAY -->|bopt/relay_cmd| MAIN_CTRL[bopt_main_controller]
+    end
+
+    subgraph Actuation & Hardware Interface
+        MAIN_CTRL -->|traction_joint_controller/commands| ROS2_CTRL[ros2_control Manager]
+        MAIN_CTRL -->|steering_joint_controller/commands| ROS2_CTRL
+        MAIN_CTRL -->|lift_joint_controller/joint_trajectory| ROS2_CTRL
     end
 
     subgraph Simulation / Hardware
         ROS2_CTRL <--> GZ[Gazebo Sim / Robot Hardware]
+        GZ -->|Joint States| MAIN_CTRL
         GZ -->|Joint States| ODOM[odometry_node]
-        ODOM -->|/odom & TF odom->base_footprint| LOC
+        ODOM -->|odom & TF odom->base_footprint| LOC
         GZ -->|LaserScans, IMU, Clock| BRIDGE[ros_gz_bridge]
-        BRIDGE -->|/lidar/*/scan, /imu/out| LOC
-        BRIDGE -->|/lidar/*/scan| APDS
+        BRIDGE -->|lidar/*/scan, imu/out| LOC
+        BRIDGE -->|lidar/*/scan| APDS
     end
 ```
 
@@ -69,7 +79,8 @@ The workspace is organized into modular ROS 2 packages inside `src/`:
 | Package | Type | Description |
 | :--- | :--- | :--- |
 | **`bopt_description`** | CMake | URDF/Xacro models, meshes, collision geometries, Gazebo worlds (`empty.world`), ros2_control hardware configurations, and multi-robot launch setups. |
-| **`bopt_controller`** | Python | Kinematics calculation for reverse tricycle / rear-steered vehicle (`bopt_controller`), wheel odometry computation (`odometry_node`), and keyboard teleoperation (`bopt_keyboard`). |
+| **`bopt_interfaces`** | CMake/ROS IDL | Custom ROS 2 message and service definitions (`BoptCommand`, `BoptCommandStamped`, `SetLiftHeight`). |
+| **`bopt_controller`** | Python | Modular control stack for reverse-tricycle drive and hydraulics (`bopt_key_node`, `bopt_hydraulic_controller`, `bopt_twist_relay`, `bopt_main_controller`), odometry estimation (`odometry_node`), and teleoperation (`teleop_keyboard`). |
 | **`bopt_localization`** | Python | Nav2 AMCL and Map Server lifecycle management for 2D map-based localization. |
 | **`bopt_mapping`** | Python | Online 2D SLAM utilizing `slam_toolbox` (async mode) and sensor fusion via `robot_localization` EKF. |
 | **`nmpc_controller`** | Python | Nonlinear Model Predictive Control path tracking nodes with lookup table acceleration for smooth pallet pickup, drop, and parking. |
@@ -84,7 +95,7 @@ The workspace is organized into modular ROS 2 packages inside `src/`:
 
 ### ROS 2 & System Tools
 - **ROS 2**: Humble, Iron, or Rolling
-- **Gazebo Sim**: `ros-gz` / `gz-sim`
+- **Gazebo Sim**: `ros-gz` / `gz-sim` (Ignition Gazebo / Gazebo Fortress/Garden)
 - **Nav2**: `ros-<distro>-nav2-bringup`, `ros-<distro>-nav2-amcl`, `ros-<distro>-nav2-map-server`
 - **SLAM Toolbox**: `ros-<distro>-slam-toolbox`
 - **Robot Localization**: `ros-<distro>-robot-localization`
@@ -139,7 +150,7 @@ source install/setup.bash
 ## 🚀 Quick Start & Launch Instructions
 
 ### 1. Full Simulation (Gazebo + RViz + Navigation)
-Launches the Gazebo world, spawns the BOPT robot, brings up `ros2_control` joint controllers, starts odometry, initializes AMCL localization with the default map, and opens RViz2:
+Launches the Gazebo world, spawns the BOPT robot, brings up the modular `bopt_controller` pipeline and `ros2_control` joint controllers, starts odometry, initializes AMCL localization with the default map, and opens RViz2:
 
 ```bash
 # In Terminal 1:
@@ -155,7 +166,7 @@ ros2 launch bopt_description simulation.launch.py gui:=false
 ---
 
 ### 2. Multi-Robot Simulation
-To spawn and simulate multiple BOPT robots simultaneously (e.g., `robot001`, `robot002` with namespaced AMCL, MQTT, and controllers):
+To spawn and simulate multiple BOPT robots simultaneously (e.g., `robot001`, `robot002` with namespaced AMCL, MQTT, and modular controllers):
 
 ```bash
 source install/setup.bash
@@ -220,7 +231,7 @@ ros2 launch lidar_clustering lidar_clustering_launch.py
 
 ## 🎮 Keyboard Teleoperation (`bopt_keyboard`)
 
-The `bopt_controller` package includes a keyboard teleoperation node tailored for the BOPT reverse-tricycle drive and fork lift mechanism.
+The `bopt_controller` package includes an interactive keyboard teleoperation node tailored for the BOPT reverse-tricycle drive and fork lift mechanism.
 
 ### How to Run:
 ```bash
@@ -260,48 +271,49 @@ Safety & Reset:
 -----------------------------------------------------------------------
 ```
 
-> [!NOTE]
-> - `bopt_keyboard` publishes velocity commands to `/cmd_vel` (`geometry_msgs/msg/Twist`) and lift commands to `/lift_cmd` (`std_msgs/msg/Float64`).
-> - The `bopt_controller` node translates these into traction wheel speed, steering angle, and lift joint trajectories for `ros2_control`.
-
 ---
 
 ## 🔌 ROS 2 Topics & Interface Map
 
-### Actuation & Kinematics
-| Topic Name | Type | Description |
+### Controller Pipeline (`bopt_controller`)
+| Topic / Service | Type | Description |
 | :--- | :--- | :--- |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Linear velocity (`linear.x`) & angular steering input |
-| `/lift_cmd` | `std_msgs/msg/Float64` | Target fork lift height (range: `0.0` to `0.095 m`) |
-| `/traction_joint_controller/commands` | `std_msgs/msg/Float64MultiArray` | Drive wheel angular velocity command |
-| `/steering_joint_controller/commands` | `std_msgs/msg/Float64MultiArray` | Steering assembly position angle command |
-| `/lift_joint_controller/joint_trajectory` | `trajectory_msgs/msg/JointTrajectory` | Fork lift joint position trajectory |
+| `cmd_vel` | `geometry_msgs/msg/Twist` | Raw teleoperation velocity & steering command |
+| `lift_cmd` | `std_msgs/msg/Float64` | Target fork lift height in meters (`0.0` to `0.095 m`) |
+| `set_lift_height` | `bopt_interfaces/srv/SetLiftHeight` | Service interface to command lift height |
+| `bopt/key_cmd` | `bopt_interfaces/msg/BoptCommandStamped` | Teleop command converted to vehicle kinematics |
+| `bopt/nmpc_cmd` | `bopt_interfaces/msg/BoptCommand` | Autonomous path tracking commands from NMPC |
+| `bopt/hydraulic_cmd` | `bopt_interfaces/msg/BoptCommand` | Validated hydraulic lift commands |
+| `bopt/relay_cmd` | `bopt_interfaces/msg/BoptCommandStamped` | Aggregated / multiplexed command sent to main controller |
+| `traction_joint_controller/commands` | `std_msgs/msg/Float64MultiArray` | Drive wheel angular velocity command to Gazebo/hardware |
+| `steering_joint_controller/commands` | `std_msgs/msg/Float64MultiArray` | Steering assembly position angle command |
+| `lift_joint_controller/joint_trajectory` | `trajectory_msgs/msg/JointTrajectory` | Trajectory command sent to lift controller |
 
 ### Odometry, State & Localization
 | Topic Name | Type | Description |
 | :--- | :--- | :--- |
-| `/joint_states` | `sensor_msgs/msg/JointState` | Position and velocity of wheel, steering, and lift joints |
-| `/odom` | `nav_msgs/msg/Odometry` | Computed vehicle odometry from reverse tricycle kinematics |
-| `/amcl_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | Robot pose estimated by AMCL |
-| `/current_pose` | `geometry_msgs/msg/PoseStamped` | Current robot pose stream used by workflow & FMS |
-| `/map` | `nav_msgs/msg/OccupancyGrid` | 2D occupancy grid map from Map Server / SLAM |
+| `joint_states` | `sensor_msgs/msg/JointState` | Measured position and velocity of joints |
+| `odom` | `nav_msgs/msg/Odometry` | Computed vehicle odometry from reverse tricycle kinematics |
+| `amcl_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | Robot pose estimated by AMCL |
+| `current_pose` | `geometry_msgs/msg/PoseStamped` | Current robot pose stream used by workflow & FMS |
+| `map` | `nav_msgs/msg/OccupancyGrid` | 2D occupancy grid map from Map Server / SLAM |
 
 ### Sensors (Gazebo Bridge)
 | Topic Name | Type | Description |
 | :--- | :--- | :--- |
-| `/lidar/top3dl/scan` | `sensor_msgs/msg/LaserScan` | Primary 2D LiDAR scan used for localization |
-| `/lidar/front/scan` | `sensor_msgs/msg/LaserScan` | Front obstacle / safety scan |
-| `/lidar/back/scan` | `sensor_msgs/msg/LaserScan` | Rear safety scan |
-| `/lidar/left/scan`, `/lidar/right/scan` | `sensor_msgs/msg/LaserScan` | Side detection scans |
-| `/imu/out` | `sensor_msgs/msg/Imu` | IMU orientation and angular velocity |
+| `lidar/top3dl/scan` | `sensor_msgs/msg/LaserScan` | Primary 2D LiDAR scan used for localization |
+| `lidar/front/scan` | `sensor_msgs/msg/LaserScan` | Front obstacle / safety scan |
+| `lidar/back/scan` | `sensor_msgs/msg/LaserScan` | Rear safety scan |
+| `lidar/left/scan`, `lidar/right/scan` | `sensor_msgs/msg/LaserScan` | Side detection scans |
+| `imu/out` | `sensor_msgs/msg/Imu` | IMU orientation and angular velocity |
 
 ### Fleet / MQTT & Workflow
 | Topic Name | Type | Description |
 | :--- | :--- | :--- |
-| `/path` / `BYD005/path` | `std_msgs/msg/String` | Mission path waypoints from/to FMS |
-| `/task` / `BYD005/task` | `std_msgs/msg/String` | Assigned mission task |
-| `/safety_status` | `std_msgs/msg/String` | Vehicle safety switch and obstacle status |
-| `/mqtt/status` | `std_msgs/msg/String` | Connection status to external MQTT broker |
+| `path` / `<robot_id>/path` | `std_msgs/msg/String` | Mission path waypoints from/to FMS |
+| `task_request` | `std_msgs/msg/String` | Assigned mission task |
+| `current_pose` | `geometry_msgs/msg/PoseStamped` | Real-time pose telemetry to FMS |
+| `mqtt/status` | `std_msgs/msg/String` | Connection status to external MQTT broker |
 
 ---
 
@@ -312,7 +324,7 @@ Key parameters can be customized via config files and environment variables:
 ### Environment Variables
 Export these in your shell or `~/.bashrc` as required by your setup:
 ```bash
-export ROBOT_ID="BYD005"
+export ROBOT_ID="robot001"
 export ROBOT_IP="192.168.68.95"
 export MQTT_BROKER="127.0.0.1"
 export WS_PATH="/home/jkw/bopt_ws"
@@ -332,7 +344,7 @@ export DATABASE_PATH_VEH="/home/jkw/bopt_ws/src/workflow_node/map_details/vivek_
 ## ❓ Troubleshooting
 
 1. **Gazebo models not loading or meshes missing?**
-   Make sure `GZ_SIM_RESOURCE_PATH` includes the description models path. The launch files configure this automatically, but you can export manually:
+   Make sure `GZ_SIM_RESOURCE_PATH` includes the description models path:
    ```bash
    export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:/home/jkw/bopt_ws/src/bopt_description/models
    ```
@@ -341,9 +353,9 @@ export DATABASE_PATH_VEH="/home/jkw/bopt_ws/src/workflow_node/map_details/vivek_
    Ensure `joint_state_broadcaster` and the controller managers start after the simulation clock is active. If needed, restart `simulation.launch.py`.
 
 3. **Robot not responding to keyboard commands?**
-   - Check that `bopt_controller` is running (`ros2 node list | grep bopt_controller`).
+   - Verify nodes are running: `ros2 node list` should show `bopt_key_node`, `bopt_twist_relay`, `bopt_main_controller`, and `bopt_hydraulic_controller`.
    - Ensure the terminal running `bopt_keyboard` is focused when pressing keys.
-   - Verify `/cmd_vel` is being published: `ros2 topic echo /cmd_vel`.
+   - Check the relay topic: `ros2 topic echo /bopt/relay_cmd`.
 
 4. **MQTT Bridge connection errors?**
    Verify the MQTT broker is running locally or on the target network:
