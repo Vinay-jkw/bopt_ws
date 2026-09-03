@@ -39,6 +39,7 @@ setup(
            'bopt_twist_relay = bopt_controller.bopt_twist_relay:main',
            'bopt_main_controller = bopt_controller.bopt_main_controller:main',
            'bopt_hydraulic_controller = bopt_controller.bopt_hydraulic_controller:main',
+           'bopt_nmpc_controller = bopt_controller.bopt_nmpc_controller:main',
         ],
     },
 )

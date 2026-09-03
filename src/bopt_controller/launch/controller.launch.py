@@ -98,7 +98,7 @@ def generate_launch_description():
             parameters=[
                 {
                     "use_sim_time": True,
-                    "control_mode": "manual",
+                    "control_mode": "auto",
                 }
             ],
         ),
@@ -143,6 +143,24 @@ def generate_launch_description():
                     "use_sim_time": True,
                     "lift_min": 0.0,
                     "lift_max": 0.095,
+                }
+            ],
+        ),
+
+        # =====================================================
+        # BOPT NMPC CONTROLLER BRIDGE
+        # =====================================================
+
+        Node(
+            package="bopt_controller",
+            executable="bopt_nmpc_controller",
+            name="bopt_nmpc_controller",
+            output="screen",
+            parameters=[
+                {
+                    "use_sim_time": True,
+                    "max_steering_angle": 1.5708,
+                    "require_state_check": False,
                 }
             ],
         ),
