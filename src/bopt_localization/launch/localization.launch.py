@@ -59,7 +59,7 @@ def generate_launch_description():
     map_file = os.path.join(
         get_package_share_directory("bopt_localization"),
         "maps",
-        "bopt_map.yaml"
+        "Simulation_Map_amcl.yaml"
     )
 
     # --------------------------------------------------

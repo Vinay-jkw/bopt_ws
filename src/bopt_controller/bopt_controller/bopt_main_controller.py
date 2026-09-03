@@ -255,44 +255,15 @@ class BoptMainController(Node):
         now = self.get_clock().now()
 
         # -----------------------------------------------------
-        # Steering settling safety
-        # -----------------------------------------------------
-
-        if steering_error > self.steering_tolerance:
-
-            self.steering_reached_time = None
-
-            smooth_wheel_velocity = 0.0
-
-        else:
-
-            if self.steering_reached_time is None:
-
-                self.steering_reached_time = now
-
-            settled_for = (
-                now -
-                self.steering_reached_time
-            ).nanoseconds / 1e9
-
-            if settled_for >= self.steering_delay:
-
-                smooth_wheel_velocity = wheel_velocity
-
-            else:
-
-                smooth_wheel_velocity = 0.0
-
-        # -----------------------------------------------------
-        # Traction command
+        # Traction command (direct continuous tracking)
         # -----------------------------------------------------
 
         self.publish_traction(
-            smooth_wheel_velocity
+            wheel_velocity
         )
 
         self.is_stopped = (
-            abs(smooth_wheel_velocity) < 1e-4
+            abs(wheel_velocity) < 1e-4
         )
 
         # -----------------------------------------------------

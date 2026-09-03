@@ -17,19 +17,19 @@ from nav_msgs.msg import Path  # Import the Path message
 from visualization_msgs.msg import Marker  # Import the Marker message
 
 # SCALE = 60
-MIN_VELOCITY = 0.1  # Define a minimum velocity limit
-MAX_VELOCITY = 0.3 # Define a maximum velocity limit
-SLOW_DOWN_DISTANCE = 0.2 # Distance within which the robot starts to slow down
+MIN_VELOCITY = 0.2  # Define a minimum velocity limit
+MAX_VELOCITY = 0.42 # Define a maximum velocity limit
+SLOW_DOWN_DISTANCE = 2.0 # Distance within which the robot starts to slow down
 VELOCITY_SMOOTHING_FACTOR = 0.01  # Smoothing factor for velocity adjustments
-STOPPING_VELOCITY = 0.4
+STOPPING_VELOCITY = 0.3
 
 
 class RobotClient(Node):
     def __init__(self):
         super().__init__('robot_client')
 
-        self.declare_parameter('goal_tolerance', 0.05)
-        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('goal_tolerance', 0.1)
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl')
 
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.horizon = 5
@@ -45,7 +45,7 @@ class RobotClient(Node):
         self.finished = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.531.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.36.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
@@ -87,6 +87,7 @@ class RobotClient(Node):
         self.sc_lookahead = 1  # meter
         # For path tracking
         self.pt_lookahead = 0.2
+        self.path_last_point = []
     
     def wv_callback(self, msg):
         self.wheel_velocity = msg.data
@@ -97,6 +98,42 @@ class RobotClient(Node):
         self.read_path_from_file(self.path_file)
         self.get_logger().info(f'Path file set to: {self.path_file}')
         self.get_logger().info(f'Goal tolerance set to: {self.goal_tolerance}')
+
+    def add_runway_to_path(self, path, runway_length=0.3):
+        """
+        Add a runway to the end of the received path to prevent the lookahead point from vanishing on approach.
+        The runway is added in the direction of the last two points in the path.
+
+        :param path: The original path (list of (x, y) points).
+        :param runway_length: Length of the runway to add (in meters).
+        :return: The extended path with runway added.
+        """
+        if len(path) < 2:
+            self.get_logger().warn("Path is too short to add a runway.")
+            return path
+
+        # Get the last two points on the path
+        point1 = path[-2]
+        point2 = path[-1]
+
+        # Calculate the direction of the last two points
+        dx = point2[0] - point1[0]
+        dy = point2[1] - point1[1]
+
+        # Normalize the direction vector
+        length = np.sqrt(dx**2 + dy**2)
+        dx /= length
+        dy /= length
+
+        # Extend the path by adding the runway
+        last_point = path[-1]
+        runway_end_x = last_point[0] + runway_length * dx
+        runway_end_y = last_point[1] + runway_length * dy
+
+        # Add the runway point to the path
+        extended_path = path + [(runway_end_x, runway_end_y)]
+        return extended_path
+
 
     def send_command(self, velocity, steering_angle):
         self.velocity_publisher.publish(Float64(data=velocity))
@@ -120,6 +157,11 @@ class RobotClient(Node):
         with open(file_path, 'rb') as f:
             self.path = pickle.load(f)
         self.path_received = True
+        self.final_point = self.path[-1]
+        # Add runway to the path to ensure lookahead point doesn't vanish
+        self.path = self.add_runway_to_path(self.path)
+        self.path_last_point = self.path[-1]
+
         self.publish_path_for_visualization()
 
     def publish_path_for_visualization(self):
@@ -131,8 +173,9 @@ class RobotClient(Node):
         path_msg = Path()
         path_msg.header.frame_id = 'map'  # Set the frame_id to match your RViz2 configuration
         path_msg.header.stamp = self.get_clock().now().to_msg()
-
+        # print(self.path)
         for point in self.path:
+            print(type(point[0]))
             pose = PoseStamped()
             pose.header = path_msg.header
             pose.pose.position.x = point[0]
@@ -172,6 +215,7 @@ class RobotClient(Node):
     def calculate_curvature_finite_diff(self, path):
         if len(path) < 3:
             return 0
+        # path = path[int((len(path)*0.66)):] #looking at last third of path
 
         try:
             path = np.array(path)
@@ -193,10 +237,10 @@ class RobotClient(Node):
     def get_target_point(self, robot_x, robot_y):
         lookahead_distance = 0.3
 
-        velocity_factor = 0.1
+        velocity_factor = 0.4
         lookahead_distance = lookahead_distance + velocity_factor * abs(self.wheel_velocity)
 
-        min_lookahead = 0.2  # meters
+        min_lookahead = 0.7  # meters
         max_lookahead = 2.0  # meters
 
         lookahead_distance = max(min_lookahead, min(lookahead_distance, max_lookahead))
@@ -216,7 +260,7 @@ class RobotClient(Node):
         # self.curvatures.append(curvature)  # Store the calculated curvature
 
         if curvature < 0.02:  # If curvature is low, increase the lookahead distance
-            lookahead_distance += 0.1
+            lookahead_distance += 0.6
         
         
 
@@ -267,11 +311,11 @@ class RobotClient(Node):
 
         s, v, d = self.lookup_table.get(self.find_nearest_key(ttp))
         velocity, steering_angle = (MAX_VELOCITY / 0.2) * v, math.degrees(s)
+        
 
         # self.steering_angles.append(steering_angle)  # Store the steering angle
 
-        final_point = self.path[-1]
-        distance_to_goal = math.hypot(final_point[0] - robot_x, final_point[1] - robot_y)
+        distance_to_goal = math.hypot(self.final_point[0] - robot_x, self.final_point[1] - robot_y)
         self.get_logger().info(f'DTG: {distance_to_goal}')
         if distance_to_goal <= self.goal_tolerance:
             self.goal_reached = True
@@ -281,33 +325,47 @@ class RobotClient(Node):
             # rclpy.shutdown()
             # sys.exit(0)
             return
-
+        distance_to_lp = math.hypot(self.path_last_point[0] - robot_x, self.path_last_point[1] - robot_y)
+        # self.get_logger().info(f'DTG: {distance_to_goal}')
+        if distance_to_lp <= self.goal_tolerance:
+            self.goal_reached = True
+            self.send_stop_command(0.0, 0.0)  # Stop the robot
+            self.get_logger().info('Goal reached, shutting down...')
+            # self.destroy_node()
+            # rclpy.shutdown()
+            # sys.exit(0)
+            return
         
 
-        # Target velocity from lookup table
-        target_velocity = velocity
+        # Apply the S-curve velocity smoother
+        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, velocity)
 
+        # Ensure the velocity is within safe limits based on the steering angle
+        safe_velocity = self.calculate_safe_velocity(self.current_velocity ,steering_angle)
+        # safe_velocity = self.current_velocity
+        if self.current_velocity < 0:
+            self.current_velocity = -min(abs(self.current_velocity), abs(safe_velocity))
+        else:
+            self.current_velocity = min(abs(self.current_velocity), abs(safe_velocity))
+
+        # print(self.current_velocity, '=====')
+
+
+        
         # Calculate the target velocity based on the distance to the goal
         if distance_to_goal <= SLOW_DOWN_DISTANCE:
-            slowdown_vel = (distance_to_goal / SLOW_DOWN_DISTANCE) * STOPPING_VELOCITY
-            if target_velocity < 0:
-                target_velocity = -max(MIN_VELOCITY, abs(slowdown_vel))
+            target_velocity = (distance_to_goal / (SLOW_DOWN_DISTANCE)) * STOPPING_VELOCITY
+            if velocity < 0:
+                self.current_velocity = -max(MIN_VELOCITY, abs(target_velocity))
             else:
-                target_velocity = max(MIN_VELOCITY, slowdown_vel)
-
-        # Apply the S-curve velocity smoother towards target_velocity
-        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, target_velocity)
-
-        # Cap velocity within safe limits
-        if self.current_velocity < 0:
-            self.current_velocity = -min(abs(self.current_velocity), MAX_VELOCITY)
-        else:
-            self.current_velocity = min(abs(self.current_velocity), MAX_VELOCITY)
+                self.current_velocity = max(MIN_VELOCITY, target_velocity)
+            
+        
 
         self.send_command(self.current_velocity, steering_angle)
         self.publish_target_point_marker(target_point_on_plan)
 
-    def apply_s_curve_velocity_smoother(self, current_velocity, target_velocity, transition_duration=0.33):
+    def apply_s_curve_velocity_smoother(self, current_velocity, target_velocity, transition_duration=0.44):
         if current_velocity == target_velocity:
             return current_velocity
 
@@ -351,7 +409,7 @@ class RobotClient(Node):
 
     def calculate_safe_velocity(self, cv, steering_angle):
         # Calculate the safe velocity based on the steering angle
-        mu = 0.5  # Coefficient of friction
+        mu = 1.0  # Coefficient of friction
         g = 9.81  # Acceleration due to gravity (m/s^2)
         L = 1.36  # Wheelbase (m)
 
@@ -359,10 +417,11 @@ class RobotClient(Node):
         # turn_radius = abs(L / np.tan(steering_angle + 1e-6))  # Adding a small value to avoid division by zero
         # print('tr', turn_radius)
         curvature = self.calculate_curvature(1.0)
+        print(abs(curvature), 'curvature=====')        
 
         # Maximum safe speed calculation
         
-        safe_velocity = 1.5 * cv * (1 / (1 + np.exp(-(0.8 * np.sqrt(mu * (g / curvature))))))
+        safe_velocity = 1.0 * cv * (1 / (1 + np.exp(-(0.95 * np.sqrt(mu * (g / abs(curvature)))))))
         return safe_velocity  # Scale the velocity to match the units used in your system
 
     def get_yaw_from_pose(self, pose):

@@ -5,12 +5,14 @@ import time
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.spatial import KDTree          # fast k-d-tree implementation
 from scipy.interpolate import splprep, splev
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Pose
-from std_msgs.msg import Float64, String, Bool
+from std_msgs.msg import Float64, String, Bool, Float32MultiArray
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 import signal
 from nav_msgs.msg import Path  # Import the Path message
@@ -18,20 +20,29 @@ from visualization_msgs.msg import Marker  # Import the Marker message
 
 # SCALE = 60
 MIN_VELOCITY = 0.2  # Define a minimum velocity limit
-MAX_VELOCITY = 0.42 # Define a maximum velocity limit
+MAX_VELOCITY = 1.42 # Define a maximum velocity limit
 SLOW_DOWN_DISTANCE = 2.0 # Distance within which the robot starts to slow down
 VELOCITY_SMOOTHING_FACTOR = 0.01  # Smoothing factor for velocity adjustments
 STOPPING_VELOCITY = 0.3
-
+_MAX_VEL = MAX_VELOCITY
 
 class RobotClient(Node):
     def __init__(self):
         super().__init__('robot_client')
 
         self.declare_parameter('goal_tolerance', 0.1)
-        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl')
-
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('should_halt', False)
+        self._should_halt = self.get_parameter('should_halt').value
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
+        def param_changes(params):
+            global _MAX_VEL
+            for param in params:
+                if param.name == 'should_halt':
+                    self._should_halt = param.value
+                    if not param.value: _MAX_VEL = 0.7
+            return SetParametersResult(successful=True)
+        self.add_on_set_parameters_callback(param_changes)
         self.horizon = 5
         self.steering_angles = []
 
@@ -43,10 +54,14 @@ class RobotClient(Node):
         self.path_file = None
         self.pallet_detected = False
         self.finished = False
+        self.keepout_factor, self.speed_factor = 1.0, 1.0
+        self._is_halted = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.531.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
+        self._lut_keys = list(self.lookup_table.keys())  # full 3-D keys
+        self._kd_tree = KDTree(np.array([k[:2] for k in self._lut_keys], dtype=np.float32))
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
         self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
@@ -60,6 +75,16 @@ class RobotClient(Node):
 
         qos_settings = QoSProfile(depth=10)
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        self.map_zones_status_sub = self.create_subscription(
+            Float32MultiArray,
+            '/map/zones_status',
+            self.map_zones_status_callback,
+            qos_settings)
+        self.conflict_action_sub = self.create_subscription(
+            String,
+            'conflict_action',
+            self.conflict_action_callback,
+            10)
         self.pose_sub = self.create_subscription(
             PoseStamped,
             '/current_pose',
@@ -88,6 +113,21 @@ class RobotClient(Node):
         # For path tracking
         self.pt_lookahead = 0.2
         self.path_last_point = []
+
+    def conflict_action_callback(self, msg):
+        global _MAX_VEL
+        msg = json.loads(msg.data)
+        if msg['type'] == 'speed_desynchronize':
+            _MAX_VEL = 0.7
+        elif msg['type'] == 'speed_synchronize':
+            _MAX_VEL = abs(msg['data'][0])
+
+    
+    def map_zones_status_callback(self, msg: Float32MultiArray):
+        if len(msg.data) < 2:
+            return
+        self.keepout_factor, self.speed_factor = msg.data[:2]
+        print("map_zones_status_callback: ",self.speed_factor)
     
     def wv_callback(self, msg):
         self.wheel_velocity = msg.data
@@ -199,17 +239,27 @@ class RobotClient(Node):
         return [transformed_x, transformed_y]
 
     def find_nearest_key(self, position):
-        nearest_key = None
-        min_position_difference = float('inf')
+        """
+        Return the full 3-D key in `lookup_table` whose (x,y) part is
+        closest to `position` (a 2-element iterable).
+        """
+        # ensure NumPy 1-D float32 vector, shape (2,)
+        pos = np.asarray(position, dtype=np.float32).ravel()
+        dist, idx = self._kd_tree.query(pos, k=1)
+        return self._lut_keys[int(idx)]  # full (x,y,θ) key
 
-        for key in self.lookup_table.keys():
-            position_difference = np.sqrt((key[0] - position[0]) ** 2 + (key[1] - position[1]) ** 2)
+    # def find_nearest_key(self, position):
+    #     nearest_key = None
+    #     min_position_difference = float('inf')
 
-            if position_difference < min_position_difference:
-                min_position_difference = position_difference
-                nearest_key = key
+    #     for key in self.lookup_table.keys():
+    #         position_difference = np.sqrt((key[0] - position[0]) ** 2 + (key[1] - position[1]) ** 2)
 
-        return nearest_key
+    #         if position_difference < min_position_difference:
+    #             min_position_difference = position_difference
+    #             nearest_key = key
+
+    #     return nearest_key
 
 
     def calculate_curvature_finite_diff(self, path):
@@ -291,6 +341,14 @@ class RobotClient(Node):
         return self.calculate_curvature_finite_diff(scaled_segmented_path)
 
     def follow_path(self):
+
+        if self._should_halt:
+            if not self._is_halted:
+                self.send_stop_command(0.0, 0.0)  # Stop the robot
+                self._is_halted = True
+            return
+        elif self._is_halted: self._is_halted = False
+
         if self.goal_reached or not self.path_received or self.pallet_detected:
             self.send_stop_command(0.0, 0.0)  # Stop the robot
             self.finished = True
@@ -300,6 +358,12 @@ class RobotClient(Node):
         if state is None:
             return
 
+        MAX_VELOCITY = _MAX_VEL * (self.speed_factor if self.speed_factor else 1.0)
+        print("MAX_VELOCITY:===============", MAX_VELOCITY)
+        if (math.isclose(MAX_VELOCITY, 0, abs_tol=1e-2)):
+            self.send_command(0.0, 0.0)
+            return        
+        
         robot_x = state.pose.position.x  # Convert back to pixels
         robot_y = state.pose.position.y  # Convert back to pixels
         robot_orientation = self.get_yaw_from_pose(state)
@@ -337,30 +401,25 @@ class RobotClient(Node):
             return
         
 
-        # Apply the S-curve velocity smoother
-        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, velocity)
+        # Target velocity from lookup table
+        target_velocity = velocity
 
-        # Ensure the velocity is within safe limits based on the steering angle
-        safe_velocity = self.calculate_safe_velocity(self.current_velocity ,steering_angle)
-        # safe_velocity = self.current_velocity
-        if self.current_velocity < 0:
-            self.current_velocity = -min(abs(self.current_velocity), abs(safe_velocity))
-        else:
-            self.current_velocity = min(abs(self.current_velocity), abs(safe_velocity))
-
-        # print(self.current_velocity, '=====')
-
-
-        
         # Calculate the target velocity based on the distance to the goal
         if distance_to_goal <= SLOW_DOWN_DISTANCE:
-            target_velocity = (distance_to_goal / (SLOW_DOWN_DISTANCE)) * STOPPING_VELOCITY
-            if velocity < 0:
-                self.current_velocity = -max(MIN_VELOCITY, abs(target_velocity))
+            slowdown_vel = (distance_to_goal / SLOW_DOWN_DISTANCE) * STOPPING_VELOCITY
+            if target_velocity < 0:
+                target_velocity = -max(MIN_VELOCITY, abs(slowdown_vel))
             else:
-                self.current_velocity = max(MIN_VELOCITY, target_velocity)
-            
-        
+                target_velocity = max(MIN_VELOCITY, slowdown_vel)
+
+        # Apply the S-curve velocity smoother towards target_velocity
+        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, target_velocity)
+
+        # Cap velocity within safe limits
+        if self.current_velocity < 0:
+            self.current_velocity = -min(abs(self.current_velocity), MAX_VELOCITY)
+        else:
+            self.current_velocity = min(abs(self.current_velocity), MAX_VELOCITY)
 
         self.send_command(self.current_velocity, steering_angle)
         self.publish_target_point_marker(target_point_on_plan)

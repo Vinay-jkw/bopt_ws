@@ -171,11 +171,8 @@ class WorkflowHandler(Node):
                 G_loaded.nodes[node]['position'] = tuple(map(float, pos_str.split(',')))
 
         self.G_loaded = G_loaded
-        print(G_loaded)
-        self.waypoints = np.array(G_loaded.nodes)
-        self.waypoints_positions = np.array([G_loaded.nodes[node]['position'] for node in self.waypoints])
 
-    
+        
         
 
     def fetch_location_data_from_db(self):
@@ -1024,49 +1021,48 @@ class WorkflowHandler(Node):
             return right_dock_pose
 
 
-    def find_path_and_angles_between_points(self, G, point1, point2, publish_path=False):
+    def find_path_and_angles_between_points(self, G, point1, point2):
         # Function to calculate Euclidean distance
         def euclidean_distance(coord1, coord2):
             return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
-
+    
         # Finding the closest node to a given point
-        def closest_node(G, point, k=10):
-            for i, node in enumerate(sorted(G.nodes, key=lambda n: euclidean_distance(G.nodes[n]['position'], point))):
-                if i < k:
-                    yield node
-
+        def closest_node(G, point):
+            min_distance = float('inf')
+            closest = None
+            print(G.nodes)
+            for node, data in G.nodes(data=True):
+                pos = data['position']
+                distance = euclidean_distance(pos, point)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest = node
+            return closest
+    
         # Identify closest nodes to the input points
-        node1 = tuple(closest_node(G, point1))
-        node2 = tuple(closest_node(G, point2))
-
-        # Find the shortest path between these two nodes
-        for n1 in node1:
-            for n2 in node2:
-                print("Trying nodes:", n1, n2)
-                try:
-                    path = nx.shortest_path_length(G, source=n1, target=n2)
-                    node1, node2 = n1, n2
-                    print("Found nodes:", n1, n2)
-                    break
-                except nx.NetworkXNoPath:
-                    print("Error nodes:", n1, n2)
-                    continue
-            else:
-                print("No valid path found for node:", n1)
-                continue
-            print("Breaking outer loop with node:", n1)
-            break
-
+        node1 = closest_node(G, point1)
+        node2 = closest_node(G, point2)
+        print(f'Closest node to point1 {point1} is {node1}')
+        print(f'Closest node to point2 {point2} is {node2}')
+        # try:
+        #     with open("/home/fbots/Nichiyu_RT/src/workflow_node/workflow_node/path_list.json", "r") as f:  # Use the same path you saved to
+        #         data = json.load(f)
+        #         path = data.get("path", [])
+        #         print(f'Loaded path: {path}')
+        # except Exception as e:
+        #     self.get_logger().error(f"Failed to load path_list from file: {e}")
         # Find the shortest path between these two nodes
         path = nx.shortest_path(G, source=node1, target=node2)
-        print("PATH-----", path)
-        if publish_path:
-            if isinstance(publish_path, str):
-                self.path_publisher.publish(String(data=json.dumps({"path": path+[publish_path]})))
-            else:
-                self.path_publisher.publish(String(data=json.dumps({"path": path})))
-        path_coords = [G.nodes[node]['position'] for node in path]
+        print(path)
 
+        self.path_in_nodes=path
+
+        # path = path[:-1]
+        print("path in nodes ------------------------------------------------------------------------------",self.path_in_nodes)
+        
+
+        path_coords = [G.nodes[node]['position'] for node in path]
+        print("hkjhhkjhhjkhkjhk", path_coords)
         # Calculate angles between successive coordinates
         path_coords_with_quaternions = []
         for i in range(len(path_coords) - 1):
@@ -1079,16 +1075,16 @@ class WorkflowHandler(Node):
             quaternion = self.euler_to_quaternion(0, 0, angle_rad)
             print("angle:", math.degrees(angle_rad), ", quaternion:", quaternion)
             path_coords_with_quaternions.append((start, quaternion[-2:]))
-
+    
         # Add the last point with the last quaternion used
         if path_coords_with_quaternions:
             last_quaternion = path_coords_with_quaternions[-1][1]
             path_coords_with_quaternions.append((path_coords[-1], last_quaternion))
-
+    
         l = []
         for coord, quaternion in path_coords_with_quaternions:
             l.append(list(coord) + list(quaternion))
-
+    
         path_coords_with_quaternions = l
         return path_coords_with_quaternions
 

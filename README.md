@@ -37,7 +37,7 @@ flowchart TD
     subgraph Planning & Navigation
         WN -->|Reeds-Shepp Path / Target| NMPC[nmpc_controller]
         APDS[apds: lidar_clustering & rectifier] -->|Pallet Pose / Clusters| WN
-        LOC[bopt_localization: AMCL & Map Server] -->|/amcl_pose & TF map->odom| WN
+        LOC[bopt_localization: AMCL & Map Server] -->|amcl_pose & TF map->odom| WN
         LOC -->|Pose Updates| NMPC
         LOC -->|Pose Updates| MQTT
     end

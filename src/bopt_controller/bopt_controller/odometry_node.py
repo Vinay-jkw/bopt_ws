@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
 
@@ -105,6 +106,12 @@ class BoptOdometry(Node):
         self.odom_publisher = self.create_publisher(
             Odometry,
             'odom',
+            10
+        )
+
+        self.wheel_velocity_publisher = self.create_publisher(
+            Float64,
+            'wheel_velocity',
             10
         )
 
@@ -433,6 +440,7 @@ class BoptOdometry(Node):
         )
 
         self.odom_publisher.publish(odom)
+        self.wheel_velocity_publisher.publish(Float64(data=linear_velocity))
 
         # =====================================================
         # TF: odom -> base_footprint

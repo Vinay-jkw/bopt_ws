@@ -161,6 +161,7 @@ def generate_launch_description():
                     "use_sim_time": True,
                     "max_steering_angle": 1.5708,
                     "require_state_check": False,
+                    "invert_steering": True,
                 }
             ],
         ),

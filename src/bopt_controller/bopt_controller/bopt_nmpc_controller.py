@@ -29,12 +29,21 @@ class BoptNmpcController(Node):
             False
         )
 
+        self.declare_parameter(
+            'invert_steering',
+            True
+        )
+
         self.max_steering_angle = self.get_parameter(
             'max_steering_angle'
         ).value
 
         self.require_state_check = self.get_parameter(
             'require_state_check'
+        ).value
+
+        self.invert_steering = self.get_parameter(
+            'invert_steering'
         ).value
 
         # =====================================================
@@ -137,9 +146,13 @@ class BoptNmpcController(Node):
             )
             return
 
-        # NMPC publishes steering in degrees.
+        # NMPC publishes steering in degrees (positive = turn body left).
+        # In BOPT rear-wheel steering kinematics, the physical joint
+        # rotates in the inverted direction to pivot the vehicle body left.
+        steering_deg = -msg.data if self.invert_steering else msg.data
+
         # BOPT internally expects radians.
-        steering_rad = math.radians(msg.data)
+        steering_rad = math.radians(steering_deg)
 
         # Apply BOPT steering limit.
         steering_rad = max(
