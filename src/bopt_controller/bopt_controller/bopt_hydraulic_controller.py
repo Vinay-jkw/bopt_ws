@@ -2,6 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Float64
 
 from bopt_interfaces.msg import BoptCommand
 from bopt_interfaces.srv import SetLiftHeight
@@ -47,6 +48,13 @@ class BoptHydraulicController(Node):
             self.height_callback
         )
 
+        self.lift_cmd_sub = self.create_subscription(
+            Float64,
+            'lift_cmd',
+            self.lift_cmd_callback,
+            10
+        )
+
         # --------------------------------------------------
         # State
         # --------------------------------------------------
@@ -65,6 +73,42 @@ class BoptHydraulicController(Node):
     # ======================================================
     # SET LIFT HEIGHT
     # ======================================================
+    def lift_cmd_callback(self, msg):
+
+        target_height = msg.data
+
+        # --------------------------------------------------
+        # Validate
+        # --------------------------------------------------
+
+        if target_height < self.lift_min:
+            target_height = self.lift_min
+
+        if target_height > self.lift_max:
+            target_height = self.lift_max
+
+        # --------------------------------------------------
+        # Update state
+        # --------------------------------------------------
+
+        self.current_height = target_height
+
+        # --------------------------------------------------
+        # Publish BOPT hydraulic command
+        # --------------------------------------------------
+
+        command = BoptCommand()
+
+        command.traction_velocity = 0.0
+        command.steering_angle = 0.0
+        command.lift_height = self.current_height
+
+        self.command_pub.publish(command)
+
+        self.get_logger().info(
+            f'Keyboard lift command: '
+            f'{self.current_height:.3f} m'
+        )
 
     def height_callback(self, request, response):
 
@@ -141,7 +185,8 @@ def main(args=None):
 
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

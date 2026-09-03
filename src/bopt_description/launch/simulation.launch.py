@@ -32,6 +32,9 @@ def generate_launch_description():
     localization_path = get_package_share_directory(
         'bopt_localization'
     )
+    controller_path = get_package_share_directory(
+        'bopt_controller'
+    )
 
 
 
@@ -49,65 +52,6 @@ def generate_launch_description():
     )
 
 
-    joint_state_broadcaster = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=[
-            'joint_state_broadcaster',
-            '--controller-manager',
-            '/controller_manager'
-        ],
-        output='screen'
-    )
-
-
-    traction_controller = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=[
-            'traction_joint_controller',
-            '--controller-manager',
-            '/controller_manager'
-        ],
-        output='screen'
-    )
-
-
-
-    steering_controller = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=[
-            'steering_joint_controller',
-            '--controller-manager',
-            '/controller_manager'
-        ],
-        output='screen'
-    )
-
-
-
-    lift_controller = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=[
-            'lift_joint_controller',
-            '--controller-manager',
-            '/controller_manager'
-        ],
-        output='screen'
-    )
-
-    bopt_controller = Node(
-        package='bopt_controller',
-        executable='bopt_controller',
-        output='screen',
-        parameters=[
-            {
-                'use_sim_time': True
-            }
-        ]
-    )
     odometry_node = Node(
         package='bopt_controller',
         executable='odometry_node',
@@ -160,12 +104,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    bopt_controller_delayed = TimerAction(
-        period=3.0,
-        actions=[
-            bopt_controller
-        ]
-    )
 
     localization_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -176,7 +114,24 @@ def generate_launch_description():
             )
         )
     )
-
+    controller_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                controller_path,
+                'launch',
+                'controller.launch.py'
+            )
+        ),
+        launch_arguments={
+            'robot_name': ''
+        }.items()
+    )
+    controller_delayed = TimerAction(
+        period=3.0,
+        actions=[
+            controller_launch
+        ]
+    )
     localization_delayed = TimerAction(
         period=2.0,
         actions=[
@@ -186,16 +141,18 @@ def generate_launch_description():
 
     return LaunchDescription([
         gui_arg,
+
         gazebo,
-        # Controllers
-        joint_state_broadcaster,
-        traction_controller,
-        steering_controller,
-        lift_controller,
-        odometry_node,
+
+        # BOPT controller stack
+        controller_delayed,
+
+        # Sensors
         sensor_bridge,
 
-        bopt_controller_delayed,
+        # Localization
         localization_delayed,
-        rviz
+
+        # Visualization
+        rviz,
     ])

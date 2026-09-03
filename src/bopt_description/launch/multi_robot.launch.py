@@ -289,17 +289,67 @@ def spawn_robot_with_params(
 
 
                 # ==================================================
-                # BOPT CONTROLLER
+                # BOPT CONTROLLER PIPELINE
                 # ==================================================
 
                 Node(
                     package="bopt_controller",
-                    executable="bopt_controller",
-                    name="bopt_controller",
+                    executable="bopt_key",
+                    name="bopt_key_node",
                     output="screen",
                     parameters=[
                         {
                             "use_sim_time": True,
+                            "wheelbase": 1.542,
+                            "max_steering_angle": 1.5708,
+                        }
+                    ],
+                ),
+
+                Node(
+                    package="bopt_controller",
+                    executable="bopt_twist_relay",
+                    name="bopt_twist_relay",
+                    output="screen",
+                    parameters=[
+                        {
+                            "use_sim_time": True,
+                            "control_mode": "manual",
+                        }
+                    ],
+                ),
+
+                Node(
+                    package="bopt_controller",
+                    executable="bopt_main_controller",
+                    name="bopt_main_controller",
+                    output="screen",
+                    parameters=[
+                        {
+                            "use_sim_time": True,
+                            "wheel_radius": 0.115,
+                            "max_wheel_velocity": 3.0,
+                            "max_steering_angle": 1.5708,
+                            "control_dt": 0.05,
+                            "lift_min": 0.0,
+                            "lift_max": 0.095,
+                            "command_timeout": 0.5,
+                            "steering_tolerance": 0.03,
+                            "steering_delay": 0.15,
+                        }
+                    ],
+                ),
+
+                Node(
+                    package="bopt_controller",
+                    executable="bopt_hydraulic_controller",
+                    name="bopt_hydraulic_controller",
+                    output="screen",
+                    parameters=[
+                        {
+                            "use_sim_time": True,
+                            "lift_min": 0.0,
+                            "lift_max": 0.095,
                         }
                     ],
                 ),

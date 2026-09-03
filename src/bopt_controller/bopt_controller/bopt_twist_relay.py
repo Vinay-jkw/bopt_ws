@@ -37,7 +37,7 @@ class BoptTwistRelay(Node):
 
         self.key_sub = self.create_subscription(
             BoptCommandStamped,
-            '/bopt/key_cmd',
+            'bopt/key_cmd',
             self.key_callback,
             10
         )
@@ -51,7 +51,7 @@ class BoptTwistRelay(Node):
 
         self.nmpc_sub = self.create_subscription(
             BoptCommand,
-            '/bopt/nmpc_cmd',
+            'bopt/nmpc_cmd',
             self.nmpc_callback,
             10
         )
@@ -62,7 +62,7 @@ class BoptTwistRelay(Node):
 
         self.lift_sub = self.create_subscription(
             BoptCommand,
-            '/bopt/hydraulic_cmd',
+            'bopt/hydraulic_cmd',
             self.lift_callback,
             10
         )
@@ -73,7 +73,7 @@ class BoptTwistRelay(Node):
 
         self.relay_pub = self.create_publisher(
             BoptCommandStamped,
-            '/bopt/relay_cmd',
+            'bopt/relay_cmd',
             10
         )
 
@@ -174,9 +174,9 @@ class BoptTwistRelay(Node):
             command.steering_angle = (
                 self.nmpc_steering
             )
-
+            
             command.lift_height = (
-                self.nmpc_lift
+                self.lift_height
             )
 
         # =====================================================

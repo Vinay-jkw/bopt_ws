@@ -85,6 +85,7 @@ class BoptMainController(Node):
 
         self.target_steering_angle = 0.0
         self.target_wheel_velocity = 0.0
+        self.target_lift_position = 0.0
 
         self.steering_reached_time = None
 
@@ -307,7 +308,7 @@ class BoptMainController(Node):
         # Only issue lift trajectory when target changes
         if abs(
             lift_position -
-            self.current_lift_position
+            self.target_lift_position
         ) > 1e-4:
 
             distance = abs(
@@ -324,6 +325,8 @@ class BoptMainController(Node):
                 lift_position,
                 duration_s
             )
+
+            self.target_lift_position = lift_position
 
         self.get_logger().debug(
             f'BOPT MAIN | '

@@ -33,7 +33,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-           'bopt_controller = bopt_controller.controller_node:main',
            'bopt_keyboard = bopt_controller.teleop_keyboard:main',
            'odometry_node = bopt_controller.odometry_node:main',
            'bopt_key = bopt_controller.bopt_key_node:main',
