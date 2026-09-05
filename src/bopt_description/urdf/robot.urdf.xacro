@@ -95,9 +95,9 @@
     </link>
 
     <joint name="imu_joint" type="fixed">
-        <parent link="drive_wheel_Ass"/>
+        <parent link="base_link"/>
         <child link="imu_link"/>
-        <origin xyz="0 0 0.01"/>
+        <origin xyz="0 0 0"/>
     </joint>
 
     <!-- Drive wheel -->
@@ -117,8 +117,8 @@
             <surface>
                 <friction>
                     <ode>
-                        <mu>1.5</mu>
-                        <mu2>1.5</mu2>
+                        <mu>5.0</mu>
+                        <mu2>5.0</mu2>
                     </ode>
                 </friction>
             </surface>

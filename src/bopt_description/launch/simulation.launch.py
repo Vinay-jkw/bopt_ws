@@ -76,9 +76,6 @@ def generate_launch_description():
             '/lidar/front/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
         ],
         output='screen',
-        remappings=[
-            ('/imu', '/imu/out'),
-        ]
     )
 
 
