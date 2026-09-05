@@ -179,6 +179,7 @@ def generate_launch_description():
                 {
                     "use_sim_time": True,
                     "robot_name": robot_name,
+                    "publish_tf": False,
                 }
             ],
         ),

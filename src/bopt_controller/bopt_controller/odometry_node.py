@@ -65,6 +65,11 @@ class BoptOdometry(Node):
             0.02
         ).value
 
+        self.publish_tf = self.declare_parameter(
+            'publish_tf',
+            False
+        ).value
+
         # =====================================================
         # ODOMETRY STATE
         # =====================================================
@@ -439,42 +444,62 @@ class BoptOdometry(Node):
             angular_velocity
         )
 
+        # Covariances for EKF filter
+        odom.pose.covariance = [
+            1e-3, 0.0,  0.0,  0.0,  0.0,  0.0,
+            0.0,  1e-3, 0.0,  0.0,  0.0,  0.0,
+            0.0,  0.0,  1e6,  0.0,  0.0,  0.0,
+            0.0,  0.0,  0.0,  1e6,  0.0,  0.0,
+            0.0,  0.0,  0.0,  0.0,  1e6,  0.0,
+            0.0,  0.0,  0.0,  0.0,  0.0,  1e-2
+        ]
+
+        odom.twist.covariance = [
+            1e-2, 0.0,  0.0,  0.0,  0.0,  0.0,
+            0.0,  1e-2, 0.0,  0.0,  0.0,  0.0,
+            0.0,  0.0,  1e6,  0.0,  0.0,  0.0,
+            0.0,  0.0,  0.0,  1e6,  0.0,  0.0,
+            0.0,  0.0,  0.0,  0.0,  1e6,  0.0,
+            0.0,  0.0,  0.0,  0.0,  0.0,  1e-1
+        ]
+
         self.odom_publisher.publish(odom)
         self.wheel_velocity_publisher.publish(Float64(data=linear_velocity))
 
         # =====================================================
-        # TF: odom -> base_footprint
+        # TF: odom -> base_footprint (only if publish_tf is True)
         # =====================================================
 
-        transform = TransformStamped()
+        if self.publish_tf:
+            transform = TransformStamped()
 
-        transform.header.stamp = stamp.to_msg()
+            transform.header.stamp = stamp.to_msg()
 
-        transform.header.frame_id = self.odom_frame
+            transform.header.frame_id = self.odom_frame
 
-        transform.child_frame_id = self.base_frame
+            transform.child_frame_id = self.base_frame
 
-        transform.transform.translation.x = (
-            self.odom_x
-        )
+            transform.transform.translation.x = (
+                self.odom_x
+            )
 
-        transform.transform.translation.y = (
-            self.odom_y
-        )
+            transform.transform.translation.y = (
+                self.odom_y
+            )
 
-        transform.transform.translation.z = 0.0
+            transform.transform.translation.z = 0.0
 
-        transform.transform.rotation.x = 0.0
+            transform.transform.rotation.x = 0.0
 
-        transform.transform.rotation.y = 0.0
+            transform.transform.rotation.y = 0.0
 
-        transform.transform.rotation.z = qz
+            transform.transform.rotation.z = qz
 
-        transform.transform.rotation.w = qw
+            transform.transform.rotation.w = qw
 
-        self.tf_broadcaster.sendTransform(
-            transform
-        )
+            self.tf_broadcaster.sendTransform(
+                transform
+            )
 
 
 def main(args=None):

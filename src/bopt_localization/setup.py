@@ -44,6 +44,7 @@ setup(
     entry_points={
         'console_scripts': [
             'current_pose_publisher = bopt_localization.current_pose_publisher:main',
+            'imu_covariance_relay = bopt_localization.imu_covariance_relay:main',
         ],
     },
 )

@@ -41,6 +41,12 @@ def generate_launch_description():
         description="Full path to AMCL config file"
     )
 
+    ekf_config = os.path.join(
+        get_package_share_directory("bopt_localization"),
+        "config",
+        "ekf.yaml"
+    )
+
     use_sim_time_arg = DeclareLaunchArgument(
         "use_sim_time",
         default_value="true",
@@ -98,6 +104,25 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------
+    # EKF
+    # --------------------------------------------------
+    imu_relay = Node(
+        package="bopt_localization",
+        executable="imu_covariance_relay",
+        name="imu_covariance_relay",
+        output="screen",
+        parameters=[{"use_sim_time": use_sim_time}],
+    )
+
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[ekf_config, {"use_sim_time": use_sim_time}],
+    )
+
+    # --------------------------------------------------
     # Lifecycle Manager
     # --------------------------------------------------
 
@@ -140,7 +165,9 @@ def generate_launch_description():
         amcl_config_arg,
         use_sim_time_arg,
         nav2_map_server,
+        imu_relay,
         nav2_amcl,
+        ekf_node,
         nav2_lifecycle_manager,
         current_pose_publisher,
     ])
