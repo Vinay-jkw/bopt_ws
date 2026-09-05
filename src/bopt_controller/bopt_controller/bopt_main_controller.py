@@ -20,7 +20,6 @@ class BoptMainController(Node):
 
         # =====================================================
         # PARAMETERS
-        # Keep these identical to the original BOPT controller
         # =====================================================
 
         self.declare_parameter('wheel_radius', 0.115)
@@ -34,8 +33,53 @@ class BoptMainController(Node):
 
         self.declare_parameter('command_timeout', 0.5)
 
+        # Steering must be within this error before traction starts.
+        # 0.03 rad ~= 1.7 degrees
         self.declare_parameter('steering_tolerance', 0.03)
-        self.declare_parameter('steering_delay', 0.15)
+
+        # Additional settling time after steering enters tolerance.
+        self.declare_parameter('steering_delay', 0.05)
+
+        # -----------------------------------------------------
+        # ACCELERATION / DECELERATION
+        # wheel angular velocity [rad/s^2]
+        # -----------------------------------------------------
+
+        self.declare_parameter(
+            'wheel_acceleration',
+            8.0
+        )
+
+        self.declare_parameter(
+            'wheel_deceleration',
+            12.0
+        )
+
+        # -----------------------------------------------------
+        # Steering must move first when error exceeds this.
+        # This is intentionally larger than steering_tolerance.
+        # -----------------------------------------------------
+
+        self.declare_parameter(
+            'steering_start_threshold',
+            0.05
+        )
+
+        # -----------------------------------------------------
+        # Reverse direction change:
+        #
+        # If current wheel velocity is positive and requested
+        # velocity is negative (or vice versa), stop first.
+        # -----------------------------------------------------
+
+        self.declare_parameter(
+            'reverse_stop_threshold',
+            0.02
+        )
+
+        # =====================================================
+        # READ PARAMETERS
+        # =====================================================
 
         self.wheel_radius = self.get_parameter(
             'wheel_radius'
@@ -73,6 +117,22 @@ class BoptMainController(Node):
             'steering_delay'
         ).value
 
+        self.wheel_acceleration = self.get_parameter(
+            'wheel_acceleration'
+        ).value
+
+        self.wheel_deceleration = self.get_parameter(
+            'wheel_deceleration'
+        ).value
+
+        self.steering_start_threshold = self.get_parameter(
+            'steering_start_threshold'
+        ).value
+
+        self.reverse_stop_threshold = self.get_parameter(
+            'reverse_stop_threshold'
+        ).value
+
         # =====================================================
         # STATE
         # =====================================================
@@ -80,14 +140,28 @@ class BoptMainController(Node):
         self.last_command_time = self.get_clock().now()
 
         self.current_lift_position = 0.0
+
+        # ACTUAL steering position from joint_states
         self.current_steering_angle = 0.0
+
+        # ACTUAL/commanded wheel velocity state
         self.current_wheel_velocity = 0.0
 
+        # Targets
         self.target_steering_angle = 0.0
         self.target_wheel_velocity = 0.0
         self.target_lift_position = 0.0
 
+        # Time when steering first entered tolerance
         self.steering_reached_time = None
+
+        # =====================================================
+        # CONTROLLER STATE
+        # =====================================================
+
+        self.steering_aligned = True
+
+        self.reverse_wait = False
 
         self.is_stopped = True
 
@@ -103,7 +177,7 @@ class BoptMainController(Node):
         )
 
         # =====================================================
-        # ACTUAL JOINT STATE
+        # JOINT STATES
         # =====================================================
 
         self.joint_state_sub = self.create_subscription(
@@ -114,7 +188,7 @@ class BoptMainController(Node):
         )
 
         # =====================================================
-        # GAZEBO OUTPUTS
+        # OUTPUTS
         # =====================================================
 
         self.traction_pub = self.create_publisher(
@@ -136,7 +210,7 @@ class BoptMainController(Node):
         )
 
         # =====================================================
-        # SAFETY TIMER
+        # CONTROL TIMER
         # =====================================================
 
         self.control_timer = self.create_timer(
@@ -144,7 +218,10 @@ class BoptMainController(Node):
             self.control_loop
         )
 
-        # Start safely stopped
+        # =====================================================
+        # SAFE START
+        # =====================================================
+
         self.publish_traction(0.0)
         self.publish_steering(0.0)
 
@@ -153,11 +230,17 @@ class BoptMainController(Node):
         )
 
         self.get_logger().info(
-            'Input:  bopt/relay_cmd'
+            'Steering-first interlock ENABLED'
         )
 
         self.get_logger().info(
-            'Output: Gazebo joint controllers'
+            f'Wheel acceleration: '
+            f'{self.wheel_acceleration:.2f} rad/s^2'
+        )
+
+        self.get_logger().info(
+            f'Wheel deceleration: '
+            f'{self.wheel_deceleration:.2f} rad/s^2'
         )
 
     # =========================================================
@@ -173,7 +256,7 @@ class BoptMainController(Node):
         lift_height = msg.lift_height
 
         # -----------------------------------------------------
-        # Validate command
+        # VALIDATION
         # -----------------------------------------------------
 
         if not self.valid_number(velocity):
@@ -195,7 +278,7 @@ class BoptMainController(Node):
             return
 
         # -----------------------------------------------------
-        # Steering limit
+        # LIMIT STEERING
         # -----------------------------------------------------
 
         steering_angle = self.clamp(
@@ -205,23 +288,12 @@ class BoptMainController(Node):
         )
 
         # -----------------------------------------------------
-        # IMPORTANT:
-        #
-        # This is NOT cmd_vel → steering conversion.
-        #
-        # BOPT KEY / NMPC already provides steering_angle.
-        #
-        # We only convert vehicle velocity [m/s]
-        # into wheel angular velocity [rad/s].
+        # VEHICLE VELOCITY -> WHEEL VELOCITY
         # -----------------------------------------------------
 
         wheel_velocity = (
             velocity / self.wheel_radius
         )
-
-        # -----------------------------------------------------
-        # Wheel velocity limit
-        # -----------------------------------------------------
 
         wheel_velocity = self.clamp(
             wheel_velocity,
@@ -230,45 +302,81 @@ class BoptMainController(Node):
         )
 
         # -----------------------------------------------------
-        # Compare requested steering with ACTUAL steering
-        #
-        # Preserve original BOPT safety behavior.
+        # SAVE TARGETS
         # -----------------------------------------------------
 
-        steering_error = abs(
-            steering_angle -
-            self.current_steering_angle
+        previous_target_steering = (
+            self.target_steering_angle
         )
 
-        self.current_wheel_velocity = wheel_velocity
-        self.target_wheel_velocity = wheel_velocity
-        self.target_steering_angle = steering_angle
+        previous_target_wheel = (
+            self.target_wheel_velocity
+        )
 
-        # -----------------------------------------------------
-        # Steering command
-        # -----------------------------------------------------
+        self.target_steering_angle = steering_angle
+        self.target_wheel_velocity = wheel_velocity
+
+        # =====================================================
+        # REVERSE DIRECTION DETECTION
+        # =====================================================
+
+        direction_change = (
+            abs(previous_target_wheel) >
+            self.reverse_stop_threshold
+            and
+            abs(wheel_velocity) >
+            self.reverse_stop_threshold
+            and
+            (
+                math.copysign(
+                    1.0,
+                    previous_target_wheel
+                )
+                !=
+                math.copysign(
+                    1.0,
+                    wheel_velocity
+                )
+            )
+        )
+
+        if direction_change:
+
+            self.reverse_wait = True
+
+            self.get_logger().info(
+                'Direction change detected: '
+                'stopping before reversing'
+            )
+
+        # =====================================================
+        # STEERING TARGET CHANGED
+        # =====================================================
+
+        steering_target_changed = (
+            abs(
+                steering_angle -
+                previous_target_steering
+            )
+            >
+            self.steering_tolerance
+        )
+
+        if steering_target_changed:
+
+            self.steering_reached_time = None
+
+        # =====================================================
+        # ALWAYS SEND STEERING TARGET
+        # =====================================================
 
         self.publish_steering(
             steering_angle
         )
 
-        now = self.get_clock().now()
-
-        # -----------------------------------------------------
-        # Traction command (direct continuous tracking)
-        # -----------------------------------------------------
-
-        self.publish_traction(
-            wheel_velocity
-        )
-
-        self.is_stopped = (
-            abs(wheel_velocity) < 1e-4
-        )
-
-        # -----------------------------------------------------
-        # Lift
-        # -----------------------------------------------------
+        # =====================================================
+        # LIFT
+        # =====================================================
 
         lift_position = self.clamp(
             lift_height,
@@ -276,7 +384,6 @@ class BoptMainController(Node):
             self.lift_max
         )
 
-        # Only issue lift trajectory when target changes
         if abs(
             lift_position -
             self.target_lift_position
@@ -288,8 +395,8 @@ class BoptMainController(Node):
             )
 
             duration_s = max(
-                1.0,
-                distance / 0.025 + 0.5
+                0.5,
+                distance / 0.05
             )
 
             self.publish_lift(
@@ -299,12 +406,22 @@ class BoptMainController(Node):
 
             self.target_lift_position = lift_position
 
+        # =====================================================
+        # DEBUG
+        # =====================================================
+
+        steering_error = abs(
+            steering_angle -
+            self.current_steering_angle
+        )
+
         self.get_logger().debug(
-            f'BOPT MAIN | '
-            f'velocity={velocity:.3f} m/s | '
-            f'wheel={wheel_velocity:.3f} rad/s | '
-            f'steering={steering_angle:.3f} rad | '
-            f'lift={lift_position:.4f} m'
+            f'CMD | '
+            f'v={velocity:.3f} m/s | '
+            f'wheel_target={wheel_velocity:.3f} | '
+            f'steer_target={steering_angle:.3f} | '
+            f'steer_actual={self.current_steering_angle:.3f} | '
+            f'steer_error={steering_error:.3f}'
         )
 
     # =========================================================
@@ -312,6 +429,13 @@ class BoptMainController(Node):
     # =========================================================
 
     def joint_state_callback(self, msg):
+
+        # -----------------------------------------------------
+        # IMPORTANT:
+        #
+        # drive_wheel_Ass_joint is being used as the steering
+        # assembly position based on your current robot model.
+        # -----------------------------------------------------
 
         if 'drive_wheel_Ass_joint' in msg.name:
 
@@ -324,6 +448,10 @@ class BoptMainController(Node):
                 self.current_steering_angle = (
                     msg.position[index]
                 )
+
+        # -----------------------------------------------------
+        # LIFT
+        # -----------------------------------------------------
 
         if 'front_lift_joint' in msg.name:
 
@@ -338,31 +466,227 @@ class BoptMainController(Node):
                 )
 
     # =========================================================
-    # WATCHDOG
+    # MAIN CONTROL LOOP
     # =========================================================
 
     def control_loop(self):
 
+        now = self.get_clock().now()
+
+        # =====================================================
+        # COMMAND WATCHDOG
+        # =====================================================
+
         elapsed = (
-            self.get_clock().now()
-            -
+            now -
             self.last_command_time
         ).nanoseconds / 1e9
 
-        if (
-            elapsed > self.command_timeout
-            and not self.is_stopped
-        ):
+        if elapsed > self.command_timeout:
 
-            self.publish_traction(0.0)
+            if not self.is_stopped:
 
-            self.current_wheel_velocity = 0.0
+                self.get_logger().warn(
+                    'Command timeout: stopping traction'
+                )
+
+            self.target_wheel_velocity = 0.0
+
+            self.reverse_wait = False
 
             self.is_stopped = True
 
-            self.get_logger().debug(
-                'BOPT command timeout: traction stopped'
+        # =====================================================
+        # STEERING ERROR
+        # =====================================================
+
+        steering_error = abs(
+            self.target_steering_angle -
+            self.current_steering_angle
+        )
+
+        # =====================================================
+        # STEERING ALIGNMENT STATE
+        # =====================================================
+
+        if steering_error > self.steering_start_threshold:
+
+            self.steering_aligned = False
+
+            self.steering_reached_time = None
+
+        else:
+
+            if not self.steering_aligned:
+
+                if self.steering_reached_time is None:
+
+                    self.steering_reached_time = now
+
+                settled_time = (
+                    now -
+                    self.steering_reached_time
+                ).nanoseconds / 1e9
+
+                if settled_time >= self.steering_delay:
+
+                    self.steering_aligned = True
+
+                    self.get_logger().debug(
+                        'Steering aligned: traction released'
+                    )
+
+        # =====================================================
+        # STEERING SAFETY INTERLOCK
+        # =====================================================
+
+        if not self.steering_aligned:
+
+            # ABSOLUTELY NO TRACTION WHILE STEERING
+            # IS FAR FROM TARGET.
+
+            self.current_wheel_velocity = (
+                self.ramp_velocity(
+                    self.current_wheel_velocity,
+                    0.0,
+                    self.wheel_deceleration
+                )
             )
+
+            self.publish_traction(
+                self.current_wheel_velocity
+            )
+
+            self.is_stopped = (
+                abs(
+                    self.current_wheel_velocity
+                ) < 1e-4
+            )
+
+            return
+
+        # =====================================================
+        # REVERSE SAFETY
+        # =====================================================
+
+        if self.reverse_wait:
+
+            self.current_wheel_velocity = (
+                self.ramp_velocity(
+                    self.current_wheel_velocity,
+                    0.0,
+                    self.wheel_deceleration
+                )
+            )
+
+            self.publish_traction(
+                self.current_wheel_velocity
+            )
+
+            if abs(
+                self.current_wheel_velocity
+            ) <= self.reverse_stop_threshold:
+
+                self.current_wheel_velocity = 0.0
+
+                self.publish_traction(0.0)
+
+                self.reverse_wait = False
+
+                self.get_logger().debug(
+                    'Vehicle stopped: reverse command released'
+                )
+
+            return
+
+        # =====================================================
+        # NORMAL VELOCITY RAMP
+        # =====================================================
+
+        target = self.target_wheel_velocity
+
+        # -----------------------------------------------------
+        # Accelerating
+        # -----------------------------------------------------
+
+        if abs(target) > abs(
+            self.current_wheel_velocity
+        ):
+
+            self.current_wheel_velocity = (
+                self.ramp_velocity(
+                    self.current_wheel_velocity,
+                    target,
+                    self.wheel_acceleration
+                )
+            )
+
+        # -----------------------------------------------------
+        # Decelerating
+        # -----------------------------------------------------
+
+        else:
+
+            self.current_wheel_velocity = (
+                self.ramp_velocity(
+                    self.current_wheel_velocity,
+                    target,
+                    self.wheel_deceleration
+                )
+            )
+
+        # =====================================================
+        # OUTPUT TRACTION
+        # =====================================================
+
+        self.publish_traction(
+            self.current_wheel_velocity
+        )
+
+        self.is_stopped = (
+            abs(
+                self.current_wheel_velocity
+            ) < 1e-4
+        )
+
+        # =====================================================
+        # KEEP STEERING COMMAND ALIVE
+        # =====================================================
+
+        self.publish_steering(
+            self.target_steering_angle
+        )
+
+    # =========================================================
+    # VELOCITY RAMP
+    # =========================================================
+
+    def ramp_velocity(
+        self,
+        current,
+        target,
+        rate
+    ):
+
+        max_change = (
+            rate *
+            self.control_dt
+        )
+
+        difference = (
+            target -
+            current
+        )
+
+        if abs(difference) <= max_change:
+
+            return target
+
+        if difference > 0:
+
+            return current + max_change
+
+        return current - max_change
 
     # =========================================================
     # TRACTION OUTPUT
@@ -478,6 +802,7 @@ def main(args=None):
 
         try:
             node.publish_traction(0.0)
+            node.publish_steering(0.0)
         except Exception:
             pass
 
