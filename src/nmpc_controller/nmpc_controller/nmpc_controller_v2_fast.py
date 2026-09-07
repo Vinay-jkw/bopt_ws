@@ -58,7 +58,7 @@ class RobotClient(Node):
         self._is_halted = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.531.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
         self._lut_keys = list(self.lookup_table.keys())  # full 3-D keys
         self._kd_tree = KDTree(np.array([k[:2] for k in self._lut_keys], dtype=np.float32))
