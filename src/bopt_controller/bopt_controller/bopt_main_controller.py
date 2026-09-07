@@ -47,12 +47,12 @@ class BoptMainController(Node):
 
         self.declare_parameter(
             'wheel_acceleration',
-            8.0
+            3.5
         )
 
         self.declare_parameter(
             'wheel_deceleration',
-            12.0
+            8.0
         )
 
         # -----------------------------------------------------
@@ -62,7 +62,7 @@ class BoptMainController(Node):
 
         self.declare_parameter(
             'steering_start_threshold',
-            0.05
+            0.15
         )
 
         # -----------------------------------------------------

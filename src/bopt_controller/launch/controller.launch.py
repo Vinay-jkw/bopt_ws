@@ -124,7 +124,10 @@ def generate_launch_description():
                     "lift_max": 0.095,
                     "command_timeout": 0.5,
                     "steering_tolerance": 0.03,
-                    "steering_delay": 0.15,
+                    "steering_delay": 0.05,
+                    "wheel_acceleration": 3.5,
+                    "wheel_deceleration": 8.0,
+                    "steering_start_threshold": 0.15,
                 }
             ],
         ),
