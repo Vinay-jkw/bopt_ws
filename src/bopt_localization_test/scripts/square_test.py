@@ -41,70 +41,15 @@ class SquareTest(Node):
         # Parameters
         # ====================================================
 
-        self.declare_parameter('side_length', 1.0)
+        self.declare_parameter('linear_speed', 0.15)
+        self.declare_parameter('angular_speed', 0.20)
+        self.declare_parameter('segment_duration', 4.0)
+        self.declare_parameter('settle_time', 1.0)
 
-        self.declare_parameter(
-            'linear_speed',
-            0.15
-        )
-
-        self.declare_parameter(
-            'angular_speed',
-            0.30
-        )
-
-        self.declare_parameter(
-            'position_tolerance',
-            0.02
-        )
-
-        self.declare_parameter(
-            'yaw_tolerance_deg',
-            2.0
-        )
-
-        self.declare_parameter(
-            'settle_time',
-            1.0
-        )
-
-        self.side_length = float(
-            self.get_parameter(
-                'side_length'
-            ).value
-        )
-
-        self.linear_speed = float(
-            self.get_parameter(
-                'linear_speed'
-            ).value
-        )
-
-        self.angular_speed = float(
-            self.get_parameter(
-                'angular_speed'
-            ).value
-        )
-
-        self.position_tolerance = float(
-            self.get_parameter(
-                'position_tolerance'
-            ).value
-        )
-
-        self.yaw_tolerance = math.radians(
-            float(
-                self.get_parameter(
-                    'yaw_tolerance_deg'
-                ).value
-            )
-        )
-
-        self.settle_time = float(
-            self.get_parameter(
-                'settle_time'
-            ).value
-        )
+        self.linear_speed = float(self.get_parameter('linear_speed').value)
+        self.angular_speed = float(self.get_parameter('angular_speed').value)
+        self.segment_duration = float(self.get_parameter('segment_duration').value)
+        self.settle_time = float(self.get_parameter('settle_time').value)
 
         # ====================================================
         # Publishers
@@ -134,32 +79,27 @@ class SquareTest(Node):
         )
 
         # ====================================================
-        # Ground truth state
+        # State variables
         # ====================================================
 
         self.gt_x = None
         self.gt_y = None
         self.gt_yaw = None
 
-        # ====================================================
-        # Test state
-        # ====================================================
-
         self.state = 'WAITING'
-
-        self.side_index = 0
 
         self.start_x = None
         self.start_y = None
         self.start_yaw = None
 
-        self.target_x = None
-        self.target_y = None
-        self.target_yaw = None
-
+        self.segment_start_time = None
         self.settle_start = None
 
         self.last_phase = None
+
+        # Waypoint recording for error reporting
+        self.seg1_end_pose = None
+        self.seg2_end_pose = None
 
         # ====================================================
         # Timer
@@ -170,56 +110,24 @@ class SquareTest(Node):
             self.control_loop
         )
 
-        self.get_logger().info(
-            '=========================================='
-        )
-
-        self.get_logger().info(
-            'BOPT LOCALIZATION SQUARE TEST'
-        )
-
-        self.get_logger().info(
-            '=========================================='
-        )
-
-        self.get_logger().info(
-            f'Side length       : {self.side_length:.2f} m'
-        )
-
-        self.get_logger().info(
-            f'Linear speed      : {self.linear_speed:.2f} m/s'
-        )
-
-        self.get_logger().info(
-            f'Angular speed     : {self.angular_speed:.2f} rad/s'
-        )
-
-        self.get_logger().info(
-            f'Position tolerance: '
-            f'{self.position_tolerance:.3f} m'
-        )
-
-        self.get_logger().info(
-            f'Yaw tolerance     : '
-            f'{math.degrees(self.yaw_tolerance):.2f} deg'
-        )
-
-        self.get_logger().info(
-            'Waiting for Gazebo ground truth...'
-        )
+        self.get_logger().info('==========================================')
+        self.get_logger().info('BOPT LOCALIZATION REVERSE CURVED TEST')
+        self.get_logger().info('==========================================')
+        self.get_logger().info(f'Linear speed    : {self.linear_speed:.2f} m/s')
+        self.get_logger().info(f'Angular speed   : {self.angular_speed:.2f} rad/s')
+        self.get_logger().info(f'Segment Duration: {self.segment_duration:.2f} s')
+        self.get_logger().info(f'Settle Time     : {self.settle_time:.2f} s')
+        self.get_logger().info('Waiting for Gazebo ground truth...')
 
     # ========================================================
-    # Ground truth
+    # Ground truth callback
     # ========================================================
 
     def gt_callback(self, msg):
 
         self.gt_x = msg.pose.position.x
         self.gt_y = msg.pose.position.y
-
-        self.gt_yaw = quaternion_to_yaw(
-            msg.pose.orientation
-        )
+        self.gt_yaw = quaternion_to_yaw(msg.pose.orientation)
 
     # ========================================================
     # Publish phase
@@ -234,25 +142,20 @@ class SquareTest(Node):
         msg.data = phase
 
         self.phase_pub.publish(msg)
-
         self.last_phase = phase
 
-        self.get_logger().info(
-            f'PHASE -> {phase}'
-        )
+        self.get_logger().info(f'PHASE -> {phase}')
 
     # ========================================================
-    # Publish zero command
+    # Stop robot
     # ========================================================
 
     def stop_robot(self):
 
         cmd = Twist()
-
         cmd.linear.x = 0.0
         cmd.linear.y = 0.0
         cmd.linear.z = 0.0
-
         cmd.angular.x = 0.0
         cmd.angular.y = 0.0
         cmd.angular.z = 0.0
@@ -269,314 +172,164 @@ class SquareTest(Node):
         self.start_y = self.gt_y
         self.start_yaw = self.gt_yaw
 
-        self.side_index = 0
+        self.state = 'REVERSE_LEFT'
+        self.segment_start_time = time.monotonic()
 
-        self.state = 'DRIVE'
+        self.publish_phase('START')
+        self.publish_phase('REVERSE_LEFT_DRIVE')
 
-        self.calculate_drive_target()
-
-        self.publish_phase(
-            'START'
-        )
-
+        self.get_logger().info('==========================================')
+        self.get_logger().info('REVERSE CURVED MANEUVER TEST START')
+        self.get_logger().info('Pattern: REVERSE LEFT CURVE -> REVERSE RIGHT CURVE')
         self.get_logger().info(
-            '=========================================='
+            f'Start Pose: x={self.start_x:.4f} m, y={self.start_y:.4f} m, yaw={math.degrees(self.start_yaw):.2f}°'
         )
-
-        self.get_logger().info(
-            'SQUARE TEST START'
-        )
-
-        self.get_logger().info(
-            f'Start: '
-            f'x={self.start_x:.4f}, '
-            f'y={self.start_y:.4f}, '
-            f'yaw={math.degrees(self.start_yaw):.2f} deg'
-        )
-
-        self.get_logger().info(
-            '=========================================='
-        )
+        self.get_logger().info('==========================================')
 
     # ========================================================
-    # Calculate target for current 1 m side
+    # Motion Controllers
     # ========================================================
 
-    def calculate_drive_target(self):
+    def drive_segment(self, linear_vel, angular_vel, next_settle_state, end_phase_name):
 
-        # Current heading is the direction of travel.
-        heading = self.gt_yaw
+        elapsed = time.monotonic() - self.segment_start_time
 
-        self.side_start_x = self.gt_x
-        self.side_start_y = self.gt_y
-        self.side_start_yaw = heading
-
-        self.target_x = (
-            self.gt_x +
-            self.side_length *
-            math.cos(heading)
-        )
-
-        self.target_y = (
-            self.gt_y +
-            self.side_length *
-            math.sin(heading)
-        )
-
-        self.target_yaw = heading
-        self.state = 'DRIVE'
-
-        self.publish_phase(
-            f'SIDE_{self.side_index + 1}_DRIVE'
-        )
-
-        self.get_logger().info(
-            f'Side {self.side_index + 1}: '
-            f'start=({self.side_start_x:.3f}, {self.side_start_y:.3f}) -> '
-            f'target=({self.target_x:.3f}, {self.target_y:.3f})'
-        )
-
-    # ========================================================
-    # Calculate next 90 degree target
-    # ========================================================
-
-    def calculate_rotation_target(self):
-
-        self.target_yaw = wrap_to_pi(
-            self.gt_yaw +
-            math.pi / 2.0
-        )
-
-        self.state = 'ROTATE'
-
-        self.publish_phase(
-            f'TURN_{self.side_index + 1}'
-        )
-
-        self.get_logger().info(
-            f'Turn {self.side_index + 1} target: '
-            f'{math.degrees(self.target_yaw):.2f} deg'
-        )
-
-    # ========================================================
-    # Drive controller with smooth deceleration & progress tracking
-    # ========================================================
-
-    def drive_control(self):
-
-        # Progress along the intended side vector
-        dx = self.gt_x - self.side_start_x
-        dy = self.gt_y - self.side_start_y
-
-        dist_traveled = (
-            dx * math.cos(self.side_start_yaw) +
-            dy * math.sin(self.side_start_yaw)
-        )
-
-        remaining = self.side_length - dist_traveled
-
-        if remaining <= self.position_tolerance or dist_traveled >= self.side_length:
+        if elapsed >= self.segment_duration:
 
             self.stop_robot()
-
             self.settle_start = time.monotonic()
+            self.state = next_settle_state
 
-            self.state = 'SETTLE_DRIVE'
+            self.publish_phase(end_phase_name)
 
-            self.publish_phase(
-                f'SIDE_{self.side_index + 1}_END'
-            )
+            current_pose = (self.gt_x, self.gt_y, self.gt_yaw)
 
-            self.get_logger().info(
-                f'Side {self.side_index + 1} complete | '
-                f'traveled={dist_traveled:.4f} m (error={abs(remaining):.4f} m)'
-            )
+            if next_settle_state == 'SETTLE_SEG1':
+                self.seg1_end_pose = current_pose
+            elif next_settle_state == 'SETTLE_SEG2':
+                self.seg2_end_pose = current_pose
 
+            self.get_logger().info(f'Segment completed ({end_phase_name}) | Pose=({self.gt_x:.3f}, {self.gt_y:.3f}, {math.degrees(self.gt_yaw):.1f}°)')
             return
 
-        # Smooth deceleration ramp in the last 25 cm
-        slowdown_dist = 0.25
-        min_speed = 0.03
-
-        if remaining < slowdown_dist:
-            speed = min_speed + (self.linear_speed - min_speed) * max(0.0, remaining / slowdown_dist)
-        else:
-            speed = self.linear_speed
-
         cmd = Twist()
-        cmd.linear.x = float(speed)
-        cmd.angular.z = 0.0
+        cmd.linear.x = float(linear_vel)
+        cmd.angular.z = float(angular_vel)
 
         self.cmd_pub.publish(cmd)
 
     # ========================================================
-    # Rotation controller with smooth angular deceleration
+    # Finish Test & Report Errors
     # ========================================================
 
-    def rotate_control(self):
+    def finish_test(self):
 
-        error = angle_error(
-            self.target_yaw,
-            self.gt_yaw
+        self.state = 'FINISHED'
+        self.publish_phase('FINAL')
+        self.stop_robot()
+
+        final_x = self.gt_x
+        final_y = self.gt_y
+        final_yaw = self.gt_yaw
+
+        dx_final = final_x - self.start_x
+        dy_final = final_y - self.start_y
+
+        net_displacement = math.sqrt(dx_final ** 2 + dy_final ** 2)
+
+        longitudinal_dist = (
+            dx_final * math.cos(self.start_yaw) +
+            dy_final * math.sin(self.start_yaw)
         )
 
-        if abs(error) <= self.yaw_tolerance:
+        lateral_offset = (
+            -dx_final * math.sin(self.start_yaw) +
+            dy_final * math.cos(self.start_yaw)
+        )
 
-            self.stop_robot()
+        heading_change = wrap_to_pi(final_yaw - self.start_yaw)
 
-            self.settle_start = time.monotonic()
-
-            self.state = 'SETTLE_ROTATE'
-
-            self.publish_phase(
-                f'TURN_{self.side_index + 1}_END'
-            )
-
+        self.get_logger().info('==========================================')
+        self.get_logger().info('REVERSE CURVED MANEUVER TEST COMPLETE')
+        self.get_logger().info('==========================================')
+        self.get_logger().info(
+            f'Initial Start Pose      : x={self.start_x:.4f} m, y={self.start_y:.4f} m, yaw={math.degrees(self.start_yaw):.2f}°'
+        )
+        if self.seg1_end_pose:
             self.get_logger().info(
-                f'Turn {self.side_index + 1} complete | '
-                f'error={math.degrees(error):.3f} deg'
+                f'REV Left End Pose       : x={self.seg1_end_pose[0]:.4f} m, y={self.seg1_end_pose[1]:.4f} m, yaw={math.degrees(self.seg1_end_pose[2]):.2f}°'
             )
-
-            return
-
-        # Smooth angular deceleration in the last 25 degrees
-        slowdown_angle = math.radians(25.0)
-        min_angular = 0.04
-
-        if abs(error) < slowdown_angle:
-            turn_rate = min_angular + (self.angular_speed - min_angular) * (abs(error) / slowdown_angle)
-        else:
-            turn_rate = self.angular_speed
-
-        cmd = Twist()
-        cmd.linear.x = 0.0
-        cmd.angular.z = float(math.copysign(turn_rate, error))
-
-        self.cmd_pub.publish(cmd)
+        self.get_logger().info(
+            f'Final Ground Truth Pose : x={final_x:.4f} m, y={final_y:.4f} m, yaw={math.degrees(final_yaw):.2f}°'
+        )
+        self.get_logger().info('------------------------------------------')
+        self.get_logger().info(
+            f'Total Net Displacement  : {net_displacement:.4f} m'
+        )
+        self.get_logger().info(
+            f'Longitudinal Distance   : {longitudinal_dist:+.4f} m'
+        )
+        self.get_logger().info(
+            f'Lateral Offset          : {lateral_offset:+.4f} m'
+        )
+        self.get_logger().info(
+            f'Net Heading Change      : {math.degrees(heading_change):+.2f}° ({heading_change:+.4f} rad)'
+        )
+        self.get_logger().info('==========================================')
 
     # ========================================================
-    # Main control loop
+    # Control Loop State Machine
     # ========================================================
 
     def control_loop(self):
 
-        # ----------------------------------------------------
-        # Wait for GT
-        # ----------------------------------------------------
-
-        if (
-            self.gt_x is None or
-            self.gt_y is None or
-            self.gt_yaw is None
-        ):
-
+        if self.gt_x is None or self.gt_y is None or self.gt_yaw is None:
             return
-
-        # ----------------------------------------------------
-        # Waiting
-        # ----------------------------------------------------
 
         if self.state == 'WAITING':
-
             self.start_test()
-
             return
 
         # ----------------------------------------------------
-        # Drive
+        # Segment 1: Reverse Left Curve
         # ----------------------------------------------------
-
-        if self.state == 'DRIVE':
-
-            self.drive_control()
-
+        if self.state == 'REVERSE_LEFT':
+            self.drive_segment(
+                linear_vel=-self.linear_speed,
+                angular_vel=+self.angular_speed,
+                next_settle_state='SETTLE_SEG1',
+                end_phase_name='REVERSE_LEFT_END'
+            )
             return
 
-        # ----------------------------------------------------
-        # Settle after drive
-        # ----------------------------------------------------
-
-        if self.state == 'SETTLE_DRIVE':
-
+        if self.state == 'SETTLE_SEG1':
             self.stop_robot()
-
-            if (
-                time.monotonic() -
-                self.settle_start
-                >= self.settle_time
-            ):
-
-                self.calculate_rotation_target()
-
+            if time.monotonic() - self.settle_start >= self.settle_time:
+                self.state = 'REVERSE_RIGHT'
+                self.segment_start_time = time.monotonic()
+                self.publish_phase('REVERSE_RIGHT_DRIVE')
             return
 
         # ----------------------------------------------------
-        # Rotate
+        # Segment 2: Reverse Right Curve
         # ----------------------------------------------------
-
-        if self.state == 'ROTATE':
-
-            self.rotate_control()
-
+        if self.state == 'REVERSE_RIGHT':
+            self.drive_segment(
+                linear_vel=-self.linear_speed,
+                angular_vel=-self.angular_speed,
+                next_settle_state='SETTLE_SEG2',
+                end_phase_name='REVERSE_RIGHT_END'
+            )
             return
 
-        # ----------------------------------------------------
-        # Settle after rotation
-        # ----------------------------------------------------
-
-        if self.state == 'SETTLE_ROTATE':
-
+        if self.state == 'SETTLE_SEG2':
             self.stop_robot()
-
-            if (
-                time.monotonic() -
-                self.settle_start
-                >= self.settle_time
-            ):
-
-                self.side_index += 1
-
-                # After fourth rotation, test is complete.
-                if self.side_index >= 4:
-
-                    self.state = 'FINISHED'
-
-                    self.publish_phase(
-                        'FINAL'
-                    )
-
-                    self.stop_robot()
-
-                    self.get_logger().info(
-                        '=========================================='
-                    )
-
-                    self.get_logger().info(
-                        'SQUARE TEST COMPLETE'
-                    )
-
-                    self.get_logger().info(
-                        'Robot completed 4 sides + 4 turns.'
-                    )
-
-                    self.get_logger().info(
-                        '=========================================='
-                    )
-
-                else:
-
-                    self.calculate_drive_target()
-
+            if time.monotonic() - self.settle_start >= self.settle_time:
+                self.finish_test()
             return
-
-        # ----------------------------------------------------
-        # Finished
-        # ----------------------------------------------------
 
         if self.state == 'FINISHED':
-
             self.stop_robot()
-
             return
 
 
@@ -591,30 +344,21 @@ def main(args=None):
     node = SquareTest()
 
     try:
-
         rclpy.spin(node)
-
     except KeyboardInterrupt:
-
         try:
-            node.get_logger().info(
-                'Square test interrupted.'
-            )
+            node.get_logger().info('Localization test interrupted.')
         except Exception:
-            print('Square test interrupted.')
-
+            print('Localization test interrupted.')
     finally:
-
         try:
             node.stop_robot()
         except Exception:
             pass
-
         try:
             node.destroy_node()
         except Exception:
             pass
-
         if rclpy.ok():
             try:
                 rclpy.shutdown()
@@ -624,4 +368,9 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
 

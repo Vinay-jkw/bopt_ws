@@ -128,19 +128,21 @@ class BoptOdometry(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # =====================================================
-        # TIMER
+        # TIMER & EVENT-DRIVEN SYNC
         # =====================================================
 
+        # Timer kept for fallback/liveness if needed, but primary calculation
+        # is event-driven from JointState header timestamps.
         self.control_timer = self.create_timer(
             self.control_period,
-            self.update_odometry
+            self.timer_callback
         )
 
         # =====================================================
         # TIME
         # =====================================================
 
-        self.last_odometry_time = self.get_clock().now()
+        self.last_odometry_time = None
 
         # =====================================================
         # LOGGING
@@ -176,7 +178,7 @@ class BoptOdometry(Node):
         )
 
     # =========================================================
-    # JOINT STATE CALLBACK
+    # JOINT STATE CALLBACK (EVENT-DRIVEN WITH HEADER STAMP)
     # =========================================================
 
     def joint_state_callback(self, msg):
@@ -209,17 +211,43 @@ class BoptOdometry(Node):
 
         self.received_joint_state = True
 
+        # Extract exact sensor timestamp from JointState msg header
+        if msg.header.stamp.sec != 0 or msg.header.stamp.nanosec != 0:
+            current_time = rclpy.time.Time.from_msg(msg.header.stamp)
+        else:
+            current_time = self.get_clock().now()
+
+        # Execute event-driven odometry update synchronized with joint state sensor sample
+        self.update_odometry(current_time)
+
+    def timer_callback(self):
+        # Fallback if no joint states received yet
+        pass
+
     # =========================================================
     # UPDATE ODOMETRY
     # =========================================================
 
-    def update_odometry(self):
+    def update_odometry(self, current_time=None):
 
         # Don't calculate anything before joint feedback exists
         if not self.received_joint_state:
             return
 
-        current_time = self.get_clock().now()
+        if current_time is None:
+            current_time = self.get_clock().now()
+
+        if self.last_odometry_time is None:
+            self.last_odometry_time = current_time
+            self.previous_drive_position = self.actual_drive_position
+            self.previous_steering_position = self.actual_steering_position
+            self.odometry_initialized = True
+            self.publish_odometry(
+                linear_velocity=0.0,
+                angular_velocity=0.0,
+                stamp=current_time
+            )
+            return
 
         dt = (
             current_time -
@@ -230,29 +258,6 @@ class BoptOdometry(Node):
             return
 
         self.last_odometry_time = current_time
-
-        # =====================================================
-        # INITIALIZATION
-        # =====================================================
-
-        if not self.odometry_initialized:
-
-            self.previous_drive_position = (
-                self.actual_drive_position
-            )
-            self.previous_steering_position = (
-                self.actual_steering_position
-            )
-
-            self.odometry_initialized = True
-
-            self.publish_odometry(
-                linear_velocity=0.0,
-                angular_velocity=0.0,
-                stamp=current_time
-            )
-
-            return
 
         # =====================================================
         # DRIVE WHEEL ROTATION

@@ -8,9 +8,9 @@ from std_msgs.msg import String
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Imu
+from sensor_msgs.msg import Imu, JointState
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -106,6 +106,17 @@ class LocalizationBenchmark(Node):
         self.ekf = None
         self.amcl = None
         self.imu_yaw = None
+        self.imu_yaw_rate = 0.0
+
+        # Command state
+        self.cmd_vehicle_velocity = 0.0
+        self.cmd_steering_command = 0.0
+
+        # Joint state
+        self.drive_wheel_position = 0.0
+        self.drive_wheel_velocity = 0.0
+        self.steering_position = 0.0
+        self.steering_velocity = 0.0
 
         # ----------------------------------------------------
         # Start reference
@@ -161,6 +172,20 @@ class LocalizationBenchmark(Node):
             Imu,
             '/imu/corrected',
             self.imu_callback,
+            20
+        )
+
+        self.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.cmd_vel_callback,
+            20
+        )
+
+        self.create_subscription(
+            JointState,
+            '/joint_states',
+            self.joint_state_callback,
             20
         )
 
@@ -259,6 +284,26 @@ class LocalizationBenchmark(Node):
         self.imu_yaw = quaternion_to_yaw(
             msg.orientation
         )
+        self.imu_yaw_rate = msg.angular_velocity.z
+
+    def cmd_vel_callback(self, msg):
+
+        self.cmd_vehicle_velocity = msg.linear.x
+        self.cmd_steering_command = msg.angular.z
+
+    def joint_state_callback(self, msg):
+
+        for i, name in enumerate(msg.name):
+            if name == 'drive_wheel_joint':
+                if i < len(msg.position):
+                    self.drive_wheel_position = msg.position[i]
+                if i < len(msg.velocity):
+                    self.drive_wheel_velocity = msg.velocity[i]
+            elif name in ['drive_wheel_Ass_joint', 'steering_joint']:
+                if i < len(msg.position):
+                    self.steering_position = msg.position[i]
+                if i < len(msg.velocity):
+                    self.steering_velocity = msg.velocity[i]
 
     def phase_callback(self, msg):
 
@@ -530,6 +575,16 @@ class LocalizationBenchmark(Node):
 
             'timestamp_sec': timestamp_sec,
 
+            # COMMAND
+            'cmd_vehicle_velocity': self.cmd_vehicle_velocity,
+            'cmd_steering_command': self.cmd_steering_command,
+
+            # JOINT STATES
+            'drive_wheel_position': self.drive_wheel_position,
+            'drive_wheel_velocity': self.drive_wheel_velocity,
+            'steering_position': self.steering_position,
+            'steering_velocity': self.steering_velocity,
+
             # Ground truth
             'gt_x': self.gt['x'],
             'gt_y': self.gt['y'],
@@ -609,6 +664,10 @@ class LocalizationBenchmark(Node):
             'imu_yaw_rad': self.imu_yaw,
             'imu_yaw_deg': math.degrees(
                 self.imu_yaw
+            ),
+            'imu_yaw_rate_rad_s': self.imu_yaw_rate,
+            'imu_yaw_rate_deg_s': math.degrees(
+                self.imu_yaw_rate
             ),
 
             'imu_yaw_error_rad': imu_yaw_error,
@@ -827,6 +886,24 @@ class LocalizationBenchmark(Node):
             'Timestamp (s)':
                 final['timestamp_sec'],
 
+            'Cmd Vehicle Velocity (m/s)':
+                final['cmd_vehicle_velocity'],
+
+            'Cmd Steering Command (rad/s)':
+                final['cmd_steering_command'],
+
+            'Drive Wheel Position (rad)':
+                final['drive_wheel_position'],
+
+            'Drive Wheel Velocity (rad/s)':
+                final['drive_wheel_velocity'],
+
+            'Steering Position (rad)':
+                final['steering_position'],
+
+            'Steering Velocity (rad/s)':
+                final['steering_velocity'],
+
             'GT X (m)':
                 final['gt_x'],
 
@@ -836,11 +913,29 @@ class LocalizationBenchmark(Node):
             'GT Yaw (deg)':
                 final['gt_yaw_deg'],
 
+            'Odom X (m)':
+                final['odom_x'],
+
+            'Odom Y (m)':
+                final['odom_y'],
+
+            'Odom Yaw (deg)':
+                final['odom_yaw_deg'],
+
             'Odom Position Error (m)':
                 final['odom_position_error'],
 
             'Odom Heading Error (deg)':
                 final['odom_yaw_error_deg'],
+
+            'EKF X (m)':
+                final['ekf_x'],
+
+            'EKF Y (m)':
+                final['ekf_y'],
+
+            'EKF Yaw (deg)':
+                final['ekf_yaw_deg'],
 
             'EKF Position Error (m)':
                 final['ekf_position_error'],
@@ -848,11 +943,23 @@ class LocalizationBenchmark(Node):
             'EKF Heading Error (deg)':
                 final['ekf_yaw_error_deg'],
 
+            'AMCL X (m)':
+                final['amcl_x'],
+
+            'AMCL Y (m)':
+                final['amcl_y'],
+
+            'AMCL Yaw (deg)':
+                final['amcl_yaw_deg'],
+
             'AMCL Position Error (m)':
                 final['amcl_position_error'],
 
             'AMCL Heading Error (deg)':
                 final['amcl_yaw_error_deg'],
+
+            'IMU Yaw Rate (deg/s)':
+                final['imu_yaw_rate_deg_s'],
 
             'IMU Heading Error (deg)':
                 final['imu_yaw_error_deg']
@@ -873,6 +980,22 @@ class LocalizationBenchmark(Node):
             'amcl_yaw_error_deg',
             'imu_yaw_deg',
             'imu_yaw_error_deg'
+        ]].copy()
+
+        # ----------------------------------------------------
+        # Command & Joint States sheet
+        # ----------------------------------------------------
+
+        cmd_joints_df = df[[
+            'timestamp_sec',
+            'cmd_vehicle_velocity',
+            'cmd_steering_command',
+            'drive_wheel_position',
+            'drive_wheel_velocity',
+            'steering_position',
+            'steering_velocity',
+            'imu_yaw_rate_deg_s',
+            'phase'
         ]].copy()
 
         # ----------------------------------------------------
@@ -928,6 +1051,12 @@ class LocalizationBenchmark(Node):
             df.to_excel(
                 writer,
                 sheet_name='Raw_Data',
+                index=False
+            )
+
+            cmd_joints_df.to_excel(
+                writer,
+                sheet_name='Command_Joints',
                 index=False
             )
 
