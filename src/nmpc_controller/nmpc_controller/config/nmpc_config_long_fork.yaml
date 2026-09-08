@@ -1,0 +1,141 @@
+nmpc_controller:
+
+  common:
+    path_file: "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+    goal_tolerance: 0.05
+    lookup_table: "data/mpc_lookup_table_2.5.pkl"
+
+  profiles:
+
+    fast:
+      max_velocity: 1.42
+      min_velocity: 0.2
+      slow_down_distance: 2.0
+      stopping_velocity: 0.3
+      goal_tolerance: 0.1
+
+      lookahead:
+        type: dynamic
+        base: 0.3
+        velocity_factor: 0.7
+        min: 0.4
+        max: 3.0
+        offset: 0.5         # forward offset; original used 0.2 for reverse / 0.5 for forward
+        curvature_window: 0.2
+        curvature_boost: 1.7
+        straight_threshold: 0.02
+
+      safety:
+        type: sigmoid
+        mu: 1.0
+        sigmoid_k: 0.93
+        sigmoid_scale: 1.0
+        exp_decay_k: 4.0
+        curvature_window: 1.0
+        cte_gain: 5    # set e.g. 3.0 to enable CTE-based speed gating
+
+      features:
+        use_runway: true
+        runway_length: 0.6
+
+    slow:
+      max_velocity: 0.4
+      min_velocity: 0.1
+      slow_down_distance: 0.2
+      stopping_velocity: 0.4
+
+      lookahead:
+        type: dynamic
+        velocity_factor: 0.1
+        min: 0.5
+        max: 2.0
+        curvature_boost: 0.1
+
+      safety:
+        type: sigmoid
+        mu: 0.5
+        sigmoid_k: 0.8
+        sigmoid_scale: 1.5
+
+    dd:
+      max_velocity: 0.5
+      min_velocity: 0.1
+      slow_down_distance: 1.0
+      picking_velocity: 0.1
+
+      lookahead:
+        type: fixed
+        value: 0.2
+        curvature_boost: 0.4
+
+      safety:
+        type: sqrt
+        mu: 0.5
+
+      features:
+        use_picking: true
+        pallet_gate: true
+        sensor: ds_field
+        use_runway: true
+
+    pp:
+      max_velocity: 0.25
+      min_velocity: 0.1
+      slow_down_distance: 1.0
+      picking_velocity: 0.15
+
+      lookahead:
+        type: fixed
+        value: 0.2
+        curvature_boost: 0.45
+
+      safety:
+        type: sqrt
+        mu: 0.5
+
+      features:
+        use_picking: true
+        stop_on_pallet_loaded: true
+        sensor: can_odot
+        use_runway: true
+
+    dp:
+      max_velocity: 0.5
+      min_velocity: 0.1
+      slow_down_distance: 1.0
+      picking_velocity: 0.1
+
+      lookahead:
+        type: fixed
+        value: 0.3
+        curvature_boost: 0.3
+
+      safety:
+        type: sqrt
+        mu: 0.5
+
+      features:
+        use_picking: true
+        sensor: ds_field
+
+    park:
+      max_velocity: 0.2
+      min_velocity: 0.2
+      slow_down_distance: 1.0
+      picking_velocity: 0.15
+
+      lookahead:
+        type: fixed
+        value: 0.2
+        curvature_boost: 0.3
+
+      safety:
+        type: sqrt
+        mu: 0.5
+
+      features:
+        use_runway: true
+        use_picking: true
+        pallet_gate: true
+        stop_on_pallet_loaded: true
+        sensor: can_odot

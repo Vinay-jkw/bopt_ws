@@ -1,7 +1,0 @@
-image: atc_map_speed.pgm
-mode: scale
-resolution: 0.01
-origin: [-0.15000000000000002, -0.3299999999999983, 0]
-negate: 0
-occupied_thresh: 1.0
-free_thresh: 0.0

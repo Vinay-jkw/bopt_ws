@@ -1,7 +1,0 @@
-image: testing_ground_speed.pgm
-mode: scale
-resolution: 0.01
-origin: [-0.0, -0.010000000000001563, 0]
-negate: 0
-occupied_thresh: 1.0
-free_thresh: 0.0

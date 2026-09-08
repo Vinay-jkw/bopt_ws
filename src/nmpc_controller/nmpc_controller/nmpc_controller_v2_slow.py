@@ -18,7 +18,7 @@ from visualization_msgs.msg import Marker  # Import the Marker message
 
 # SCALE = 60
 MIN_VELOCITY = 0.1  # Define a minimum velocity limit
-MAX_VELOCITY = 0.3 # Define a maximum velocity limit
+MAX_VELOCITY = 0.25 # Define a maximum velocity limit               # Changed By ANkit To reduce dock reaching speed
 SLOW_DOWN_DISTANCE = 0.2 # Distance within which the robot starts to slow down
 VELOCITY_SMOOTHING_FACTOR = 0.01  # Smoothing factor for velocity adjustments
 STOPPING_VELOCITY = 0.4
@@ -45,7 +45,7 @@ class RobotClient(Node):
         self.finished = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.531.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
@@ -74,7 +74,7 @@ class RobotClient(Node):
 
         self.subscription = self.create_subscription(
             Float64,
-            '/wheel_velocity',
+            '/byd/wheel_velocity',
             self.wv_callback,
             10  # QoS history depth
         )
@@ -196,7 +196,7 @@ class RobotClient(Node):
         velocity_factor = 0.1
         lookahead_distance = lookahead_distance + velocity_factor * abs(self.wheel_velocity)
 
-        min_lookahead = 0.2  # meters
+        min_lookahead = 0.5  # meters
         max_lookahead = 2.0  # meters
 
         lookahead_distance = max(min_lookahead, min(lookahead_distance, max_lookahead))
@@ -284,25 +284,26 @@ class RobotClient(Node):
 
         
 
-        # Target velocity from lookup table
-        target_velocity = velocity
+        # Apply the S-curve velocity smoother
+        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, velocity)
 
+        # Ensure the velocity is within safe limits based on the steering angle
+        safe_velocity = self.calculate_safe_velocity(self.current_velocity ,steering_angle)
+        # safe_velocity = self.current_velocity
+        if self.current_velocity < 0:
+            self.current_velocity = -min(abs(self.current_velocity), abs(safe_velocity))
+        else:
+            self.current_velocity = min(abs(self.current_velocity), abs(safe_velocity))
+
+        
         # Calculate the target velocity based on the distance to the goal
         if distance_to_goal <= SLOW_DOWN_DISTANCE:
-            slowdown_vel = (distance_to_goal / SLOW_DOWN_DISTANCE) * STOPPING_VELOCITY
-            if target_velocity < 0:
-                target_velocity = -max(MIN_VELOCITY, abs(slowdown_vel))
+            target_velocity = (distance_to_goal / (SLOW_DOWN_DISTANCE)) * STOPPING_VELOCITY
+            if velocity < 0:
+                self.current_velocity = -max(MIN_VELOCITY, abs(target_velocity))
             else:
-                target_velocity = max(MIN_VELOCITY, slowdown_vel)
-
-        # Apply the S-curve velocity smoother towards target_velocity
-        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, target_velocity)
-
-        # Cap velocity within safe limits
-        if self.current_velocity < 0:
-            self.current_velocity = -min(abs(self.current_velocity), MAX_VELOCITY)
-        else:
-            self.current_velocity = min(abs(self.current_velocity), MAX_VELOCITY)
+                self.current_velocity = max(MIN_VELOCITY, target_velocity)
+        
 
         self.send_command(self.current_velocity, steering_angle)
         self.publish_target_point_marker(target_point_on_plan)

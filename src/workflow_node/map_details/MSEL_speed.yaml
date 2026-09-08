@@ -1,7 +1,0 @@
-image: MSEL_speed.pgm
-mode: scale
-resolution: 0.01
-origin: [-0.55, -0.3100000000000023, 0]
-negate: 0
-occupied_thresh: 1.0
-free_thresh: 0.0

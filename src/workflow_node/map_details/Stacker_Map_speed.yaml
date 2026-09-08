@@ -1,7 +1,0 @@
-image: Stacker_Map_speed.pgm
-mode: scale
-resolution: 0.01
-origin: [-0.18, -0.26000000000000156, 0]
-negate: 0
-occupied_thresh: 1.0
-free_thresh: 0.0

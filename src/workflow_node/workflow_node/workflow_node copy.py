@@ -2576,7 +2576,7 @@ class PalletManager(Node):
         # subprocess.call() is blocking by default
         retcode = subprocess.call(command, shell=True)
 
-        bus=can.interface.Bus(channel='can0',bustype='socketcan')
+        bus=can.interface.Bus(channel="can0",bustype='socketcan')
         message_id=0x209
         try:
             message=bus.recv()

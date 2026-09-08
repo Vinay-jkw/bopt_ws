@@ -86,8 +86,9 @@ class BoptOdometry(Node):
         self.actual_steering_position = 0.0
         self.actual_steering_velocity = 0.0
 
-        # Previous drive wheel position
+        # Previous drive wheel and steering positions
         self.previous_drive_position = 0.0
+        self.previous_steering_position = 0.0
 
         # We need one valid JointState before starting
         self.received_joint_state = False
@@ -239,6 +240,9 @@ class BoptOdometry(Node):
             self.previous_drive_position = (
                 self.actual_drive_position
             )
+            self.previous_steering_position = (
+                self.actual_steering_position
+            )
 
             self.odometry_initialized = True
 
@@ -273,12 +277,19 @@ class BoptOdometry(Node):
         )
 
         # =====================================================
-        # ACTUAL STEERING ANGLE
+        # TRAPEZOIDAL STEERING ANGLE
         # =====================================================
 
         steering_angle = (
             self.actual_steering_position
         )
+
+        steering_mid = 0.5 * (
+            self.previous_steering_position +
+            steering_angle
+        )
+
+        self.previous_steering_position = steering_angle
 
         # =====================================================
         # BOPT KINEMATICS
@@ -288,62 +299,63 @@ class BoptOdometry(Node):
         #
         # The drive wheel is wheelbase meters behind it.
         #
-        # Drive-wheel velocity:
+        # Drive-wheel displacement along wheel orientation:
+        #     ds_w = drive_distance
         #
-        #     Vw_x = V
-        #     Vw_y = -omega * wheelbase
-        #
-        # Therefore:
-        #
-        #     V = Vw * cos(delta)
-        #
-        #     omega =
-        #       -Vw * sin(delta) / wheelbase
-        #
+        # Base frame displacements:
+        #     ds_base = ds_w * cos(delta_mid)
+        #     d_yaw   = -ds_w * sin(delta_mid) / wheelbase
         # =====================================================
 
-        drive_velocity = (
-            drive_distance / dt
+        distance_base = (
+            drive_distance *
+            math.cos(steering_mid)
         )
 
-        linear_velocity = (
-            drive_velocity *
-            math.cos(steering_angle)
-        )
-
-        angular_velocity = (
-            -drive_velocity *
-            math.sin(steering_angle)
+        delta_yaw = (
+            -drive_distance *
+            math.sin(steering_mid)
             / self.wheelbase
         )
 
-        # =====================================================
-        # INTEGRATE BASE_FOOTPRINT POSE
-        # =====================================================
-
-        delta_yaw = (
-            angular_velocity * dt
+        linear_velocity = (
+            distance_base / dt
         )
 
-        # Midpoint integration gives better accuracy during
-        # turning than using the old yaw for the entire step.
+        angular_velocity = (
+            delta_yaw / dt
+        )
+
+        # =====================================================
+        # EXACT CIRCULAR ARC INTEGRATION
+        #
+        # For arc motion during step dt, the chord factor
+        # is sinc(delta_yaw / 2) = sin(delta_yaw/2) / (delta_yaw/2).
+        # This eliminates discrete integration truncation drift.
+        # =====================================================
 
         yaw_mid = (
             self.odom_yaw +
             0.5 * delta_yaw
         )
 
-        distance_base = (
-            linear_velocity * dt
-        )
+        if abs(delta_yaw) > 1e-6:
+            sinc_factor = (
+                math.sin(0.5 * delta_yaw) /
+                (0.5 * delta_yaw)
+            )
+        else:
+            sinc_factor = 1.0
 
         self.odom_x += (
             distance_base *
+            sinc_factor *
             math.cos(yaw_mid)
         )
 
         self.odom_y += (
             distance_base *
+            sinc_factor *
             math.sin(yaw_mid)
         )
 

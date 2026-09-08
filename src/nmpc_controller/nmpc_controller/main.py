@@ -1,0 +1,131 @@
+# Entry point for the nmpc_controller node. Parses CLI arguments, loads the
+# named profile from the YAML config, and spins the controller until shutdown.
+
+import rclpy
+import argparse
+import os
+import signal
+import time
+from ament_index_python.packages import get_package_share_directory
+from std_msgs.msg import Float64, String
+
+from nmpc_controller.core.controller import NMPCController
+from nmpc_controller.config.config_loader import load_config
+
+
+def main():
+    rclpy.init()
+
+    pkg_share = get_package_share_directory("nmpc_controller")
+
+    parser = argparse.ArgumentParser()
+
+    # profile selects which set of tuning parameters to use (fast, slow, dd, pp, dp, park)
+    parser.add_argument("--profile", required=True)
+    # robot selects the hardware variant; short_fork uses nmpc_config.yaml,
+    # long_fork uses nmpc_config_long_fork.yaml (different LUT and lookahead tuning)
+    parser.add_argument("--robot", default="short_fork", choices=["short_fork", "long_fork"])
+    # --config overrides --robot when provided explicitly
+    parser.add_argument("--config", default=None)
+
+    # optional overrides that take effect after the profile is loaded
+    parser.add_argument("--path_file", type=str, required=False)
+    parser.add_argument("--goal_tolerance", type=float, default=None)
+    parser.add_argument("--set_max_speed", type=float, default=None)
+    # parking mode: pallet_loaded triggers charging approach (creep + charger wait) instead of immediate stop
+    parser.add_argument("--parking", type=lambda x: x.lower() == "true", default=False)
+
+    # parse_known_args ignores the extra --ros-args that ROS2 injects at runtime
+    args, _ = parser.parse_known_args()
+
+    if args.config is not None:
+        config_path = args.config
+    elif args.robot == "long_fork":
+        config_path = os.path.join(pkg_share, "config", "nmpc_config_long_fork.yaml")
+    else:
+        config_path = os.path.join(pkg_share, "config", "nmpc_config.yaml")
+
+    cfg = load_config(config_path, args.profile)
+
+    print(f"[nmpc_controller] robot={args.robot}  profile={args.profile}  config={config_path}")
+
+    if args.path_file:
+        cfg.path_file = args.path_file
+
+    if args.goal_tolerance is not None:
+        cfg.goal_tolerance = args.goal_tolerance
+
+    if args.set_max_speed is not None:
+        cfg.max_velocity = args.set_max_speed
+
+    cfg.parking = args.parking
+
+    node = NMPCController(cfg)
+
+    # Robust stop: install OUR signal handler (overriding rclpy's, which tears
+    # down the context before destroy_node can publish). On SIGINT/SIGTERM we
+    # publish zero velocity a few times while the context is STILL VALID, then
+    # let spin unwind. Covers Ctrl+C and the connector's killpg(SIGINT) on cancel.
+    _stopping = {"done": False}
+
+    def _graceful_stop(signum, frame):
+        if _stopping["done"]:
+            return
+        _stopping["done"] = True
+        try:
+            for _ in range(5):
+                node.vel_pub.publish(Float64(data=0.0))
+                node.steering_angle_publisher.publish(Float64(data=0.0))
+                time.sleep(0.02)
+            node.state_pub.publish(String(data="Auto"))
+            print("[nmpc_controller] signal received -> zero velocity published")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[nmpc_controller] stop-publish failed: {exc}")
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, _graceful_stop)
+    signal.signal(signal.SIGTERM, _graceful_stop)
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        try:
+            node.get_logger().info("Ctrl+C received — shutting down")
+        except Exception:
+            pass
+    except SystemExit:
+        # Clean exit raised by _exit() inside a callback (goal reached, pallet detected, etc.).
+        # SystemExit is used instead of rclpy.shutdown() to avoid a deadlock that occurs when
+        # shutdown() is called from within an executor callback.
+        pass
+    except Exception as e:
+        # rclpy raises a non-KeyboardInterrupt exception when an external handler
+        # shuts down the context first (e.g. the CANCELLED workflow handler).
+        # Only log it if there is an actual message to avoid a spurious empty error.
+        msg = str(e)
+        if msg:
+            try:
+                node.get_logger().error(f"Exception during spin: {msg}")
+            except Exception:
+                pass
+        else:
+            try:
+                node.get_logger().info("Spin exited (context shutdown by external handler)")
+            except Exception:
+                pass
+    finally:
+        # destroy_node sends a zero-velocity stop command before tearing down.
+        # print() is used here because the ROS context may already be shut down
+        # by an external handler, making get_logger() produce rosout errors.
+        print("[nmpc_controller] Cleanup started — calling destroy_node")
+        node.destroy_node()
+        print("[nmpc_controller] Cleanup complete")
+        try:
+            rclpy.shutdown()
+        except Exception:
+            # Ignore "already called" errors when an external handler shut down first
+            pass
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,96 @@
+# =============================================================================
+# Workflow Node Configuration - Short Fork AGV
+# =============================================================================
+
+mqtt:
+  broker_ip: "127.0.0.1"          # System manager / broker address (local MQTT broker)
+  robot_ip: "192.168.68.102"      # This robot's IP (prepended to MQTT payloads)
+  port: 1883
+
+tcp:
+  host_ip: "192.168.68.65"
+  port: 12345
+  retries: 1
+  delay: 3
+
+paths:
+  graphml_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_waypoints.graphml"
+  wn_db_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_wn.db"
+  rs_path_file: "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl"
+
+robot:
+  # Rotated bounding box half-extents used for holded_nodes computation
+  # (left, right) = lateral extent behind and ahead of robot center
+  # (front, back) = longitudinal extent
+  bounding_box:
+    left: 0.4
+    right: 2.5
+    front: 1.0
+    back: 1.0
+
+planner:
+  turn_radius: 0.75   # min turning radius for RS dock approaches. Was 0.75, which was
+                      # too WIDE for the ~94deg-in-0.9m dock swing and forced a reverse
+                      # cusp (the sharp triangle). 0.45 fits the turn going forward.
+  step_size: 0.01
+  spline_spacing: 0.01
+  # RS path constants for pallet pickup/drop maneuvers
+  backup_distance_slow: 0.8      # Used in parking_control
+  backup_distance_pp: 0.6        # Used in pp_control
+  pallet_length: 2.0
+  # Slow profile scale factor
+  scale: 1
+  pallet_half: 0.7
+  load_wheel_base_link_to_lidar: 0.55
+  pp_insert_enabled: True
+
+thresholds:
+  movement_needed_gap: 0.2       # Distance to dock below which movement is skipped
+  near_location_radius: 1.0      # Radius for is_near_location check
+  parking_near_radius: 1.6       # Radius for parking proximity check in movement
+  apds_dx_threshold: 0.04        # Lateral offset threshold to decide pp vs direct drive
+  point1_filter_radius: 3.0      # Spline path start-side filter radius
+  point2_filter_radius: 3.5      # Spline path end-side filter radius
+  parking_max_speed: 0.3         # Max speed during parking action
+
+ros_topics:
+  current_pose: "/current_pose"
+  pp_status: "/pp_status"
+  path: "/path"
+  holded_nodes: "/holded_nodes"
+  conflict_action: "/conflict_action"
+  task_request: "/task_request"
+  safety: "/byd/safety"
+  cmd_vel: "/cmd_vel"
+  current_task: "/byd/current_task"
+  status: "/byd/status"
+  pap_field_status: "/pap_field_status"
+  can_odot_data: "/byd/can_odot_data"
+  charging_state: "/charging_state"
+  safety_turnoff: "/safety_turnoff"
+  state: "/state"
+  velocity: "/velocity"
+  steering_angle: "/steering_angle"
+
+timers:
+  holded_nodes_period: 0.5       # seconds
+
+subprocesses:
+  pose_correction: ["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node"]
+  nmpc_controller: ["ros2", "run", "nmpc_controller", "main"]
+  nmpc_pp_slow: ["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow"]
+  nmpc_pp: ["ros2", "run", "nmpc_controller", "nmpc_controller_v2_pp"]
+  lidar_clustering: ["ros2", "run", "lidar_clustering", "lidar_clustering_node_once"]
+  pallet_detection: ["ros2", "run", "pallet_detection", "pallet_detection"]
+  pallet_detection_tag: ["ros2", "run", "pallet_detection", "pallet_detection_tag"]
+  fork_service: "/byd/send_command"
+  fork_service_type: "example_interfaces/srv/Command"
+  ppts: ["ros2", "run", "ppts", "ppts_node_once.py"]
+
+pose_correction:
+  timeout: 45
+  max_retries: 5
+  delay_between_retries: 5
+
+locations:
+  parking_location_id: "A0"    # Simulation DB only has A0/B0/C0 — no Parking stations

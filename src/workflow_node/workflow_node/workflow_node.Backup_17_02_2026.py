@@ -1,0 +1,1859 @@
+import argparse
+import random
+import subprocess
+import signal
+import sys
+import time
+
+import yaml
+from geometry_msgs.msg import PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+import rclpy
+from rclpy.duration import Duration
+import json
+import math
+from rclpy.node import Node
+from scipy.interpolate import CubicSpline
+from geometry_msgs.msg import PoseStamped,Twist
+from std_msgs.msg import String, Bool
+import psutil
+import sqlite3
+import os
+import pickle
+import numpy as np
+import math
+import datetime
+from threading import Thread
+from rclpy.clock import ROSClock
+from tf2_ros import TransformListener, Buffer
+import tf2_ros
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped
+from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
+from rsplan import planner
+import pandas as pd
+import re
+from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSReliabilityPolicy
+import os
+import random
+import subprocess
+import time
+from geometry_msgs.msg import PoseStamped
+import rclpy
+from rclpy.duration import Duration
+import json
+import math
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
+import psutil
+import sqlite3
+import os
+import pickle
+from std_msgs.msg import Float64
+import numpy as np
+import math
+from threading import Thread, Lock
+from rclpy.clock import ROSClock
+from tf2_ros import TransformListener, Buffer
+import tf2_ros
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped
+from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy,QoSHistoryPolicy
+from collections import deque
+import psutil
+import socket
+import can
+import networkx as nx
+import json
+from sys import argv
+from collections import deque
+import threading
+from paho.mqtt import client as mqtt_client
+
+
+
+
+
+ws_path = os.getenv('WS_PATH')
+databasepath = '/home/lenovo/bopt_ws/src/task_allocator/Vehicles.db'#os.getenv('DATABASE_PATH_VEH')
+databasepathuser=os.getenv('DATABASE_PATH_USERS')
+bt_path=os.getenv('BT_PATH')
+ROBOT_IP = os.getenv("ROBOT_IP") 
+ROBOT_ID = os.getenv("ROBOT_ID") 
+MQTT_BROKER =os.getenv('MQTT_BROKER') 
+
+global cancel_status
+
+class SafetyPublisher(Node):
+    def __init__(self):
+        super().__init__('Task_allocator')
+        self.publisher_ = self.create_publisher(String, '/byd/safety', 10)
+        self.safety_switch_publisher = self.create_publisher(String, '/byd/safety', 10)
+
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.task_publisher = self.create_publisher(String, '/byd/current_task', 10)
+        self.state_publisher = self.create_publisher(String, '/byd/status', 10)
+        print("publishers_created")
+
+class WorkflowHandler(Node):
+    def __init__(self, task_id=None,movement=None, action=None, params=None):
+        super().__init__('workflow_handler')
+
+        self.robot_id = params['robot_id']
+        self.robot_ip = params['robot_ip']
+        self.mqtt_broker = params['mqtt_broker']
+        self.database_path = params['database_path']
+        self.graphml_path = params['graphml_path']
+        self.constructed_rs_path = params['constructed_rs_path']
+        self.parking_gap_threshold = params['parking_gap_threshold']
+        self.movement_gap_threshold = params['movement_gap_threshold']
+        self.rs_path_scale = params['rs_path_scale']
+        self.rs_path_turn_radius = params['rs_path_turn_radius']
+        self._params_spline_path = params['spline_path']
+        self._params_parking_control = params['parking_control']
+        self._params_pp_control = params['pp_control']
+
+        # self.ltn_feedback_publisher = self.create_publisher(String, '/load_transporter_feedback', 10)
+        # self.ltn_task_publisher = self.create_publisher(String, '/load_transporter_current_task', 10)
+        # self.ltn_current_state_publisher = self.create_publisher(String, '/load_transporter_current_state', 10)
+
+        # SERVER_HOST = '192.168.68.53'  # Replace with your server's IP address
+        # SERVER_PORT = 12345
+        self.task_id=task_id
+        self.movement = movement
+        self.action = action
+        self.operation_state = '0'
+        publisher = SafetyPublisher()
+        self.publisher_ = publisher.publisher_ #safety pub
+
+        self.task_request_pub = self.create_publisher(String, f'{self.robot_id}/task_request', 10)
+
+        self.mqtt_node = mqttClient(self.mqtt_broker) # sys manager address
+        self.mqtt_node._client_host_ip = self.robot_ip # robot address
+        self.mqtt_node.loop_start()
+
+        #get location data from db
+        self.error_status = None
+        
+
+        self.left_easy_dock_dict, self.right_easy_dock_dict, self.dock_location_dict, self.dock_station_end_line_dict = self.fetch_location_data_from_db()
+        print(self.dock_location_dict, 'loc_dict')
+        
+
+        self.location_id = self.movement
+        print(self.location_id)
+
+        self.left_easy_dock = self.left_easy_dock_dict[self.location_id]
+        self.right_easy_dock = self.right_easy_dock_dict[self.location_id]
+        self.dock_location = self.dock_location_dict[self.location_id]
+        self.dock_station_end_line = self.dock_station_end_line_dict[self.location_id]
+
+        self.parking_location = self.dock_station_end_line_dict['Parking1']
+        self.parking_dock_location = self.dock_location_dict['Parking1']
+
+        print(self.left_easy_dock, self.right_easy_dock, self.dock_location, self.dock_station_end_line, 'check this')
+
+        self.path_in_nodes=[]
+
+        G_loaded = nx.read_graphml(self.graphml_path)
+        # Convert position strings back to tuples
+
+        for node, data in G_loaded.nodes(data=True):
+            pos_str = data.get('position', '')
+            if pos_str:
+                G_loaded.nodes[node]['position'] = tuple(map(float, pos_str.split(',')))
+
+        self.G_loaded = G_loaded
+
+        
+        
+
+    def fetch_location_data_from_db(self):
+        # Path to the SQLite database file
+        db_path = '/home/fbots/bopt_v2_ws/src/workflow_node/map_details/testing_area_dl_wn.db'
+
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+
+        # Queries to fetch all data from the specified tables
+        queries = {
+            'left_easy_dock': 'SELECT * FROM left_easy_dock;',
+            'right_easy_dock': 'SELECT * FROM right_easy_dock;',
+            'dock_location': 'SELECT * FROM dock_location;',
+            'dock_station_end_line': 'SELECT * FROM dock_station_end_line;'
+        }
+
+        # Dictionary to store the data from each table
+        dataframes = {}
+
+        # Execute each query and store the results in a DataFrame
+        for table_name, query in queries.items():
+            dataframes[table_name] = pd.read_sql(query, conn)
+        print(dataframes)
+
+        # Execute each query and store the results in a DataFrame
+        for table_name, query in queries.items():
+            dataframes[table_name] = pd.read_sql(query, conn)
+
+        # Function to convert DataFrame to desired dictionary
+        def create_location_dict(df, name_col, coord_cols):
+            return df.set_index(name_col)[coord_cols].apply(lambda row: row.tolist(), axis=1).to_dict()
+
+        # 1. left_easy_dock
+        left_easy_dock_dict = create_location_dict(
+            dataframes['left_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W']
+        )
+
+        # 2. right_easy_dock
+        right_easy_dock_dict = create_location_dict(
+            dataframes['right_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W']
+        )
+
+        # 3. dock_location
+        dock_location_dict = create_location_dict(
+            dataframes['dock_location'],
+            name_col='dock_name',
+            coord_cols=['x_m', 'y_m', 'pose_z', 'pose_w']
+        )
+
+        # 4. dock_station_end_line
+        dock_station_end_line_dict = create_location_dict(
+            dataframes['dock_station_end_line'],
+            name_col='station_name',
+            coord_cols=['station_x', 'station_y', 'pose_z', 'pose_w']
+        )
+
+        # Close the database connection
+        conn.close()
+        return left_easy_dock_dict, right_easy_dock_dict, dock_location_dict, dock_station_end_line_dict
+
+    
+    def send_data(self, message, retries=1, delay=3):
+        """
+        Attempt to send data to a specified IP and port with retries.
+
+        Args:
+        ip (str): The IP address of the host.
+        port (int): The port number to connect to.
+        message (bytes): The data to send.
+        retries (int): Number of retries for the connection.
+        delay (int): Delay between retries in seconds.
+
+        Returns:
+        str: The response from the server or an error message.
+        """
+        ip = '192.168.68.65'
+        port = 12345
+        for attempt in range(retries):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.connect((ip, port))
+                    s.sendall(message)
+                    data = s.recv(1024).decode()
+                    print(f"Received: {data}")
+                    return data
+            except socket.error as e:
+                print(f"Attempt {attempt + 1} failed: {e}")
+                time.sleep(delay)  # Delay between retries
+
+        return "Failed to connect after several attempts."
+
+        
+    def compute_positional_difference(self, pose1, pose2):
+        return math.sqrt((pose1[0] - pose2[0])**2 + 
+                         (pose1[1] - pose2[1])**2)
+    
+    def angle_to_quaternion(self, angle_rad):
+        # Convert angle from degrees to radians
+        # angle_rad = math.radians(angle_deg)
+        # angle_rad += 3.141592653
+
+        # Calculate the quaternion components
+        w = math.cos(angle_rad / 2)
+        x = 0  # No rotation around the x-axis
+        y = 0  # No rotation around the y-axis
+        z = math.sin(angle_rad / 2)  # Rotation around the z-axis
+
+        return (z, w)
+    
+    def quaternion_to_angle(self, z, w):
+        """Converts a quaternion into an angle in 2D space."""
+        return math.degrees(2 * math.atan2(z, w))
+    
+    def compute_angular_difference(self, pose1, pose2):
+        print(pose1, pose2)
+
+        robot_theta = self.quaternion_to_angle(pose1[2], pose1[3])
+        target_theta = self.quaternion_to_angle(pose2[2], pose2[3])
+        
+        # Calculate difference in orientation
+        delta_theta = robot_theta - target_theta
+        
+        # Normalize the result to [0, 360) range
+        delta_theta = (delta_theta + 360) % 360
+
+        delta_theta = abs(delta_theta)
+
+        
+        return delta_theta
+        
+    
+
+    def align_beside_location(self, location, docking_location):
+        self.go_to_location(location)
+        return
+        
+
+    def go_to_location(self, location):
+        #Use graph to find waypoints from cp to location
+        #Use v2 control to drive on said points
+        #return True/False
+        return
+
+    def wait_for_set_time(self, seconds):
+        time.sleep(seconds)
+        return
+    
+    def trigger_attachment(self):
+        return
+    
+    def enter_parking(self):
+        return
+
+    def exit_parking(self):
+        return
+
+    def apds(self):
+        result = subprocess.run(["ros2", "run", "lidar_clustering", "lidar_clustering_node_once"], capture_output=True, text=True)
+        
+
+        # Define the regex pattern to extract the required information
+        pattern = (
+            r'Pallet Present:\s*(?P<present>\w+),\s*'
+            r'Middle Offset:\s*dx=(?P<dx>[-\d.]+),\s*dy=(?P<dy>[-\d.]+),\s*'
+            #r'Angle Offset:\s*(?P<angle>[-\d.]+)\s*degrees'
+        )
+
+        # Search for the pattern in stdout
+        match = re.search(pattern, result.stdout)
+
+        if match:
+            # Extracted values
+            present = match.group('present')
+            dx = float(match.group('dx'))
+            dy = float(match.group('dy'))
+            #angle = float(match.group('angle'))
+
+            # Display the extracted results
+            print("\nExtracted Results:")
+            print(f"Pallet Present: {present}")
+            print(f"Middle Offset: dx={dx}, dy={dy}")
+            #print(f"Angle Offset: {angle} degrees")
+        
+            return present, dx, dy#, angle
+        else:
+            # Handle the case where no match was found
+            print("No pallet found")
+            return None, None, None#, None
+
+    def is_movement_needed(self):
+        gap_from_dock = self.euclidean_distance(get_current_pose(), self.dock_location)
+        print('GFD',gap_from_dock)
+        if gap_from_dock > self.movement_gap_threshold:
+            return True
+        else:
+            return False
+        
+    def is_at_parking(self):
+        gap = self.euclidean_distance(get_current_pose(), self.parking_location)
+        # print('GFD',gap_from_dock)
+        if gap < self.parking_gap_threshold:
+            return True
+        else:
+            return False
+
+    def operation(self):
+
+        self.mqtt_node.publish2topic("machine/task/status", "Task started")
+        self.thread1= Thread(target=self.normal_field,) #to change later
+        self.thread1.start()
+
+
+        print(self.movement, self.action)
+        # is_movement_needed?
+        # print(self.is_movement_needed(), 'IMN')
+        print('before M' , get_pap_status())
+
+        if self.is_at_parking() == True:
+            print('at parking')
+            self.thread1= Thread(target=self.pickdrop_field,) #to change later
+            self.thread1.start()
+            self.drive_rs_path(self.parking_dock_location, 'slow')
+
+            self.thread1= Thread(target=self.normal_field,) #to change later
+            self.thread1.start()
+
+
+        # if self.is_movement_needed() == False:
+        #     pass
+        # else:
+        #     self.movement_operation(self.movement)
+        # print('After M')
+        self.movement_operation(self.movement)
+        print('After M')
+        # self.action_operation(self.action)
+        print('after A')
+        # if self.error_status != None:
+        #     pass
+        # else:
+        #     # self.mqtt_node.publish2topic("machine/task/status", "Task ended")
+        #     self.task_request_pub.publish(String(data=f"Task Completed:{self.task_id}"))
+        print("Movement operation completed successfully.")
+        msg = String()
+        msg.data = f"Task Completed:{self.task_id}"
+        self.task_request_pub.publish(msg)
+
+        # self.mqtt_node.disconnect()
+        return True
+
+    def parking_control(self, lateral_offset):
+        print('inside pp')
+        SCALE = 1
+        step_size = 0.01
+        rs_path_waypoints = []
+        LATERAL_OFFSET = lateral_offset
+        BACKUP_DISTANCE = 0.8
+        PALLET_LENGTH = 1.3
+        current_pose = get_current_pose()
+        rx = current_pose[0]
+        ry = current_pose[1]
+        robotO = self.quaternion_to_angle_rad(current_pose[2], current_pose[3])
+
+        rs_path_waypoints = [
+            ((rx / SCALE) * SCALE,
+                (ry / SCALE) * SCALE,
+                robotO,
+                0.9 * SCALE, 0 * SCALE),
+            
+
+            ((rx / SCALE - math.cos(robotO) * BACKUP_DISTANCE) * SCALE,
+                (ry / SCALE - math.sin(robotO) * BACKUP_DISTANCE) * SCALE,
+                robotO,
+                0.9 * SCALE, 1 * SCALE),  # x, y, orientation, tr, runway
+            
+        ]
+
+        waypoints = []
+        current_pose = tuple(rs_path_waypoints[0][:3])
+
+        for end_pose in rs_path_waypoints[1:]:
+            end_x, end_y, end_yaw, turn_radius, runway_length = end_pose
+            end_pose_tuple = (end_x, end_y, end_yaw)
+            path = planner.path(current_pose, end_pose_tuple, turn_radius, runway_length, step_size)
+            waypoints.extend([(wp.x, wp.y) for wp in path.waypoints()])
+            current_pose = end_pose_tuple
+
+        # with open('/home/byd3/bopt_ws/src/load_transporter_node/load_transporter_node/constructed_rs_path.pkl', 'wb') as file:
+        #     pickle.dump(waypoints, file)
+
+        # rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=0.75, rev_drive=False)
+        with open(self.constructed_rs_path, 'wb') as file:
+            pickle.dump(waypoints, file)
+
+        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+        
+        
+        current_pose = get_current_pose()
+        rx = current_pose[0]
+        ry = current_pose[1]
+        robotO = self.quaternion_to_angle_rad(current_pose[2], current_pose[3])
+
+        rs_path_waypoints = [
+            ((rx/ SCALE) * SCALE,
+                (ry / SCALE) * SCALE,
+                robotO,
+                0.3 * SCALE, 0 * SCALE),
+
+            (rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO),
+                ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO),
+                robotO, 0.3 * SCALE, 0 * SCALE),  # x, y, orientation, tr, runway
+
+
+            ( rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO) + PALLET_LENGTH * math.cos(robotO),
+                ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO) + PALLET_LENGTH * math.sin(robotO),
+                robotO,
+            0.3 * SCALE, -1 * SCALE),
+        ]
+
+        waypoints = []
+        current_pose = tuple(rs_path_waypoints[0][:3])
+
+        for end_pose in rs_path_waypoints[1:]:
+            end_x, end_y, end_yaw, turn_radius, runway_length = end_pose
+            end_pose_tuple = (end_x, end_y, end_yaw)
+            path = planner.path(current_pose, end_pose_tuple, turn_radius, runway_length, step_size)
+            waypoints.extend([(wp.x, wp.y) for wp in path.waypoints()])
+            current_pose = end_pose_tuple
+
+
+        with open(self.constructed_rs_path, 'wb') as file:
+            pickle.dump(waypoints, file)
+
+        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_park",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+        #add pose_correction
+
+    def pp_control(self, lateral_offset):
+        print('inside pp')
+        SCALE = self._params_pp_control['scale']
+        step_size = self._params_pp_control['step_size']
+        rs_path_waypoints = []
+        LATERAL_OFFSET = lateral_offset
+        BACKUP_DISTANCE = self._params_pp_control['backup_distance']
+        PALLET_LENGTH = self._params_pp_control['pallet_length']
+        current_pose = get_current_pose()
+        rx = current_pose[0]
+        ry = current_pose[1]
+        robotO = self.quaternion_to_angle_rad(current_pose[2], current_pose[3])
+
+        rs_path_waypoints = [
+            ((rx / SCALE) * SCALE,
+                (ry / SCALE) * SCALE,
+                robotO,
+                self._params_pp_control['turn_radius_first'] * SCALE, self._params_pp_control['runway_length_first'] * SCALE),
+            
+
+            ((rx / SCALE - math.cos(robotO) * BACKUP_DISTANCE) * SCALE,
+                (ry / SCALE - math.sin(robotO) * BACKUP_DISTANCE) * SCALE,
+                robotO,
+                self._params_pp_control['turn_radius_second'] * SCALE, self._params_pp_control['runway_length_second'] * SCALE),  # x, y, orientation, tr, runway
+            
+        ]
+
+        waypoints = []
+        current_pose = tuple(rs_path_waypoints[0][:3])
+
+        for end_pose in rs_path_waypoints[1:]:
+            end_x, end_y, end_yaw, turn_radius, runway_length = end_pose
+            end_pose_tuple = (end_x, end_y, end_yaw)
+            path = planner.path(current_pose, end_pose_tuple, turn_radius, runway_length, step_size)
+            waypoints.extend([(wp.x, wp.y) for wp in path.waypoints()])
+            current_pose = end_pose_tuple
+
+        # with open('/home/byd3/bopt_ws/src/load_transporter_node/load_transporter_node/constructed_rs_path.pkl', 'wb') as file:
+        #     pickle.dump(waypoints, file)
+
+        # rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=0.75, rev_drive=False)
+        with open(self.constructed_rs_path, 'wb') as file:
+            pickle.dump(waypoints, file)
+
+        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+        
+        
+        current_pose = get_current_pose()
+        rx = current_pose[0]
+        ry = current_pose[1]
+        robotO = self.quaternion_to_angle_rad(current_pose[2], current_pose[3])
+
+        rs_path_waypoints = [
+            ((rx/ SCALE) * SCALE,
+                (ry / SCALE) * SCALE,
+                robotO,
+                self._params_pp_control['turn_radius_third'] * SCALE, self._params_pp_control['runway_length_third'] * SCALE),
+
+            (rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO),
+                ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO),
+                robotO, self._params_pp_control['turn_radius_fourth'] * SCALE, self._params_pp_control['runway_length_fourth'] * SCALE),  # x, y, orientation, tr, runway
+
+
+            ( rx + BACKUP_DISTANCE * math.cos(robotO) - LATERAL_OFFSET * math.sin(robotO) + PALLET_LENGTH * math.cos(robotO),
+                ry + BACKUP_DISTANCE * math.sin(robotO) + LATERAL_OFFSET * math.cos(robotO) + PALLET_LENGTH * math.sin(robotO),
+                robotO,
+            self._params_pp_control['turn_radius_fifth'] * SCALE, self._params_pp_control['runway_length_fifth'] * SCALE),
+        ]
+
+        waypoints = []
+        current_pose = tuple(rs_path_waypoints[0][:3])
+
+        for end_pose in rs_path_waypoints[1:]:
+            end_x, end_y, end_yaw, turn_radius, runway_length = end_pose
+            end_pose_tuple = (end_x, end_y, end_yaw)
+            path = planner.path(current_pose, end_pose_tuple, turn_radius, runway_length, step_size)
+            waypoints.extend([(wp.x, wp.y) for wp in path.waypoints()])
+            current_pose = end_pose_tuple
+
+
+        with open(self.constructed_rs_path, 'wb') as file:
+            pickle.dump(waypoints, file)
+
+        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_pp",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+        #add pose_correction
+
+
+    def drive_rs_path(self, location, drive_type, adjust=True):
+        #drive back to dock
+        rs_path = self.generate_rs_path(get_current_pose(), [location], turn_radius=self.rs_path_turn_radius, rev_drive=False, SCALE=self.rs_path_scale)
+
+        with open(self.constructed_rs_path, 'wb') as file:
+            pickle.dump(rs_path, file)
+        
+        result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_" + drive_type,
+        "--path_file", self.constructed_rs_path
+        ], capture_output=True, text=True)
+
+        if adjust == True:
+            command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(location[0]), str(location[1]), str(location[2]),
+                                    str(location[3])]
+            run_command_with_retry(command)
+        
+        return True
+
+    def action_operation(self, action):
+        #drive-`12`
+        self.thread1= Thread(target=self.pickdrop_field,) #to change later
+        self.thread1.start()
+        
+
+        if action == 'Pickup':
+            print('inpickup')
+            #go for deep pickup till pallet found
+            #replace with drive_rs_path
+            
+            if self.operation_state < '3':
+                self.drive_rs_path(self.dock_station_end_line, 'dp')
+                #align if needed
+                present, dx, dy = self.apds()
+
+                if dx is None:
+                    self.mqtt_node.publish2topic("machine/task/status", "Pallet_Not_Present")
+                    self.error_status = "Pallet_Not_Present"
+                    # #drive back to dock
+                    self.drive_rs_path(self.dock_location, 'slow', adjust=False)
+                    self.thread1= Thread(target=self.pickdrop_field,) #to change later
+                    
+                    self.thread1.start()
+                    return True
+                
+                #drive for pallet
+                if abs(dx) >= 0.04:
+                    self.pp_control(dx)
+                else:
+                    self.drive_rs_path(self.dock_station_end_line, 'pp', adjust=False)
+                    
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
+                
+            if self.operation_state < '4':
+                #forkup
+                self.fork_up()
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
+
+            if self.operation_state < '5':
+                #drive back to dock
+                self.drive_rs_path(self.dock_location, 'slow', adjust=False)
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
+            
+
+            
+        
+        elif action == 'Drop':
+            print('pap==', get_pap_status())
+
+            if self.operation_state < '3':
+                if get_pap_status():
+                    # self.send_data(b"Error:E001")
+                    self.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
+                    self.error_status = "Pallet_Already_Present"
+                    self.mqtt_node.disconnect()
+                    self.thread1.start()
+                    return True
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
+                
+
+            if self.operation_state < '4':
+                print(' indrop', self.dock_station_end_line)
+                self.drive_rs_path(self.dock_station_end_line, 'dd')
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
+
+            if self.operation_state < '5':
+                #align if needed
+                #forkdown
+                self.fork_down()
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
+
+
+            #drive back to dock
+            rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=self.rs_path_turn_radius, rev_drive=False, SCALE=self.rs_path_scale)
+
+            with open(self.constructed_rs_path, 'wb') as file:
+                pickle.dump(rs_path, file)
+
+            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+
+            command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
+                                    str(self.dock_location[1]), str(self.dock_location[2]),
+                                    str(self.dock_location[3])]
+            
+            if self.operation_state < '6':
+                run_command_with_retry(command)
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
+
+        elif 'Parking' == action:
+            present, dx, dy = self.apds()
+            print('parking dx', dx)
+            self.parking_control(dx)
+            # self.drive_rs_path(self.dock_station_end_line, 'park', adjust=False)
+            pass
+
+        
+        elif 'Wait' in action: # Wait - 10 seconds
+            
+            #check if col is empty or not
+            #drive till col end 
+            #align if needed
+            print('pap==', get_pap_status())
+            if self.operation_state < '3':
+                if get_pap_status():
+                    self.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
+                    self.error_status = "Pallet_Already_Present"
+
+                    self.mqtt_node.disconnect()
+                    self.thread1.start()
+                    return True
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
+
+            if self.operation_state < '4':
+                self.drive_rs_path(self.dock_station_end_line, 'dd')
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
+
+            if self.operation_state < '5':
+                #wait
+                duration = int(action.split('_')[1])
+                time.sleep(duration)
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
+
+            if self.operation_state < '6':
+                #drive back to dock
+                self.drive_rs_path(self.dock_location, 'slow')
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
+                
+            
+
+
+        elif 'hold' in action: # Wait - 10 seconds
+            
+            #check if col is empty or not
+            #drive till col end 
+            #align if needed
+            if self.operation_state < '3':
+                published = False
+                while get_pap_status():
+                    if not published:  # Publish only once
+                        self.mqtt_node.publish2topic("machine/error/detected", "E010")
+                        published = True  # Set flag to True to prevent further publishing
+                    time.sleep(5)
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
+            
+            if self.operation_state < '4':
+                self.drive_rs_path(self.dock_station_end_line, 'dd')
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
+
+            if self.operation_state < '5':
+                self.fork_down()
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
+
+            if self.operation_state <'6':
+                #drive back to dock
+                self.drive_rs_path(self.dock_location, 'slow')
+                self.mqtt_node.publish2topic('machine/task/status', 'operation_state=6')
+
+        if action != 'Parking':
+            self.thread1 = Thread(target=self.normal_field,) #to change later
+            self.thread1.start()
+        return True
+
+    def fork_down(self):
+        command = "ros2 service call /byd/send_command example_interfaces/srv/Command \"{command: 'down'}\""
+        # subprocess.call() is blocking by default
+        retcode = subprocess.call(command, shell=True)
+
+    def fork_up(self):
+        command = "ros2 service call /byd/send_command example_interfaces/srv/Command \"{command: 'up'}\""
+        # subprocess.call() is blocking by default
+        retcode = subprocess.call(command, shell=True)
+
+    def find_left_or_right_dock(self, left_dock_pose, right_dock_pose, dock_pose, pose_to_compare, is_last_pose):
+
+        def orientation_difference_deg(q1, q2):
+            angle1 = math.degrees(self.quaternion_to_euler(q1[1], 0, 0, q1[0])[2])
+            angle2 = math.degrees(self.quaternion_to_euler(q2[1], 0, 0, q2[0])[2])
+            print(angle1, angle2, '====================')
+            diff = abs(angle1 - angle2) % 360
+            return min(diff, 360 - diff)  # Ensure the difference is within [0, 180]
+
+        start = dock_pose
+        end = pose_to_compare
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        angle_rad = math.atan2(dy, dx)
+        if is_last_pose == False:
+            angle_rad += math.pi
+        quaternion = self.euler_to_quaternion(0, 0, angle_rad)
+
+        # Calculate Euler angles (in degrees) for debug
+        euler_angle_deg = math.degrees(angle_rad) % 360
+
+        last_orientation = quaternion[2:]  # Assuming quaternion z, w components
+        left_orientation = left_dock_pose[2:]
+        right_orientation = right_dock_pose[2:]
+
+        # Convert dock orientations to degrees for debug
+        left_dock_euler_deg = math.degrees(self.quaternion_to_euler(left_orientation[1], 0,0, left_orientation[0])[2])
+        right_dock_euler_deg = math.degrees(self.quaternion_to_euler(right_orientation[1], 0,0, right_orientation[0])[2])
+
+        last_orientation_deg = math.degrees(self.quaternion_to_euler(last_orientation[1], 0,0, last_orientation[0])[2])
+       
+
+        left_diff = orientation_difference_deg(last_orientation, left_orientation)
+        right_diff = orientation_difference_deg(last_orientation, right_orientation)
+
+        # Debug Statements
+        print(f"Dock-Pose to Compare Vector: dx = {dx}, dy = {dy}")
+        print(f"Calculated Angle (radians): {angle_rad}")
+        print(f"Calculated Angle (degrees): {euler_angle_deg}")
+        print(f"Last Orientation (quaternion): {last_orientation}, Euler Degrees: {last_orientation_deg}")
+        print(f"Left Dock Orientation (quaternion): {left_orientation}, Euler Degrees: {left_dock_euler_deg}")
+        print(f"Right Dock Orientation (quaternion): {right_orientation}, Euler Degrees: {right_dock_euler_deg}")
+        print(f"Left Dock Difference: {left_diff}")
+        print(f"Right Dock Difference: {right_diff}")
+
+        if left_diff < right_diff:
+            print("Choosing left dock")
+            return left_dock_pose
+        else:
+            print("Choosing right dock")
+            return right_dock_pose
+
+
+    def find_path_and_angles_between_points(self, G, point1, point2):
+        # Function to calculate Euclidean distance
+        def euclidean_distance(coord1, coord2):
+            return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+    
+        # Finding the closest node to a given point
+        def closest_node(G, point):
+            min_distance = float('inf')
+            closest = None
+            print(G.nodes)
+            for node, data in G.nodes(data=True):
+                pos = data['position']
+                distance = euclidean_distance(pos, point)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest = node
+            return closest
+    
+        # Identify closest nodes to the input points
+        node1 = closest_node(G, point1)
+        node2 = closest_node(G, point2)
+        try:
+            with open("/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/path_list.json", "r") as f:  # Use the same path you saved to
+                data = json.load(f)
+                path = data.get("path", [])
+                print(f'Loaded path: {path}')
+        except Exception as e:
+            self.get_logger().error(f"Failed to load path_list from file: {e}")
+        # Find the shortest path between these two nodes
+        # path = nx.shortest_path(G, source=node1, target=node2)
+
+
+        self.path_in_nodes=path
+
+        path = path[:-1]
+        print("path in nodes ------------------------------------------------------------------------------",self.path_in_nodes)
+        
+
+        path_coords = [G.nodes[node]['position'] for node in path]
+        print("hkjhhkjhhjkhkjhk", path_coords)
+        # Calculate angles between successive coordinates
+        path_coords_with_quaternions = []
+        for i in range(len(path_coords) - 1):
+            start = path_coords[i]
+            end = path_coords[i+1]
+            dx = end[0] - start[0]
+            dy = end[1] - start[1]
+            angle_rad = math.atan2(dy, dx)
+            angle_rad += math.pi
+            quaternion = self.euler_to_quaternion(0, 0, angle_rad)
+            print("angle:", math.degrees(angle_rad), ", quaternion:", quaternion)
+            path_coords_with_quaternions.append((start, quaternion[-2:]))
+    
+        # Add the last point with the last quaternion used
+        if path_coords_with_quaternions:
+            last_quaternion = path_coords_with_quaternions[-1][1]
+            path_coords_with_quaternions.append((path_coords[-1], last_quaternion))
+    
+        l = []
+        for coord, quaternion in path_coords_with_quaternions:
+            l.append(list(coord) + list(quaternion))
+    
+        path_coords_with_quaternions = l
+        return path_coords_with_quaternions
+
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        """
+        Convert an Euler angle to a quaternion.
+        
+        Input
+            :param roll: The roll (rotation around x-axis) angle in radians.
+            :param pitch: The pitch (rotation around y-axis) angle in radians.
+            :param yaw: The yaw (rotation around z-axis) angle in radians.
+        
+        Output
+            :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+        """
+        qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+        qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+        qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        
+        return [qx, qy, qz, qw]
+
+    def quaternion_to_euler(self,w, x, y, z):
+        """
+        Convert a quaternion to Euler angles (roll, pitch, yaw).
+        """
+        # Roll (x-axis rotation)
+        t0 = 2.0 * (w * x + y * z)
+        t1 = 1.0 - 2.0 * (x * x + y * y)
+        roll = math.atan2(t0, t1)
+        
+        # Pitch (y-axis rotation)
+        t2 = 2.0 * (w * y - z * x)
+        t2 = 1.0 if t2 > 1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch = math.asin(t2)
+        
+        # Yaw (z-axis rotation)
+        t3 = 2.0 * (w * z + x * y)
+        t4 = 1.0 - 2.0 * (y * y + z * z)
+        yaw = math.atan2(t3, t4)
+        
+        return (roll), (pitch), (yaw)    
+
+    def generate_spline_path(self, start_pose, graph_path, scale=1.0, runway_length=0.0, spacing=0.01):
+        """
+        Generates a smoothed path using cubic splines and appends a runway.
+
+        Parameters:
+            start_pose (tuple): The starting pose (x, y, orientation quaternion).
+            graph_path (list):  List of waypoints as tuples/lists [(x, y, qz, qw), ...].
+            scale (float):       Scaling factor for coordinates.
+            runway_length (float): Length of the runway to append at the end.
+            spacing (float):    Desired spacing between sample points along the path.
+
+        Returns:
+            list of tuples: List of waypoints as (x, y) tuples.
+        """
+
+        # Ensure the start is the first waypoint
+        graph_path.insert(0, start_pose)
+
+        # Extract coordinates (scaled)
+        points = [(wp[0] * scale, wp[1] * scale) for wp in graph_path]
+        unique_points = [points[0]]
+        for p in points[1:]:
+            if p != unique_points[-1]:
+                unique_points.append(p)
+            else:
+                print(f"Duplicate point {p} removed.")
+        points = unique_points
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+
+        # If there's only one point or none, no spline to create
+        if len(points) < 2:
+            print("Not enough points to generate a spline.")
+            return points
+
+        # Parameterize by cumulative distance along the path
+        distances = [0.0]
+        for i in range(1, len(points)):
+            dist = math.hypot(points[i][0] - points[i-1][0],
+                            points[i][1] - points[i-1][1])
+            distances.append(distances[-1] + dist)
+        total_dist = distances[-1]
+
+        # Extract the orientation of the last waypoint to compute the slope
+        # Assuming quaternion in the form (qz, qw)
+        last_wp = graph_path[-1]
+        qz, qw = last_wp[2], last_wp[3]
+
+        # Convert quaternion to euler angles to get final yaw
+        # For example, you might already have a helper like:
+        # final_yaw = self.quaternion_to_euler(qw, 0, 0, qz)[2]
+        # Here is a dummy example for yaw only:
+        # (Replace this with your own quaternion->yaw function)
+        final_yaw = self.quaternion_to_euler(qw, 0, 0, qz)[2] + math.pi
+
+        # We want the boundary condition derivative at the start to be 0 
+        # (tangent = 0) and at the end to match final_yaw
+        final_slope_x = math.cos(final_yaw)
+        final_slope_y = math.sin(final_yaw)
+
+        # Create cubic splines for x and y as functions of distance
+        cs_x = CubicSpline(distances, xs, bc_type=((1, 0), (1, final_slope_x)))
+        cs_y = CubicSpline(distances, ys, bc_type=((1, 0), (1, final_slope_y)))
+
+        # ----------------------------------------------------------------
+        #    SAMPLE THE SPLINE BASED ON THE DESIRED SPACING
+        # ----------------------------------------------------------------
+        # Instead of a fixed number of samples, we'll create a distance array
+        # with increments of 'spacing' until we cover total_dist.
+        # For example, if spacing=0.01, then we get a point every 0.01 (units).
+        sample_distances = np.arange(0, total_dist, spacing)
+        # Make sure we include the very last point (total_dist) exactly
+        if sample_distances[-1] < total_dist:
+            sample_distances = np.append(sample_distances, total_dist)
+
+        # Evaluate spline at each distance
+        smoothed_coords = []
+        for d in sample_distances:
+            x_val = cs_x(d)
+            y_val = cs_y(d)
+            smoothed_coords.append((float(x_val), float(y_val)))
+
+        # ----------------------------------------------------------------
+        #    ADD THE RUNWAY
+        # ----------------------------------------------------------------
+        # Compute final heading at the end of the path
+        # If you want it strictly to match final_yaw, you can do so
+        runway_steps = self._params_spline_path['runway_steps']  # number of sub-steps for runway
+        step_length = runway_length / runway_steps if runway_steps > 0 else 0.0
+
+        if runway_length > 0:
+            final_point = smoothed_coords[-1]
+            for i in range(1, runway_steps + 1):
+                x_new = final_point[0] + i * step_length * math.cos(final_yaw)
+                y_new = final_point[1] + i * step_length * math.sin(final_yaw)
+                smoothed_coords.append((float(x_new), float(y_new)))
+        # print(smoothed_coords, 'asdjkladsjkldasjkldasjkladsjkl')
+        return smoothed_coords       
+
+    def generate_rs_path(self, start_pose, graph_path, turn_radius, rev_drive, SCALE=1):
+        
+        rs_path_waypoints = []
+        print('gp:::',graph_path)
+        for waypoint in graph_path:
+            if waypoint == graph_path[-1] and rev_drive == True:
+                rs_path_waypoints.append([waypoint[0]*SCALE, waypoint[1]*SCALE, self.quaternion_to_euler(waypoint[3], 0, 0, waypoint[2])[2], turn_radius, 0.0*SCALE])
+            elif waypoint == graph_path[-1] and rev_drive == False:
+                rs_path_waypoints.append([waypoint[0]*SCALE, waypoint[1]*SCALE, self.quaternion_to_euler(waypoint[3], 0, 0, waypoint[2])[2], turn_radius, 0.0*SCALE])
+            else:
+                rs_path_waypoints.append([waypoint[0]*SCALE, waypoint[1]*SCALE, self.quaternion_to_euler(waypoint[3], 0, 0, waypoint[2])[2], turn_radius, 0.0])
+        
+
+        
+        step_size = 0.01 * SCALE
+
+        waypoints = []
+        current_pose = (*start_pose[:2], self.quaternion_to_euler(start_pose[3],0,0, start_pose[2])[2])
+
+        for end_pose in rs_path_waypoints:
+            end_x, end_y, end_yaw, turn_radius, runway_length = end_pose
+            end_pose_tuple = (end_x, end_y, end_yaw)
+            path = planner.path(current_pose, end_pose_tuple, turn_radius, runway_length, step_size)
+            waypoints.extend([(wp.x, wp.y) for wp in path.waypoints()])
+            current_pose = end_pose_tuple
+
+        return waypoints       
+
+    def filter_points_within_radius(self, location_to_compare, points, radius):
+        """
+        Filters out points that lie within a certain radius of the given location.
+        
+        Args:
+        - location_to_compare (list): The reference location in the format [x, y, z, w].
+        - points (list of lists): A list of points where each point is [x, y, z, w].
+        - radius (float): The radius within which points will be removed.
+        
+        Returns:
+        - list of lists: The filtered list of points that lie outside the given radius.
+        """
+        x, y = location_to_compare[0], location_to_compare[1]  # Extract x, y from location_to_compare
+        filtered_points = []
+        for point in points:
+            point_x, point_y = point[0], point[1]
+            distance = math.sqrt((point_x - x)**2 + (point_y - y)**2)
+            if distance > radius:
+                filtered_points.append(point)
+        return filtered_points
+
+
+    def movement_operation(self, movement):
+        
+        
+        point1 = get_current_pose()[:2]
+        point2 = self.dock_location[:2] #smart selection of easy dock 
+
+        path_coords_with_quaternions = self.find_path_and_angles_between_points(self.G_loaded, point1, point2)
+        path_coords_with_quaternions = self.filter_points_within_radius(point1, path_coords_with_quaternions, 2.0)
+        path_coords_with_quaternions = self.filter_points_within_radius(point2, path_coords_with_quaternions, 2.0)
+
+        # if self.operation_state < '1':
+        if len(path_coords_with_quaternions) != 0:
+            print('check=======')
+            end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, path_coords_with_quaternions[-1], is_last_pose=True)
+
+            waypoints = []
+            waypoints.append(get_current_pose())
+
+            for waypoint in path_coords_with_quaternions:
+                waypoints.append(waypoint)
+            
+            waypoints.append(end_easy_dock)
+            # waypoints.append(self.dock_location)
+            # waypoints.append(self.dock_station_end_line)
+            ##Generate spline path using waypoints
+            spline_path = self.generate_spline_path(waypoints[0], waypoints[1:], scale=self._params_spline_path['scale'], runway_length=self._params_spline_path['runway_length'], spacing=self._params_spline_path['spacing'])
+
+            with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
+                pickle.dump(self.path_in_nodes, file)
+
+            with open(self.constructed_rs_path, 'wb') as file:
+                pickle.dump(spline_path, file)
+
+            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+
+        else:
+            current_pose = get_current_pose()
+            end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock, self.right_easy_dock, self.dock_location, current_pose, is_last_pose=True)
+            
+            waypoints = []
+            waypoints.append(current_pose)
+            
+            waypoints.append(end_easy_dock)
+            ##Generate spline path using waypoints
+            spline_path = self.generate_spline_path(waypoints[0], waypoints[1:])
+            
+            with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
+                pickle.dump(self.path_in_nodes, file)
+
+            with open(self.constructed_rs_path, 'wb') as file:
+                pickle.dump(spline_path, file)
+
+            result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_fast",
+            "--path_file", self.constructed_rs_path
+            ], capture_output=True, text=True)
+        # self.mqtt_node.publish2topic('machine/task/status', 'operation_state=1')
+
+        # if self.operation_state < '2':
+        #     ##Generate path from easy dock to dock
+        #     self.drive_rs_path(self.dock_location, 'slow', adjust=True)
+        #     self.mqtt_node.publish2topic('machine/task/status', 'operation_state=2')
+
+        # rs_path = self.generate_rs_path(get_current_pose(), [self.dock_location], turn_radius=0.75, rev_drive=False)
+
+        # with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+        #     pickle.dump(rs_path, file)
+
+        # result = subprocess.run(["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow",
+        # "--path_file", "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+        # ], capture_output=True, text=True)
+
+        # command =["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node", str(self.dock_location[0]), 
+        #                         str(self.dock_location[1]), str(self.dock_location[2]),
+        #                         str(self.dock_location[3])]
+        # run_command_with_retry(command)
+
+        return True
+        
+
+    def quaternion_to_angle_rad(self, z, w):
+        return 2 * math.atan2(z, w)
+
+
+
+    def bopt_current_state_publisher(self, feedback):
+        i=0
+        msg = String()
+        msg.data = feedback
+        print('Publishing: "%s"' % msg.data)
+        while i<=100:
+            self.ltn_current_state_publisher.publish(msg)
+            i+=1
+
+    # def feedback_publisher(self, feedback):
+    #     i=0
+    #     msg = String()
+    #     msg.data = feedback
+    #     print('Publishing: "%s"' % msg.data)
+    #     while i<=100:
+    #         self.ltn_feedback_publisher.publish(msg)
+    #         i+=1
+    
+    def task_publisher(self, feedback):
+        i=0
+        msg = String()
+        msg.data = feedback
+        print('Publishing: "%s"' % msg.data)
+        while i<=100:
+            self.ltn_task_publisher.publish(msg)
+            i+=1
+
+
+
+    def euclidean_distance(self,pose1, pose2):
+
+        dx = pose1[0] - pose2[0]
+        dy = pose1[1] - pose2[1]
+
+        distance = math.sqrt(dx**2 + dy**2)
+        return distance
+    
+
+    def get_locations_and_waypoints(self):
+        print(os.path.exists(self.databasepath))  # Should return True
+        connection = sqlite3.connect(self.databasepath)
+        cur = connection.cursor()
+        station_locations={}
+        flow_matrix={}
+        flow_matrix_park={}
+        rev_flow_matrix={}
+        easy_station_locations={}
+        easy_station_location_rev={}
+        doc_station_locations={}
+        pick_flow={}
+        rev_pick_flow={}
+     
+        for rows in cur.execute("SELECT * FROM location"):
+            station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        i=0
+        for rows in cur.execute("SELECT * FROM waypoints"):
+            flow_matrix[i]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            i+=1
+
+        l=0
+        for rows in cur.execute("SELECT * FROM waypoints_pick"):
+            pick_flow[l]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            l+=1  
+
+        m=14
+        for rows in cur.execute("SELECT * FROM rev_waypoints_pick"):
+            rev_pick_flow[m]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            m-=1        
+        
+        k=70    
+        for rows in cur.execute("SELECT * FROM waypoints_park"):
+            flow_matrix_park[k]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            
+            k-=1
+
+        j=73    
+        for rows in cur.execute("SELECT * FROM waypoints_rev"):
+            rev_flow_matrix[j]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+            
+            j-=1    
+        print("pick_flow---",pick_flow)    
+        for rows in cur.execute("SELECT * FROM easy_station_loc"):
+            easy_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        for rows in cur.execute("SELECT * FROM easy_station_loc_rev"):
+            easy_station_location_rev[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+
+        for rows in cur.execute("SELECT * FROM doc_station_loc"):
+            doc_station_locations[rows[0]]=[float(rows[1]),float(rows[2]),float(rows[3]),float(rows[4])]
+        print(station_locations, easy_station_locations, flow_matrix, doc_station_locations)
+        
+        return station_locations, easy_station_locations, flow_matrix, doc_station_locations,rev_flow_matrix,easy_station_location_rev,flow_matrix_park,pick_flow,rev_pick_flow
+    
+    def pub_fb(self,fb_string):
+        pub_str = fb_string
+        self.feedback_thread = Thread(target=self.feedback_publisher, args=(pub_str,)) #to change later
+        self.feedback_thread.start()
+
+    def normal_field(self):
+        i=0
+        msg = String()
+        msg.data = 'normal'
+        while i<=100:
+            self.publisher_.publish(msg)
+            # print(msg.data)
+            i+=1
+        
+
+    def pickdrop_field(self):
+        i=0
+        msg = String()
+        msg.data = 'pickdrop'
+        while i<=100:
+            self.publisher_.publish(msg)
+            i+=1
+            
+
+
+def signal_handler(sig, frame):
+    print('Ctrl-C pressed, stopping the robot and shutting down')
+    # Create a node
+    node = rclpy.create_node('stop_robot_node')
+    kill_child_processes(os.getpid())
+
+    
+
+    # Publisher for cmd_vel to stop the robot
+    cmd_vel_publisher = node.create_publisher(Twist, '/cmd_vel', 10)
+    stop_msg = Twist()
+    stop_msg.linear.x = 0.0
+    stop_msg.angular.z = 0.0
+
+    # Publisher for the /state topic
+    state_publisher = node.create_publisher(String, '/state', 10)
+    state_msg = String()
+    state_msg.data = 'auto'
+
+    # Publisher for /velocity and /steering_angle to publish 0
+    velocity_publisher = node.create_publisher(Float64, '/velocity', 10)
+    steering_angle_publisher = node.create_publisher(Float64, '/steering_angle', 10)
+    
+    zero_msg = Float64()
+    zero_msg.data = 0.0
+
+
+    i=0
+    while i<=100:
+        cmd_vel_publisher.publish(stop_msg)
+        state_publisher.publish(state_msg)
+        # Publish 0 on both topics
+        velocity_publisher.publish(zero_msg)
+        steering_angle_publisher.publish(zero_msg)
+        i+=1
+
+
+    # Allow some time for the messages to be sent
+    time.sleep(1)
+
+    # Cleanup and exit
+    node.destroy_node()
+    rclpy.shutdown()
+    sys.exit(0)
+
+
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+    try:
+        parent = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+        return
+    for child in parent.children(recursive=True):
+        child.terminate()
+    gone, still_alive = psutil.wait_procs(parent.children(recursive=True), timeout=5, callback=None)
+    for p in still_alive:
+        p.kill()
+
+def load_node_params(defaults, config_keys, config_file_arg):
+    """
+    Load and merge YAML parameters for one node.
+
+    :param defaults: dict of default param_name -> default_value
+    :param config_keys: list of nested keys to reach this node's section in the YAML
+                        e.g. ['apds', 'lidar_clustering', 'lidar_clustering_combined_once']
+    :param config_file_arg: path from --config-file, or empty string
+    :return: merged dict of param_name -> value
+    """
+    # 1) decide which file to use
+    if config_file_arg and os.path.isfile(config_file_arg):
+        path = config_file_arg
+    else:
+        cwd_path = os.path.join(os.getcwd(), 'amr_config.yaml')
+        path = cwd_path if os.path.isfile(cwd_path) else None
+
+    # 2) load YAML if available
+    if path:
+        with open(path, 'r') as f:
+            full_cfg = yaml.safe_load(f) or {}
+        # drill down into the nested keys
+        node_cfg = full_cfg
+        for key in config_keys:
+            node_cfg = node_cfg.get(key, {})
+        if not isinstance(node_cfg, dict):
+            node_cfg = {}
+        # merge, giving precedence to file
+        merged = defaults.copy()
+        merged.update(node_cfg)
+        return merged
+
+    # 3) fallback: no file found
+    return defaults.copy()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    parser = argparse.ArgumentParser(
+        description="Workflow Node ROS2 node loading params from YAML"
+    )
+    parser.add_argument(
+        '--config-file', '-c',
+        default='',
+        help='Full path to amr_config.yaml (overrides workspace root file)'
+    )
+    args, ros_cli_args = parser.parse_known_args()
+    robot_id = os.getenv('ROBOT_ID', 'EP_006')  # Default to 'EP_006' if not set
+    defaults = {
+        "database_path": "/home/fbots/bopt_v2_ws/src/workflow_node/map_details/testing_area_dl_wn.db",
+        "graphml_path": "/home/fbots/bopt_v2_ws/src/workflow_node/map_details/testing_area_dl_waypoints.graphml",
+        "constructed_rs_path": "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl",
+        "robot_id": "EP_006",
+        "mqtt_broker": "192.168.68.78",
+        "robot_ip": "192.168.68.57",
+        "parking_gap_threshold": 0.2,
+        "movement_gap_threshold": 0.2,
+        "rs_path_scale": 1,
+        "rs_path_turn_radius": 0.75,
+        "spline_path": {
+            "scale": 1.0,
+            "runway_length": 0.0,
+            "spacing": 0.01,
+            "runway_steps": 20
+        },
+        "parking_control": {
+            "scale": 1,
+            "step_size": 0.01,
+            "backup_distance": 0.8,
+            "pallet_length": 1.3,
+            "turn_radius_first": 0.9,
+            "runway_length_first": 0,
+            "turn_radius_second": 0.9,
+            "runway_length_second": 1,
+            "turn_radius_third": 0.3,
+            "runway_length_third": 0,
+            "turn_radius_fourth": 0.3,
+            "runway_length_fourth": 0,
+            "turn_radius_fifth": 0.3,
+            "runway_length_fifth": -1
+        },
+        "pp_control": {
+            "scale": 1,
+            "step_size": 0.01,
+            "backup_distance": 0.6,
+            "pallet_length": 1.3,
+            "turn_radius_first": 0.9,
+            "runway_length_first": 0,
+            "turn_radius_second": 0.9,
+            "runway_length_second": 1,
+            "turn_radius_third": 0.3,
+            "runway_length_third": 0,
+            "turn_radius_fourth": 0.3,
+            "runway_length_fourth": 0,
+            "turn_radius_fifth": 0.3,
+            "runway_length_fifth": -1
+        }
+    }
+    
+    config_keys = [
+        'workflow_node',  # Top-level key for this node
+        'workflow_node',       # Second-level key for MQTT bridge settings
+    ]
+
+    params = load_node_params(defaults, config_keys, args.config_file)
+    signal.signal(signal.SIGRTMIN, signal_handler)
+    # signal.signal(signal.SIGTERM, signal_handler)  # Handle SIGTERM (termination signal)
+    print(os.getpid())
+
+
+    # Check if source and destination are provided as command-line arguments
+    if len(sys.argv) < 4:
+        print("Usage: ros2 run <your_package_name> workflow_node <task_id> <movement> <action>")
+        rclpy.shutdown()
+        return
+    print(sys.argv)
+    # movement = sys.argv[1]  
+    # action = sys.argv[2]
+    # operation_state = str(sys.argv[3]) if len(sys.argv) > 3 else '0'
+    task_id=sys.argv[1]
+    movement = sys.argv[2]
+    action = sys.argv[3]
+    state_id = int(sys.argv[4]) if len(sys.argv) > 4 else '0'
+    # Create an instance of WorkflowHandler and set action and movement
+    workflow_handler = WorkflowHandler(task_id,movement, action, params)
+    workflow_handler.operation_state = state_id
+    
+    
+    operations = {
+        1: lambda: workflow_handler.operation(),
+        # 2: lambda: workflow_handler.precise_control_to_dock(),
+        # 3: lambda: transporter.go_for_pallet_pickup(),
+        # 4: lambda: transporter.drive_back_to_dock(),
+        # 5: lambda: transporter.reorient_to_flow(),
+        # 6: lambda: transporter.pose_correct_on_flow_after_lift(),
+        # 7: lambda: transporter.go_to_drop_off_easy_dock_using_flow(),
+        # 8: lambda: transporter.precise_control_to_drop_off_dock(),
+        # 9: lambda: transporter.go_for_pallet_drop(),
+        # 10: lambda: transporter.drive_back_from_drop_off(),
+        # 11: lambda: transporter.reorient_to_flow_after_drop_off(),
+        # 12: lambda: transporter.pose_correct_on_flow_after_drop()
+    }
+
+    # # Start from a specific point in the sequence if state_id is provided
+    # error_found=False
+    # error_state=None
+    state_id = None
+    start_point = state_id if state_id else 1
+    for state, operation in operations.items():
+        if state >= start_point:
+            stat=operation()  # Execute the operation
+            # if stat == False:
+            #     if state==3:
+            #         error_state=3
+            #         start_point=11
+            #     elif state==8:
+            #         error_state=8
+            #         start_point=13    
+            #         des=transporter.destination_name
+            #         # subprocess.run(["ros2 run load_transporter_node load_transporter_node_v6 "+str(des)+" "+'buffer'+" 5","arguments"],shell=True)
+            #         break
+            #     elif state==9:
+            #         error_state=9
+            #         start_point=13    
+            #         des=transporter.destination_name
+            #         # subprocess.run(["ros2 run load_transporter_node load_transporter_node_v6 "+str(des)+" "+'buffer'+" 5","arguments"],shell=True)
+            #         break
+            # Add any necessary error handling or status checking here
+    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #         s.connect(('192.168.68.57', 65434))
+    #         s.sendall(b"Request Info")
+    #         data = s.recv(1024).decode()
+    #         print(f"Received: {data}")
+
+    
+    # des=transporter.destination_name
+    # if des!="buffer":
+        
+    #     try:
+    #         # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #         #         s.connect(('192.168.68.57', 65434))
+    #         if error_found == False:
+    #             if error_state==3:
+    #                 transporter.send_data(b"Pallet_Not_Present")
+    #                 # transporter.send_data(b"Task ended")
+    #             elif error_state in [8, 9]:
+    #                 transporter.send_data(b"task_incomplete_pallet_not_dropped")
+    #                 # transporter.send_data(b"Task ended")    
+    #             else:
+    #                 transporter.send_data(b"Task ended")    
+    #         else:
+    #             transporter.send_data(b"Task ended")
+    #                 # data = s.recv(1024).decode()
+    #         print('Transporter sequence completed:', transporter.sequence_complete)
+    #     except Exception as e:
+    #         print(e)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # transporter.pub_fb("Task Completed")
+    # time.sleep(0.5)
+    # time.sleep(3)
+    # transporter.sequence_complete = True
+    # print(transporter.next_task)
+    # if transporter.next_task=="Parking":
+    #     transporter.task_park()
+    
+
+    # transporter.destroy_node()
+    print('here')
+
+    workflow_handler.sequence_complete = True
+
+
+    # Cleanup and shutdown
+    workflow_handler.destroy_node()
+
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+
+
+def get_current_pose():
+    print('here')
+    node = CurrentLocationNode()
+    while rclpy.ok():
+        rclpy.spin_once(node)
+        if node.current_pose is not None:
+            break
+    current_pose = node.current_pose
+
+    current_formatted_pose = [current_pose.position.x, current_pose.position.y, current_pose.orientation.z, current_pose.orientation.w]
+    # print('fetched current pose:',current_formatted_pose)
+    node.destroy_node()
+    return current_formatted_pose
+
+
+def find_nearest_key(lookup_table, position, initial_tolerance=0.01, max_tolerance=0.1, tolerance_increment=0.01):
+    tolerance = initial_tolerance
+
+    while tolerance <= max_tolerance:
+        print('current tolerance:',tolerance)
+        potential_keys = []
+        
+        # Gather all keys within the current tolerance
+        for key in lookup_table.keys():
+            position_difference = np.sqrt((key[0] - position[0]) ** 2 + (key[1] - position[1]) ** 2)
+            vel = lookup_table[key][1]
+
+            # Check if the key satisfies the additional condition on velocity
+            if position_difference <= tolerance and ((position[0] > 0 and vel > 0) or (position[0] <= 0 and vel <=0)):
+                potential_keys.append(key)
+            
+
+        # If potential keys are found, select the one with the smallest 'dist' value
+        if potential_keys:
+            nearest_key = min(potential_keys, key=lambda k: lookup_table[k][2])
+            return nearest_key
+
+        # Increase tolerance for next iteration
+        tolerance += tolerance_increment
+
+    return None
+
+def get_precise_control_key(robot_state, tf_pose):
+    print('going to ->', tf_pose)
+    if robot_state == 'up':
+        with open(ws_path + 'src/task_allocator/byd_task_allocator/lookup_table_1.33.pkl', 'rb') as f:
+            loaded_lookup_table = pickle.load(f)
+    elif robot_state == 'down':
+        with open(ws_path + 'src/task_allocator/byd_task_allocator/lookup_table_1.36.pkl', 'rb') as f:
+            loaded_lookup_table = pickle.load(f)
+    
+    position = tf_pose[:2]
+
+    nearest_key = find_nearest_key(loaded_lookup_table, position)
+
+    if nearest_key is None:
+        print("No solution found within given tolerances.")
+        return 0.0,0.0,0.0
+    else:
+        # print("Nearest key:", nearest_key)
+        steering_angle = np.rad2deg(loaded_lookup_table[nearest_key][0])
+        vel = loaded_lookup_table[nearest_key][1]
+        dist = loaded_lookup_table[nearest_key][2] 
+    
+    return steering_angle, vel, dist
+
+def get_pap_status():
+    node = PapNode()
+    while rclpy.ok():
+        rclpy.spin_once(node)
+        if node.pap_status is not None:
+            break
+    pap_status = node.pap_status
+
+    node.destroy_node()
+    return pap_status
+
+class PapNode(Node):
+    def __init__(self):
+        super().__init__('pallet_already_present_node')
+        qos_settings = QoSProfile(depth=10)
+        qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        
+        self.pose_sub = self.create_subscription(Bool, '/pap_field_status', self.pap_callback, qos_settings)
+        self.pap_status=False
+
+    def pap_callback(self, msg):
+        self.pap_status = msg.data
+
+def get_current_odot_state():
+    node = CurrentOdotStateNode()
+    while rclpy.ok():
+        rclpy.spin_once(node)
+        if node.sensor_data is not None:
+            break
+    front_sensor_byte = node.front_sensor_byte
+    back_sensor_byte = node.back_sensor_byte
+    # print('fetched current pose:',current_formatted_pose)
+    node.destroy_node()
+    return front_sensor_byte, back_sensor_byte
+
+def kill_process_tree(pid, including_parent=True):
+    parent = psutil.Process(pid)
+    children = parent.children(recursive=True)
+    for child in children:
+        child.kill()
+    psutil.wait_procs(children)
+    if including_parent:
+        parent.kill()
+        parent.wait()
+
+
+
+def clamp(value, minimum, maximum):
+    return max(minimum, min(value, maximum))
+
+def run_command_with_retry(command, timeout=45, max_retries=5, delay_between_retries=5):
+    """
+    Run a command with a timeout and retries. Terminates the process if it hangs.
+
+    :param command: Command to run (list of strings)
+    :param timeout: Timeout in seconds for the command
+    :param max_retries: Maximum number of retries
+    :param delay_between_retries: Delay in seconds between retries
+    :return: subprocess.CompletedProcess object
+    # Example usage
+    command = ["ros2", "run", "your_package", "your_node"]
+    try:
+        result = run_command_with_retry(command)
+        print(result.stdout)
+    except Exception as e:
+        print(str(e))
+    """
+    for attempt in range(max_retries):
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            output, error = process.communicate(timeout=timeout)
+            return subprocess.CompletedProcess(process.args, process.returncode, output, error)
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out (attempt {attempt + 1}/{max_retries}). Retrying in {delay_between_retries} seconds...")
+            process.kill()
+            process.wait()  # Ensure the process has terminated before retrying
+            time.sleep(delay_between_retries)
+    
+    # If all retries fail, raise an exception
+    raise Exception(f"Command '{' '.join(command)}' failed after {max_retries} retries.")
+
+
+def get_pds_results():
+
+    result_pds = subprocess.run(["ros2", "run", "pallet_detection", "pallet_detection"], capture_output=True, text=True)
+    output_string = result_pds.stdout
+
+    # Extract "Distance to midpoint"
+    distance_to_midpoint_match = re.search("Distance to midpoint: (\d+\.\d+)", output_string)
+    distance_to_midpoint = float(distance_to_midpoint_match.group(1)) if distance_to_midpoint_match else None
+
+    # Extract "tensor()"
+    tensor_match = re.search("tensor\((\d+\.\d+)\)", output_string)
+    tensor_value = float(tensor_match.group(1)) if tensor_match else None
+
+    # Extract "fetched_m_offset"
+    fetched_m_offset_match = re.search("fetched_m_offset (-?\d+\.\d+)", output_string)
+    fetched_m_offset = float(fetched_m_offset_match.group(1)) if fetched_m_offset_match else None
+    print(distance_to_midpoint, tensor_value, fetched_m_offset)
+
+    return distance_to_midpoint, tensor_value, fetched_m_offset
+
+def get_pds_tag_results():
+    
+    result_pds = subprocess.run(["ros2", "run", "pallet_detection", "pallet_detection_tag"], capture_output=True, text=True)
+    output_string = result_pds.stdout
+
+    # Extract "fetched_m_offset"
+    fetched_m_offset_match = re.search("fetched_m_offset (-?\d+\.\d+)", output_string)
+    fetched_m_offset = float(fetched_m_offset_match.group(1)) if fetched_m_offset_match else None
+    fetched_angular_offset_match = re.search("fetched_angular_offset (-?\d+\.\d+)", output_string)
+    fetched_angular_offset = float(fetched_angular_offset_match.group(1)) if fetched_angular_offset_match else None
+    print(fetched_m_offset, fetched_angular_offset)
+
+    return fetched_m_offset, fetched_angular_offset
+
+
+class CurrentLocationNode(Node):
+    def __init__(self):
+        super().__init__('current_location_node')
+        qos_settings = QoSProfile(depth=10)
+        qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        
+        self.pose_sub = self.create_subscription(PoseStamped, '/current_pose', self.current_pose_callback, qos_settings)
+        self.current_pose = None
+        self.success = False
+
+    def current_pose_callback(self, msg: PoseStamped):
+        self.current_pose = msg.pose
+
+
+
+class CurrentOdotStateNode(Node):
+    def __init__(self):
+        super().__init__('current_odot_state_node')
+        qos = QoSProfile(history=QoSHistoryPolicy.KEEP_LAST, depth=10)
+        qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        self.subscription = self.create_subscription(String, '/byd/can_odot_data', self.odot_callback, qos)        
+        self.sensor_data = None
+        self.back_sensor_byte = None
+        self.front_sensor_byte = None
+   
+    def odot_callback(self, msg):
+        # self.get_logger().info(f'Received message: "{msg.data}"')
+        sensor_data = msg.data.split(' ')[1]
+        self.back_sensor_byte = sensor_data[0] #back sensors
+        self.front_sensor_byte = sensor_data[-1] #forktip sensors
+        self.sensor_data = msg.data.split(' ')
+
+
+class mqttClient(mqtt_client.Client):
+
+    def __init__(self, broker, port=1883, use_async_connect = False) -> None:
+        super().__init__(mqtt_client.CallbackAPIVersion.VERSION2, str(id(self)), clean_session=True, protocol=mqtt_client.MQTTv311)
+        self.broker = broker
+        if use_async_connect: self.connect_async(broker, port)
+        else: self.connect(broker, port)
+        self.__subscriber_topics_callback = dict()
+        self.__queued_subs, self.__queued_pubs = deque(), deque()
+
+
+    def on_connect(self, client, userdata, flags, reason_code, properties):
+        if reason_code == 0:
+            print("Connected to MQTT Broker!")
+            que_subs,  self.__queued_subs = self.__queued_subs, None
+            que_pubs,  self.__queued_pubs = self.__queued_pubs, None
+            while len(que_subs):
+                self.subscribe2topic(*que_subs.pop())
+            while len(que_pubs):
+                self.publish2topic(*que_pubs.pop())
+        else:
+            print(f"Failed to connect, return code {reason_code}\n")
+
+    def on_message(self, client, userdata, _msg):
+        msg = _msg.payload.decode()
+        div = msg.find('/')
+        if div != -1:
+            threading.Thread(target=lambda: self.__subscriber_topics_callback[_msg.topic](msg[:div], msg[div+1:])).start()
+
+    def subscribe2topic(self, topic, message_callback, qos=0):
+        if self.__queued_subs is None:
+            if topic not in self.__subscriber_topics_callback:
+                self.subscribe(topic, qos)
+            self.__subscriber_topics_callback[topic] = message_callback
+        else: self.__queued_subs.append((topic, message_callback, qos))
+
+    def publish2topic(self, topic,  message, qos=0, ignore_result = False):
+        if self.__queued_pubs is not None:
+            self.__queued_pubs.append((topic, message, qos, ignore_result))
+            return
+        payload = (self._client_host_ip if hasattr(self, '_client_host_ip') else self.broker) + '/' + message
+        while True:
+            result = self.publish(topic, payload, qos)
+            if ignore_result: break
+            status = result[0]
+            if status == 0:
+                print(f"Send `{payload}` to topic `{topic}`")
+                break
+            else:
+                print(f"Failed to send `{payload}` to topic `{topic}`")
+
+
+
+
+

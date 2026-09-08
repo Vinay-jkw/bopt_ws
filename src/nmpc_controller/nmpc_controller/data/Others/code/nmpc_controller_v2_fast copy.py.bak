@@ -1,0 +1,1301 @@
+import argparse
+import math
+import json
+import sqlite3
+import pandas as pd
+import os
+import time
+import pickle
+import yaml
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import splprep, splev
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Pose
+from std_msgs.msg import Float64, String, Bool
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+import signal
+from nav_msgs.msg import Path  # Import the Path message
+from visualization_msgs.msg import Marker  # Import the Marker message
+import networkx as nx
+from scipy.interpolate import CubicSpline
+
+# SCALE = 60
+# MIN_VELOCITY = 0.2  # Define a minimum velocity limit
+# MAX_VELOCITY = 1.42 # 0.3 # Define a maximum velocity limit
+# SLOW_DOWN_DISTANCE = 2.0 # Distance within which the robot starts to slow down
+# VELOCITY_SMOOTHING_FACTOR = 0.01  # Smoothing factor for velocity adjustments
+# STOPPING_VELOCITY = 0.3
+
+
+class RobotClient(Node):
+    def __init__(self, params):
+        super().__init__('robot_client')
+        self.robot_id = params['robot_id']
+        self.linear_velocity_publisher_topic = params['linear_velocity_publisher_topic']
+        self.steering_angle_publisher_topic = params['steering_angle_publisher_topic']
+        self.state_publisher_topic = params['state_publisher_topic']
+        self.min_velocity = params['min_velocity']
+        self.max_velocity = params['max_velocity']
+        self.slow_down_distance = params['slow_down_distance']
+        self.velocity_smoothing_factor = params['velocity_smoothing_factor']
+        self.stopping_velocity = params['stopping_velocity']
+        self.goal_tolerance = params['goal_tolerance']
+        self.path_file = params['path_file']
+        self.speed_control_lookahead = params['speed_control_lookahead']
+        self.path_tracking_lookahead = params['path_tracking_lookahead']
+        self.path_file_in_nodes = params['path_file_in_nodes']
+        self.graphml_file = params['graphml_file']
+        G_loaded =  nx.read_graphml(self.graphml_file)
+
+        for node, data in G_loaded.nodes(data=True):
+            pos_str = data.get('position', '')
+            if pos_str:
+                G_loaded.nodes[node]['position'] = tuple(map(float, pos_str.split(',')))
+        self.G_loaded = G_loaded
+
+        self.declare_parameter('goal_tolerance', self.goal_tolerance)
+        self.declare_parameter('path_file', self.path_file)
+        self.declare_parameter('path_file_in_nodes', self.path_file_in_nodes)
+        self.goal_tolerance = self.get_parameter('goal_tolerance').value
+        self.horizon = 5
+        self.steering_angles = []
+
+        self.path = []
+        self.path_index = 0
+        self.path_received = False
+        self.goal_reached = False
+        self.goal_tolerance = None
+        self.path_file = None
+        self.conflict_action=None
+        self.pallet_detected = False
+        self.finished = False
+        # Load the lookup table
+        with open('/home/fbots/bopt_v2_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_2.5.pkl', 'rb') as f:
+            self.lookup_table = pickle.load(f)
+
+        self.velocity_publisher = self.create_publisher(Float64, self.linear_velocity_publisher_topic, 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, self.steering_angle_publisher_topic, 10)
+        self.state_publisher = self.create_publisher(String, self.state_publisher_topic, 10)
+        self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
+        self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker',
+                                                            10)  # Marker publisher for target point
+        self.add_nodes_publisher = self.create_publisher(String, '/add_nodes', 10)
+
+        self.logging_publisher = self.create_publisher(String, '/remaining_path', 10)
+
+        self.local_path_active_pub = self.create_publisher(Bool, f'{self.robot_id}/local_path_active', 10)
+        self.local_path_active = False
+
+        self.path_in_nodes = []  # List of node IDs (e.g., ['25', '26', '27'])
+        self.path_index_in_nodes = 0
+        self.path_in_nodes_received=False
+
+        self.read_path_in_nodes_from_file(self.get_parameter('path_file_in_nodes').value)
+        print("-----------------READ PATH FILE IN NODES---------------------")
+
+        self.current_pose = None
+        self.current_velocity = 0.0  # Initialize the current velocity to zero
+
+        qos_settings = QoSProfile(depth=10)
+        qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        self.pose_sub = self.create_subscription(
+            PoseStamped,
+            '/current_pose',
+            self.current_pose_callback,
+            qos_settings)
+
+        self.pd_sub = self.create_subscription(
+            Bool,
+            '/pallet_detected',
+            self.pallet_detection_callback,
+            1)
+
+        self.subscription = self.create_subscription(
+            Float64,
+            '/byd/wheel_velocity',
+            self.wv_callback,
+            10  # QoS history depth
+        )
+                # Create a subscriber to the /conflict_action topic
+        self.conflict_action_subscription = self.create_subscription(
+            String,
+            f'{self.robot_id}/conflict_action',
+            self.conflict_action_callback,
+            10
+        )
+
+        self.task_action_subscription = self.create_subscription(
+            String,
+            f'{self.robot_id}/task_action',
+            self.task_action_callback,
+            10
+        )
+        self.wheel_velocity = 0.0
+     
+        self.timer = self.create_timer(0.05, self.follow_path)
+
+        self.read_path_from_file(self.get_parameter('path_file').value)
+        # For speed control
+        self.sc_lookahead = self.speed_control_lookahead  # meter
+        # For path tracking
+        self.pt_lookahead = self.path_tracking_lookahead
+        self.path_last_point = []
+
+        self.left_easy_dock_dict, self.right_easy_dock_dict, self.dock_location_dict, self.dock_station_end_line_dict = self.fetch_location_data_from_db()
+    
+    def path_callback(self, msg: String): 
+        if not msg.data.strip(): # Ignore empty pathsollow 
+            self.get_logger().warn("⚠️ Received an empty path update. Ignoring.") 
+            return 
+
+        self.path_in_nodes = msg.data.split(',') 
+        self.get_logger().info(f'✅ Updated path_in_nodes: {self.path_in_nodes}') 
+    
+
+    def wv_callback(self, msg):
+        self.wheel_velocity = msg.data
+
+    def set_parameters(self, path_file, goal_tolerance):
+        self.goal_tolerance = goal_tolerance
+        self.path_file = path_file
+        self.read_path_from_file(self.path_file)
+        self.get_logger().info(f'Path file set to: {self.path_file}')
+        self.get_logger().info(f'Goal tolerance set to: {self.goal_tolerance}')
+
+    def add_runway_to_path(self, path, runway_length=0.3):
+        """
+        Add a runway to the end of the received path to prevent the lookahead point from vanishing on approach.
+        The runway is added in the direction of the last two points in the path.
+
+        :param path: The original path (list of (x, y) points).
+        :param runway_length: Length of the runway to add (in meters).
+        :return: The extended path with runway added.
+        """
+        if len(path) < 2:
+            self.get_logger().warn("Path is too short to add a runway.")
+            return path
+
+        # Get the last two points on the path
+        point1 = path[-2]
+        point2 = path[-1]
+
+        # Calculate the direction of the last two points
+        dx = point2[0] - point1[0]
+        dy = point2[1] - point1[1]
+
+        # Normalize the direction vector
+        length = np.sqrt(dx**2 + dy**2)
+        dx /= length
+        dy /= length
+
+        # Extend the path by adding the runway
+        last_point = path[-1]
+        runway_end_x = last_point[0] + runway_length * dx
+        runway_end_y = last_point[1] + runway_length * dy
+
+        # Add the runway point to the path
+        extended_path = path + [(runway_end_x, runway_end_y)]
+        return extended_path
+
+
+    def send_command(self, velocity, steering_angle):
+        self.velocity_publisher.publish(Float64(data=velocity))
+        self.steering_angle_publisher.publish(Float64(data=steering_angle))
+        self.get_logger().info(
+            f'Sending command - Velocity: {velocity:.2f} m/s, Steering Angle: {steering_angle:.2f} degrees')
+        state_msg = String()
+        state_msg.data = 'Custom'
+        self.state_publisher.publish(state_msg)
+
+    def send_stop_command(self, velocity, steering_angle):
+        self.velocity_publisher.publish(Float64(data=velocity))
+        self.steering_angle_publisher.publish(Float64(data=steering_angle))
+        self.get_logger().info(
+            f'Sending command - Velocity: {velocity:.2f} m/s, Steering Angle: {steering_angle:.2f} degrees')
+        state_msg = String()
+        state_msg.data = 'Auto'
+        self.state_publisher.publish(state_msg)
+
+    def read_path_in_nodes_from_file(self, file_path):
+        with open(file_path, 'rb') as f:
+            self.path_in_nodes = pickle.load(f)
+        self.path_in_nodes_received = True
+        self.destination=self.path_in_nodes[-1]
+        print("DEstinatioon",self.destination)
+        
+    def read_path_from_file(self, file_path):
+        with open(file_path, 'rb') as f:
+            self.path = pickle.load(f)
+        self.path_received = True
+        self.final_point = self.path[-1]
+        # Add runway to the path to ensure lookahead point doesn't vanish
+        self.path = self.add_runway_to_path(self.path)
+        self.path_last_point = self.path[-1]
+
+        self.publish_path_for_visualization()
+
+    def publish_path_for_visualization(self):
+        """Convert the loaded path to a Path message and publish it."""
+        if not self.path:
+            self.get_logger().warn("No path loaded to publish.")
+            return
+
+        path_msg = Path()
+        path_msg.header.frame_id = 'map'  # Set the frame_id to match your RViz2 configuration
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        # print(self.path)
+        for point in self.path:
+            print(type(point[0]))
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = point[0]
+            pose.pose.position.y = point[1]
+            pose.pose.position.z = 0.0  # Assuming 2D path
+            pose.pose.orientation.w = 1.0  # Assuming no rotation for visualization
+            path_msg.poses.append(pose)
+
+        self.path_publisher.publish(path_msg)
+        self.get_logger().info('Path published for visualization in RViz2.')
+
+    def publish_local_path_active(self, active: bool):
+        """Publishes the active state of the local path on {robot_id}/local_path_active."""
+        msg = Bool()
+        msg.data = active
+        self.local_path_active_pub.publish(msg)
+        self.local_path_active=active
+        print("---------------------",self.local_path_active)
+        self.get_logger().info(f"Local path active set to {active}")
+
+    def generate_temporary_path_for_buffer(self, robot_ip, current_node, buffer_node, old_path):
+        """Generate a temporary path that includes the buffer node before continuing to the destination."""
+        try:
+            if current_node not in old_path:
+                self.logger.debug("Node %s is not in the given old path.", current_node)
+                return []
+
+            # Step 1️⃣: Get the index of the current node in old path
+            current_index = old_path.index(current_node)
+
+            # Step 2️⃣: Inject the buffer node **right after** the current node
+            temporary_path = (
+                    old_path[: current_index + 1]
+                    + [buffer_node]
+                    + old_path[current_index:]
+            )
+
+            self.logger.debug(
+                "Generated temporary path via buffer: %s", temporary_path
+            )
+            return temporary_path
+
+        except ValueError:
+            self.logger.debug(
+                "Error: %s not found in old path.", current_node
+            )
+            return []
+
+        except nx.NetworkXNoPath:
+            self.logger.debug(
+                "No valid path found from %s to buffer %s.", current_node, buffer_node
+            )
+            return []
+        
+    def fetch_location_data_from_db(self):
+        # Path to the SQLite database file
+        db_path = '/home/fbots/bopt_v2_ws/src/workflow_node/map_details/testing_ground_wn.db'
+
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+
+        # Queries to fetch all data from the specified tables
+        queries = {
+            'left_easy_dock': 'SELECT * FROM left_easy_dock;',
+            'right_easy_dock': 'SELECT * FROM right_easy_dock;',
+            'dock_location': 'SELECT * FROM dock_location;',
+            'dock_station_end_line': 'SELECT * FROM dock_station_end_line;'
+        }
+
+        # Dictionary to store the data from each table
+        dataframes = {}
+
+        # Execute each query and store the results in a DataFrame
+        for table_name, query in queries.items():
+            dataframes[table_name] = pd.read_sql(query, conn)
+        print(dataframes)
+
+        # Execute each query and store the results in a DataFrame
+        for table_name, query in queries.items():
+            dataframes[table_name] = pd.read_sql(query, conn)
+
+        # Function to convert DataFrame to desired dictionary
+        def create_location_dict(df, name_col, coord_cols):
+            return df.set_index(name_col)[coord_cols].apply(lambda row: row.tolist(), axis=1).to_dict()
+
+        # 1. left_easy_dock
+        left_easy_dock_dict = create_location_dict(
+            dataframes['left_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W']
+        )
+
+        # 2. right_easy_dock
+        right_easy_dock_dict = create_location_dict(
+            dataframes['right_easy_dock'],
+            name_col='easy_dock_name',
+            coord_cols=['x', 'y', 'z', 'W']
+        )
+
+        # 3. dock_location
+        dock_location_dict = create_location_dict(
+            dataframes['dock_location'],
+            name_col='dock_name',
+            coord_cols=['x_m', 'y_m', 'pose_z', 'pose_w']
+        )
+
+        # 4. dock_station_end_line
+        dock_station_end_line_dict = create_location_dict(
+            dataframes['dock_station_end_line'],
+            name_col='station_name',
+            coord_cols=['station_x', 'station_y', 'pose_z', 'pose_w']
+        )
+
+        # Close the database connection
+        conn.close()
+        return left_easy_dock_dict, right_easy_dock_dict, dock_location_dict, dock_station_end_line_dict
+
+
+    def transform_point(self, point, robot_x, robot_y, robot_orientation):
+        cos_theta = np.cos(robot_orientation)
+        sin_theta = np.sin(robot_orientation)
+
+        dx = point[0] - robot_x
+        dy = point[1] - robot_y
+        transformed_x = dx * cos_theta + dy * sin_theta
+        transformed_y = -dx * sin_theta + dy * cos_theta
+
+        return [transformed_x, transformed_y]
+    
+    def euclidean_distance(self,coord1, coord2):
+            return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+
+    def find_nearest_graph_node(self, current_position):
+        """
+        Finds the closest node in the path_in_nodes list based on current_position.
+        It uses get_node_position() to obtain the node's coordinates from the graph
+        or, if missing, from the database.
+        """
+        min_distance = float('inf')
+        nearest_node = None
+        print("path in _nodes", self.path_in_nodes)
+        print("finding nearest node")
+        for node in self.path_in_nodes:
+            try:
+                node_pos = self.get_node_position(node)
+                distance = self.euclidean_distance(node_pos, current_position)
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_node = node
+            except KeyError:
+                self.get_logger().info(f"Node {node} not found in graph or DB, skipping.")
+                continue
+        return nearest_node
+
+    def find_nearest_key(self, position):
+        nearest_key = None
+        min_position_difference = float('inf')
+
+        for key in self.lookup_table.keys():
+            position_difference = np.sqrt((key[0] - position[0]) ** 2 + (key[1] - position[1]) ** 2)
+
+            if position_difference < min_position_difference:
+                min_position_difference = position_difference
+                nearest_key = key
+
+        return nearest_key
+    
+    def find_left_or_right_dock(self, left_dock_pose, right_dock_pose, dock_pose, pose_to_compare, is_last_pose):
+
+        def orientation_difference_deg(q1, q2):
+            angle1 = math.degrees(self.quaternion_to_euler(q1[1], 0, 0, q1[0])[2])
+            angle2 = math.degrees(self.quaternion_to_euler(q2[1], 0, 0, q2[0])[2])
+            print(angle1, angle2, '====================')
+            diff = abs(angle1 - angle2) % 360
+            return min(diff, 360 - diff)  # Ensure the difference is within [0, 180]
+
+        start = dock_pose
+        end = pose_to_compare
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        angle_rad = math.atan2(dy, dx)
+        if is_last_pose == False:
+            angle_rad += math.pi
+        quaternion = self.euler_to_quaternion(0, 0, angle_rad)
+
+        # Calculate Euler angles (in degrees) for debug
+        euler_angle_deg = math.degrees(angle_rad) % 360
+
+        last_orientation = quaternion[2:]  # Assuming quaternion z, w components
+        left_orientation = left_dock_pose[2:]
+        right_orientation = right_dock_pose[2:]
+
+        # Convert dock orientations to degrees for debug
+        left_dock_euler_deg = math.degrees(self.quaternion_to_euler(left_orientation[1], 0,0, left_orientation[0])[2])
+        right_dock_euler_deg = math.degrees(self.quaternion_to_euler(right_orientation[1], 0,0, right_orientation[0])[2])
+
+        last_orientation_deg = math.degrees(self.quaternion_to_euler(last_orientation[1], 0,0, last_orientation[0])[2])
+       
+
+        left_diff = orientation_difference_deg(last_orientation, left_orientation)
+        right_diff = orientation_difference_deg(last_orientation, right_orientation)
+
+        # Debug Statements
+        print(f"Dock-Pose to Compare Vector: dx = {dx}, dy = {dy}")
+        print(f"Calculated Angle (radians): {angle_rad}")
+        print(f"Calculated Angle (degrees): {euler_angle_deg}")
+        print(f"Last Orientation (quaternion): {last_orientation}, Euler Degrees: {last_orientation_deg}")
+        print(f"Left Dock Orientation (quaternion): {left_orientation}, Euler Degrees: {left_dock_euler_deg}")
+        print(f"Right Dock Orientation (quaternion): {right_orientation}, Euler Degrees: {right_dock_euler_deg}")
+        print(f"Left Dock Difference: {left_diff}")
+        print(f"Right Dock Difference: {right_diff}")
+
+        if left_diff < right_diff:
+            print("Choosing left dock")
+            return left_dock_pose
+        else:
+            print("Choosing right dock")
+            return right_dock_pose
+
+    def generate_local_path(self):
+        print("Conflict detected: Splitting path and generating a local path...")
+        state = self.current_pose
+        if state is None:
+            return
+
+        robot_x = state.pose.position.x  
+        robot_y = state.pose.position.y  
+        # Use the modified find_nearest_graph_node to get the current node.
+        current_node = self.find_nearest_graph_node((robot_x, robot_y))
+        if current_node:
+            print(f"Nearest Graph Node Found: {current_node}")
+            local_path = self.generate_temporary_path(self.path_in_nodes, current_node)
+            print("New local path:", local_path)
+
+            # Publish True immediately after generating temporary nodes.
+            self.publish_local_path_active(True)
+            
+            # Convert this local path into a path with angles (quaternions) for the NMPC:
+            path_with_quaternions = self.handle_local_path(local_path)
+            end_easy_dock = self.find_left_or_right_dock(self.left_easy_dock_dict[self.destination], self.right_easy_dock_dict[self.destination], self.dock_location_dict[self.destination], path_with_quaternions[-1], is_last_pose=True)
+            path_with_quaternions.append(end_easy_dock)
+            # Generate a spline path based on the temporary path:
+            spline_path = self.generate_spline_path(self.get_node_position(current_node), path_with_quaternions)
+
+            # Update the internal state with the new temporary path:
+            self.path = spline_path
+            self.path_in_nodes = local_path
+
+            # Optionally save to files if needed:
+            with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl', 'wb') as file:
+                pickle.dump(self.path_in_nodes, file)
+            with open('/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl', 'wb') as file:
+                pickle.dump(spline_path, file)
+
+            self.path_received = True
+            self.path_in_nodes_received = True
+
+            self.publish_path_for_visualization()
+            self.get_logger().info("New local path and spline path successfully generated.")
+        else:
+            print("Could not determine the current node. Cannot generate a new local path.")
+
+    def calculate_curvature_finite_diff(self, path):
+        if len(path) < 3:
+            return 0
+        # path = path[int((len(path)*0.66)):] #looking at last third of path
+
+        try:
+            path = np.array(path)
+            x = path[:, 0]
+            y = path[:, 1]
+
+            dx = np.gradient(x)
+            dy = np.gradient(y)
+            ddx = np.gradient(dx)
+            ddy = np.gradient(dy)
+
+            denominator = (dx ** 2 + dy ** 2) ** 1.5 + 1e-6  # adding epsilon to avoid division by zero
+            curvature = np.abs(dx * ddy - dy * ddx) / denominator
+            return np.max(curvature)
+        except Exception as e:
+            print(f"Error in calculate_curvature_finite_diff: {e}")
+            return 0
+
+    def get_target_point(self, robot_x, robot_y):
+        lookahead_distance = 0.3
+
+        velocity_factor = 0.4
+        lookahead_distance = lookahead_distance + velocity_factor * abs(self.wheel_velocity)
+
+        min_lookahead = 1.0  # meters
+        max_lookahead = 2.5  # meters
+
+        lookahead_distance = max(min_lookahead, min(lookahead_distance, max_lookahead))
+
+
+        if self.wheel_velocity < 0:
+            lookahead_distance += 0.5
+
+        for i in range(self.path_index, len(self.path)): 
+            point = self.path[i]
+            distance = math.hypot(point[0] - robot_x, point[1] - robot_y)
+            if distance > lookahead_distance:
+                self.path_index = i
+                break
+
+        curvature = self.calculate_curvature(0.2)
+        # self.curvatures.append(curvature)  # Store the calculated curvature
+
+        if curvature < 0.02:  # If curvature is low, increase the lookahead distance
+            lookahead_distance += 0.6
+        
+        
+
+        for i in range(self.path_index, len(self.path)):
+            point = self.path[i]
+            distance = math.hypot(point[0] - robot_x, point[1] - robot_y)
+            if distance > lookahead_distance:
+                self.path_index = i
+                return point
+        return self.path[-1]
+    
+    def get_node_position(self, node):
+        """
+        Returns the (x, y) position of a node.
+        First, it checks the loaded graph. 
+        If the node is not found there, it looks up in the fetched DB dictionaries.
+        """
+        if node in self.G_loaded.nodes:
+            return self.G_loaded.nodes[node]['position']
+        elif node in self.dock_location_dict:
+            # Assuming dock_location_dict values are lists [x, y, ...]
+            return self.dock_location_dict[node][:2]
+        elif node in self.left_easy_dock_dict:
+            return self.left_easy_dock_dict[node][:2]
+        elif node in self.right_easy_dock_dict:
+            return self.right_easy_dock_dict[node][:2]
+        elif node in self.dock_station_end_line_dict:
+            return self.dock_station_end_line_dict[node][:2]
+        else:
+            raise KeyError(f"Node '{node}' not found in graph or any database dictionaries!")
+
+    def quaternion_to_euler(self,w, x, y, z):
+            """
+            Convert a quaternion to Euler angles (roll, pitch, yaw).
+            """
+            # Roll (x-axis rotation)
+            t0 = 2.0 * (w * x + y * z)
+            t1 = 1.0 - 2.0 * (x * x + y * y)
+            roll = math.atan2(t0, t1)
+            
+            # Pitch (y-axis rotation)
+            t2 = 2.0 * (w * y - z * x)
+            t2 = 1.0 if t2 > 1.0 else t2
+            t2 = -1.0 if t2 < -1.0 else t2
+            pitch = math.asin(t2)
+            
+            # Yaw (z-axis rotation)
+            t3 = 2.0 * (w * z + x * y)
+            t4 = 1.0 - 2.0 * (y * y + z * z)
+            yaw = math.atan2(t3, t4)
+            
+            return (roll), (pitch), (yaw)   
+
+    def generate_spline_path(self, start_pose, graph_path, scale=1.0, runway_length=0.0, spacing=0.01):
+        
+
+        # Ensure the start is the first waypoint
+        graph_path.insert(0, start_pose)
+
+        # Extract coordinates (scaled)
+        points = [(wp[0] * scale, wp[1] * scale) for wp in graph_path]
+        unique_points = [points[0]]
+        for p in points[1:]:
+            if p != unique_points[-1]:
+                unique_points.append(p)
+            else:
+                print(f"Duplicate point {p} removed.")
+        points = unique_points
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+
+        # If there's only one point or none, no spline to create
+        if len(points) < 2:
+            print("Not enough points to generate a spline.")
+            return points
+
+        # Parameterize by cumulative distance along the path
+        distances = [0.0]
+        for i in range(1, len(points)):
+            dist = math.hypot(points[i][0] - points[i-1][0],
+                            points[i][1] - points[i-1][1])
+            distances.append(distances[-1] + dist)
+        total_dist = distances[-1]
+
+        # Extract the orientation of the last waypoint to compute the slope
+        # Assuming quaternion in the form (qz, qw)
+        last_wp = graph_path[-1]
+        qz, qw = last_wp[2], last_wp[3]
+
+        # Convert quaternion to euler angles to get final yaw
+        # For example, you might already have a helper like:
+        # final_yaw = self.quaternion_to_euler(qw, 0, 0, qz)[2]
+        # Here is a dummy example for yaw only:
+        # (Replace this with your own quaternion->yaw function)
+        final_yaw = self.quaternion_to_euler(qw, 0, 0, qz)[2] + math.pi
+
+        # We want the boundary condition derivative at the start to be 0 
+        # (tangent = 0) and at the end to match final_yaw
+        final_slope_x = math.cos(final_yaw)
+        final_slope_y = math.sin(final_yaw)
+
+        # Create cubic splines for x and y as functions of distance
+        cs_x = CubicSpline(distances, xs, bc_type=((1, 0), (1, final_slope_x)))
+        cs_y = CubicSpline(distances, ys, bc_type=((1, 0), (1, final_slope_y)))
+
+        # ----------------------------------------------------------------
+        #    SAMPLE THE SPLINE BASED ON THE DESIRED SPACING
+        # ----------------------------------------------------------------
+        # Instead of a fixed number of samples, we'll create a distance array
+        # with increments of 'spacing' until we cover total_dist.
+        # For example, if spacing=0.01, then we get a point every 0.01 (units).
+        sample_distances = np.arange(0, total_dist, spacing)
+        # Make sure we include the very last point (total_dist) exactly
+        if sample_distances[-1] < total_dist:
+            sample_distances = np.append(sample_distances, total_dist)
+
+        # Evaluate spline at each distance
+        smoothed_coords = []
+        for d in sample_distances:
+            x_val = cs_x(d)
+            y_val = cs_y(d)
+            smoothed_coords.append((float(x_val), float(y_val)))
+
+        # ----------------------------------------------------------------
+        #    ADD THE RUNWAY
+        # ----------------------------------------------------------------
+        # Compute final heading at the end of the path
+        # If you want it strictly to match final_yaw, you can do so
+        runway_steps = 10  # number of sub-steps for runway
+        step_length = runway_length / runway_steps if runway_steps > 0 else 0.0
+
+        if runway_length > 0:
+            final_point = smoothed_coords[-1]
+            for i in range(1, runway_steps + 1):
+                x_new = final_point[0] + i * step_length * math.cos(final_yaw)
+                y_new = final_point[1] + i * step_length * math.sin(final_yaw)
+                smoothed_coords.append((float(x_new), float(y_new)))
+
+        return smoothed_coords 
+
+    def generate_temporary_path(self, original_path, current_node, deviation_distance=0.7):
+        
+        if current_node not in original_path:
+            print(f"[Workflow] Node {current_node} is not in the given path.")
+            return []
+
+        current_index = original_path.index(current_node)
+
+        if current_index + 1 >= len(original_path):
+            print(f"[Workflow] No next node found after {current_node}.")
+            return []
+
+        # Get the next few nodes
+        next_nodes = original_path[current_index + 1:current_index + 8]
+
+        temporary_nodes = []
+        for i, node in enumerate(next_nodes):
+            if node not in self.G_loaded.nodes:
+                print(f"[Workflow] Node {node} not found in the graph.")
+                continue
+
+            node_position = self.G_loaded.nodes[node].get("position")
+            prev_position = self.G_loaded.nodes[current_node].get("position")
+
+            dx = node_position[0] - prev_position[0]
+            dy = node_position[1] - prev_position[1]
+
+            length = math.sqrt(dx**2 + dy**2)
+            if length == 0:
+                continue
+
+            perp_x = -dy / length * deviation_distance
+            perp_y = dx / length * deviation_distance
+
+            temp_x = node_position[0] + perp_x
+            temp_y = node_position[1] + perp_y
+            temp_node_id = f"temp_{current_node}_{i + 1}"
+
+            temporary_nodes.append((temp_node_id, (temp_x, temp_y)))
+            current_node = node
+
+            # Publish the temporary nodes if any were created.
+        if temporary_nodes:
+            msg = String()
+            # Convert the list of temporary nodes to JSON string for structured output.
+            msg.data = json.dumps(temporary_nodes)
+            self.add_nodes_publisher.publish(msg)
+            self.get_logger().info(f"Published temporary nodes on topic '/add_nodes': {temporary_nodes}")
+
+        return [original_path[current_index]] + temporary_nodes + original_path[current_index + 6:-1]
+    
+
+    # def update_remaining_path_in_nodes(self,robot_x,robot_y):
+    #     """
+    #     This function updates the list of remaining path nodes as the robot moves.
+    #     """
+    #     if not self.path_in_nodes:
+    #         return  # No path available
+
+    #     if len(self.path_in_nodes) < 3:
+    #         self.publish_remaining_path()
+    #         return
+    #     # Set a distance threshold to determine when a node is reached
+    #     distance_threshold = 0.7# meters (can be adjusted based on your needs)
+
+    #     # Check if any of the upcoming nodes are temporary (e.g. their id starts with "temp").
+    #     local_path_active = any(
+    #         isinstance(node, tuple) and str(node[0]).startswith("temp")
+    #         for node in self.path_in_nodes
+    #     )
+    #     self.publish_local_path_active(local_path_active)
+
+    #     # Check distance to each node in path_in_nodes.
+    #     while self.path_in_nodes:
+    #         next_node = self.path_in_nodes[0]
+    #         if isinstance(next_node, tuple) and str(next_node[0]).startswith("temp"):
+    #             node_x, node_y = next_node[1][0], next_node[1][1]
+    #         else:
+    #             node_x, node_y = self.get_node_position(next_node)
+            
+
+    #         # Calculate distance to the node
+    #         distance_to_node = math.sqrt((robot_x-node_x)**2 + (robot_y-node_y)**2)
+    #         # print(distance_to_node, "DTN++++++++++++++++++")
+    #         self.get_logger().info(f"Node {next_node} reached. Remaining path: {self.path_in_nodes}")
+
+
+    #         # If the robot is close enough to the node, remove it from the path
+    #         if distance_to_node <= distance_threshold:
+    #             self.path_index_in_nodes+=1
+    #             self.path_in_nodes.pop(0)  # Remove the first node (i.e., the reached node)
+    #         else:
+    #             break  # Stop checking once we've found a node that's too far
+
+    #     self.publish_remaining_path()
+
+    def update_remaining_path_in_nodes(self,robot_x,robot_y):
+        """
+        This function updates the list of remaining path nodes as the robot moves.
+        """
+        if not self.path_in_nodes:
+            return  # No path available
+
+        if len(self.path_in_nodes) < 3:
+            self.publish_remaining_path()
+            return
+        # Set a distance threshold to determine when a node is reached
+        distance_threshold = 1.0# meters (can be adjusted based on your needs)
+
+        # Check if any of the upcoming nodes are temporary (e.g. their id starts with "temp").
+        local_path_active = any(
+            isinstance(node, tuple) and str(node[0]).startswith("temp")
+            for node in self.path_in_nodes
+        )
+        self.publish_local_path_active(local_path_active)
+
+           # ---------------------------------------------------------
+        # Find the *earliest* node that is currently within reach.
+        # ---------------------------------------------------------
+        reached_index = None                      # index of first reachable node
+        for idx, node in enumerate(self.path_in_nodes):
+            # Get node coordinates
+            if isinstance(node, tuple) and str(node[0]).startswith("temp"):
+                node_x, node_y = node[1]          # (x, y) stored in the tuple
+            else:
+                node_x, node_y = self.get_node_position(node)
+    
+            distance_to_node = math.hypot(robot_x - node_x, robot_y - node_y)
+    
+            if distance_to_node <= distance_threshold:
+                reached_index = idx               # this is the first reachable node
+                break
+
+        
+        # ---------------------------------------------------------
+        # Remove everything up to (and including) the reached node.
+        # ---------------------------------------------------------
+        if reached_index is not None:
+            self.get_logger().info(
+                f"Node {self.path_in_nodes[reached_index]} reached "
+                f"(skipped {reached_index} earlier node(s))."
+            )
+    
+            # Advance the external index that tracks our progress, if you keep one
+            self.path_index_in_nodes += reached_index + 1
+    
+            # Slice away all nodes up to & incl. the reached node
+            self.path_in_nodes = self.path_in_nodes[reached_index + 1 :]
+
+        # # Check distance to each node in path_in_nodes.
+        # while self.path_in_nodes:
+        #     next_node = self.path_in_nodes[0]
+        #     if isinstance(next_node, tuple) and str(next_node[0]).startswith("temp"):
+        #         node_x, node_y = next_node[1][0], next_node[1][1]
+        #     else:
+        #         node_x, node_y = self.get_node_position(next_node)
+            
+
+        #     # Calculate distance to the node
+        #     distance_to_node = math.sqrt((robot_x-node_x)**2 + (robot_y-node_y)**2)
+        #     # print(distance_to_node, "DTN++++++++++++++++++")
+        #     self.get_logger().info(f"Node {next_node} reached. Remaining path: {self.path_in_nodes}")
+
+
+        #     # If the robot is close enough to the node, remove it from the path
+        #     if distance_to_node <= distance_threshold:
+        #         self.path_index_in_nodes+=1
+        #         self.path_in_nodes.pop(0)  # Remove the first node (i.e., the reached node)
+        #     else:
+        #         break  # Stop checking once we've found a node that's too far
+
+        self.publish_remaining_path()
+
+
+    def publish_remaining_path(self):
+        remaining_path_str = ",".join(str(item) for item in self.path_in_nodes)
+        self.logging_publisher.publish(String(data=remaining_path_str))
+        self.get_logger().info(f"Remaining path in nodes: {remaining_path_str}")
+
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        """
+        Convert an Euler angle to a quaternion.
+        
+        Input
+            :param roll: The roll (rotation around x-axis) angle in radians.
+            :param pitch: The pitch (rotation around y-axis) angle in radians.
+            :param yaw: The yaw (rotation around z-axis) angle in radians.
+        
+        Output
+            :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+        """
+        qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+        qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+        qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        
+        return [qx, qy, qz, qw]
+
+    def calculate_curvature(self, lookahead):
+        """
+        lookahead is in meters
+        :param lookahead:
+        :return:
+        """
+        segmented_path = self.path[self.path_index:self.path_index + int(lookahead * 100)]
+
+        if len(segmented_path) < 3:
+            print("Not enough points in segmented_path for curvature calculation")
+            return 0.01
+
+        # Divide all elements in path by 40
+        scaled_segmented_path = np.array(segmented_path)
+        scaled_segmented_path.tolist()
+
+        return self.calculate_curvature_finite_diff(scaled_segmented_path)
+    
+    def find_path_and_angles_between_points_for_conflict(self, G,path):
+
+        def get_position(node):
+            """
+            Return the (x, y) position in the screen coordinate frame
+            for either a normal graph node or a (temp_name, (x, y)) local node.
+            """
+            if isinstance(node, str):
+                # gx, gy = G.nodes[node]['position'] or G.nodes[node]["pos"]
+                # if node in G.nodes:
+                    # Normal graph node
+                return self.get_node_position(node)
+
+                # else:
+                #     raise ValueError(f"Node '{node}' not found in graph or movement locations!")
+            
+                # return (gx,gy)
+            elif isinstance(node, tuple) and len(node) == 2:
+                # Local path node: e.g. ("temp_68_1", (126.82, 34.69))
+                name, coords = node
+                x_coord, y_coord = coords
+                return (x_coord, y_coord)
+            else:
+                raise ValueError(f"Unsupported node format: {node}")
+
+        # Build the coordinate list
+        path_coords = [get_position(node) for node in path]
+        # path_coords=[self.get_node_position(node) for node in path]
+
+        # Now that we have x,y for each node in path_coords,
+        # we can do your existing angle computations:
+        path_coords_with_quaternions = []
+        for i in range(len(path_coords) - 1):
+            start = path_coords[i]
+            end = path_coords[i + 1]
+            dx = end[0] - start[0]
+            dy = end[1] - start[1]
+            angle_rad = math.atan2(dy, dx)
+            quaternion = self.euler_to_quaternion(0, 0, angle_rad)
+            path_coords_with_quaternions.append((start, quaternion[-2:]))
+
+        # Append the last point with the last quaternion
+        if path_coords_with_quaternions:
+            last_quaternion = path_coords_with_quaternions[-1][1]
+            path_coords_with_quaternions.append((path_coords[-1], last_quaternion))
+
+        # Convert structure to [x, y, qz, qw, ... ] or whatever you need
+        l = []
+        for (coord, quaternion) in path_coords_with_quaternions:
+            l.append(list(coord) + list(quaternion))
+        return l
+    
+    def handle_local_path(self,local_path):
+        if not local_path:
+            self.logger.warning("Received an empty path.")
+            return
+
+        print(f"Received local path with {len(local_path)} nodes: {local_path}")
+
+        # Separate string nodes and temporary points
+        parsed_path = []
+        for node in local_path:
+            if isinstance(node, tuple) and len(node) == 2:  # Temporary point
+                parsed_path.append(node[0])
+            elif isinstance(node, str):  # Regular node in the graph
+                parsed_path.append(node)
+
+        print(f"Parsed path for spline generation: {parsed_path}")
+
+        
+        path_with_quaternions = self.find_path_and_angles_between_points_for_conflict(self.G_loaded,local_path)
+        # path_coords_with_quaternions = self.filter_points_within_radius(local_path[0], path_coords_with_quaternions, 0.25)
+        # path_coords_with_quaternions = self.filter_points_within_radius(local_path[-1], path_coords_with_quaternions, 0.10)
+        
+        return path_with_quaternions
+
+    def handle_conflict(self):
+        if self.conflict_action == "halt":
+            self.send_command(0.0, 0.0)
+            time.sleep(0.5)
+            self.conflict_action = None
+            return
+        elif self.conflict_action == "continue to move":
+            self.conflict_action = None
+            return
+        elif self.conflict_action == "node split":
+            self.send_command(0.0, 0.0)
+            # time.sleep(2)
+            self.path_index = 0
+            self.path_received = False
+            self.goal_reached = False
+            self.path_in_nodes_received = False
+            # self.is_aligned = False
+
+            self.get_logger().info("Node split detected. Generating new local path...")
+
+            # Generate the local (temporary) path:
+            self.generate_local_path()
+
+
+            self.conflict_action = None
+    
+    def follow_path(self):
+        if self.conflict_action: 
+            self.handle_conflict() 
+
+
+        if self.goal_reached or not self.path_received or self.pallet_detected:
+            self.send_stop_command(0.0, 0.0)  # Stop the robot
+            self.finished = True
+            return
+
+        state = self.current_pose
+        if state is None:
+            return
+
+        robot_x = state.pose.position.x  # Convert back to pixels
+        robot_y = state.pose.position.y  # Convert back to pixels
+        robot_orientation = self.get_yaw_from_pose(state)
+        robot_state = [robot_x, robot_y, robot_orientation]
+        target_point_on_plan = self.get_target_point(robot_x, robot_y)
+
+        ttp = self.transform_point(target_point_on_plan, robot_x, robot_y, robot_orientation)
+        self.update_remaining_path_in_nodes(robot_x,robot_y)
+        
+        if self.local_path_active:
+            self.max_velocity=0.3
+        else:
+            self.max_velocity=self.max_velocity
+        s, v, d = self.lookup_table.get(self.find_nearest_key(ttp))
+        velocity, steering_angle = (self.max_velocity / 0.2) * v, math.degrees(s)
+        
+
+        # self.steering_angles.append(steering_angle)  # Store the steering angle
+
+        distance_to_goal = math.hypot(self.final_point[0] - robot_x, self.final_point[1] - robot_y)
+        self.get_logger().info(f'DTG: {distance_to_goal}')
+        if distance_to_goal <= self.goal_tolerance:
+            self.goal_reached = True
+            self.send_stop_command(0.0, 0.0)  # Stop the robot
+            self.get_logger().info('Goal reached, shutting down...')
+            # self.destroy_node()
+            # rclpy.shutdown()
+            # sys.exit(0)
+            return
+        distance_to_lp = math.hypot(self.path_last_point[0] - robot_x, self.path_last_point[1] - robot_y)
+        # self.get_logger().info(f'DTG: {distance_to_goal}')
+        if distance_to_lp <= self.goal_tolerance:
+            self.goal_reached = True
+            self.send_stop_command(0.0, 0.0)  # Stop the robot
+            self.get_logger().info('Goal reached, shutting down...')
+            # self.destroy_node()
+            # rclpy.shutdown()
+            # sys.exit(0)
+            return
+        
+
+        # Apply the S-curve velocity smoother
+        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, velocity)
+
+        # Ensure the velocity is within safe limits based on the steering angle
+        safe_velocity = self.calculate_safe_velocity(self.current_velocity ,steering_angle)
+        # safe_velocity = self.current_velocity
+        if self.current_velocity < 0:
+            self.current_velocity = -min(abs(self.current_velocity), abs(safe_velocity))
+        else:
+            self.current_velocity = min(abs(self.current_velocity), abs(safe_velocity))
+
+        # print(self.current_velocity, '=====')
+
+
+        
+        # Calculate the target velocity based on the distance to the goal
+        if distance_to_goal <= self.slow_down_distance:
+            target_velocity = (distance_to_goal / (self.slow_down_distance)) * self.stopping_velocity
+            if velocity < 0:
+                self.current_velocity = -max(self.min_velocity, abs(target_velocity))
+            else:
+                self.current_velocity = max(self.min_velocity, target_velocity)
+            
+        
+        # if self.local_path_active:
+        #     print("local path active")
+        #     self.current_velocity/=2
+       
+
+        self.send_command(self.current_velocity, steering_angle)
+        self.publish_target_point_marker(target_point_on_plan)
+
+    def apply_s_curve_velocity_smoother(self, current_velocity, target_velocity, transition_duration=0.44):
+        if current_velocity == target_velocity:
+            return current_velocity
+
+        delta_velocity = target_velocity - current_velocity
+        time_step = 0.05  # Assuming each follow_path call is approximately 50ms apart
+        progress = min(time_step / transition_duration, 1.0)
+        s_curve_factor = (progress ** 3) * (10 - 15 * progress + 6 * (progress ** 2))
+
+        return current_velocity + delta_velocity * s_curve_factor
+
+    def publish_target_point_marker(self, target_point):
+        """Publish the target point as a marker for visualization in RViz2."""
+        marker = Marker()
+        marker.header.frame_id = 'map'
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = 'target_point'
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+
+        # Set the position of the marker to the target point
+        marker.pose.position.x = target_point[0]
+        marker.pose.position.y = target_point[1]
+        marker.pose.position.z = 0.0  # Assuming 2D path
+        marker.pose.orientation.w = 1.0  # No rotation
+
+        # Set the scale of the marker (radius)
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.1
+
+        # Set the color of the marker (RGBA)
+        marker.color.a = 1.0  # Opacity
+        marker.color.r = 1.0  # Red
+        marker.color.g = 0.0  # Green
+        marker.color.b = 0.0  # Blue
+
+        self.target_point_publisher.publish(marker)
+        self.get_logger().info(
+            f'Target point published at ({target_point[0]}, {target_point[1]}) for visualization in RViz2.')
+
+    def calculate_safe_velocity(self, cv, steering_angle):
+        # Calculate the safe velocity based on the steering angle
+        mu = 1.0  # Coefficient of friction
+        g = 9.81  # Acceleration due to gravity (m/s^2)
+        L = 1.36  # Wheelbase (m)
+
+        # Turn radius based on steering angle
+        # turn_radius = abs(L / np.tan(steering_angle + 1e-6))  # Adding a small value to avoid division by zero
+        # print('tr', turn_radius)
+        curvature = self.calculate_curvature(1.0)
+        print(abs(curvature), 'curvature=====')        
+
+        # Maximum safe speed calculation
+        
+        safe_velocity = 1.0 * cv * (1 / (1 + np.exp(-(0.95 * np.sqrt(mu * (g / abs(curvature)))))))
+        return safe_velocity  # Scale the velocity to match the units used in your system
+
+    def get_yaw_from_pose(self, pose):
+        orientation_q = pose.pose.orientation
+        siny_cosp = 2 * (orientation_q.w * orientation_q.z + orientation_q.x * orientation_q.y)
+        cosy_cosp = 1 - 2 * (orientation_q.y * orientation_q.y + orientation_q.z * orientation_q.z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
+        return yaw
+
+    def conflict_action_callback(self, msg):
+        self.conflict_action = msg.data.strip().lower()
+        self.get_logger().info(str(msg))
+
+
+    def task_action_callback(self, msg):
+        data =msg.data.strip().split("/")[1]
+        if data=="pause_task":
+            self.is_paused=True
+        elif data=="resume_task":
+            self.is_paused=False
+        self.get_logger().info("abc: "+str(msg.data))
+        
+    def current_pose_callback(self, msg):
+        self.current_pose = msg
+
+    def pallet_detection_callback(self, msg):
+        self.pallet_detected = msg.data
+        self.get_logger().info(str(msg))
+
+    def stop_robot(self):
+        """Send stop command to the robot and log the action."""
+        self.send_stop_command(0.0, 0.0)  # Stop the robot
+        self.get_logger().info('Stopping the robot...')
+
+def load_node_params(defaults, config_keys, config_file_arg):
+    """
+    Load and merge YAML parameters for one node.
+
+    :param defaults: dict of default param_name -> default_value
+    :param config_keys: list of nested keys to reach this node's section in the YAML
+                        e.g. ['apds', 'lidar_clustering', 'lidar_clustering_combined_once']
+    :param config_file_arg: path from --config-file, or empty string
+    :return: merged dict of param_name -> value
+    """
+    # 1) decide which file to use
+    if config_file_arg and os.path.isfile(config_file_arg):
+        path = config_file_arg
+    else:
+        cwd_path = os.path.join(os.getcwd(), 'amr_config.yaml')
+        path = cwd_path if os.path.isfile(cwd_path) else None
+
+    # 2) load YAML if available
+    if path:
+        with open(path, 'r') as f:
+            full_cfg = yaml.safe_load(f) or {}
+        # drill down into the nested keys
+        node_cfg = full_cfg
+        for key in config_keys:
+            node_cfg = node_cfg.get(key, {})
+        if not isinstance(node_cfg, dict):
+            node_cfg = {}
+        # merge, giving precedence to file
+        merged = defaults.copy()
+        merged.update(node_cfg)
+        return merged
+
+    # 3) fallback: no file found
+    return defaults.copy()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    parser = argparse.ArgumentParser(description='RobotClient Node')
+    parser.add_argument('--path_file', type=str, required=True, help='Path to the file containing the path data')
+    parser.add_argument('--goal_tolerance', type=float, default=0.1, help='Goal tolerance distance')
+    parser.add_argument(
+        '--config-file', '-c',
+        default='',
+        help='Full path to amr_config.yaml (overrides workspace root file)'
+    )
+    parsed_args = parser.parse_args()
+    # args, ros_cli_args = parser.parse_known_args()
+    defaults = {
+        "robot_id": "machine_X",
+        "linear_velocity_publisher_topic": "/velocity",
+        "steering_angle_publisher_topic": "/steering_angle",
+        "state_publisher_topic": "/state",
+        "min_velocity": 0.2,
+        "max_velocity": 1.42,
+        "slow_down_distance": 2.0,
+        "velocity_smoothing_factor": 0.01,
+        "stopping_velocity": 0.3,
+        "goal_tolerance": 0.1,
+        "path_file": "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl",
+        "graphml_file": '/home/fbots/bopt_v2_ws/src/workflow_node/map_details/testing_ground_waypoints.graphml',
+        "path_file_in_nodes": "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path_in_nodes.pkl",
+        "speed_control_lookahead": 1.0,
+        "path_tracking_lookahead": 0.2
+    }
+    config_keys = [
+        'nmpc_controller',
+        'nmpc_controller_v2_fast',
+    ]
+
+    params = load_node_params(defaults, config_keys, parsed_args.config_file)
+
+    client = RobotClient(params)
+    client.set_parameters(
+        path_file=parsed_args.path_file,
+        goal_tolerance=parsed_args.goal_tolerance
+    )
+
+    def signal_handler(sig, frame):
+        client.get_logger().info('Signal received, shutting down...')
+        client.stop_robot()
+        client.destroy_node()
+        rclpy.shutdown()
+
+    # Register the signal handler for SIGINT (Ctrl+C)
+    signal.signal(signal.SIGINT, signal_handler)
+
+
+    try:
+        while rclpy.ok() and not client.finished:
+            rclpy.spin_once(client)
+        # rclpy.spin(client)
+    except KeyboardInterrupt:
+        client.get_logger().info('Keyboard interrupt received, shutting down...')
+        client.stop_robot()
+    finally:
+        client.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

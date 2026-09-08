@@ -29,7 +29,7 @@ class RobotClient(Node):
         super().__init__('robot_client')
 
         self.declare_parameter('goal_tolerance', 0.05)
-        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl')
 
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.horizon = 5
@@ -45,7 +45,7 @@ class RobotClient(Node):
         self.finished = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
@@ -241,6 +241,7 @@ class RobotClient(Node):
 
     def follow_path(self):
         if self.goal_reached or not self.path_received or self.pallet_detected:
+            print("path received ", self.path_received, "pallet detected ", self.pallet_detected)
             self.send_stop_command(0.0, 0.0)  # Stop the robot
             self.finished = True
             return
@@ -347,7 +348,7 @@ class RobotClient(Node):
         # Calculate the safe velocity based on the steering angle
         mu = 0.5  # Coefficient of friction
         g = 9.81  # Acceleration due to gravity (m/s^2)
-        L = 1.36  # Wheelbase (m)
+        L = 1.40  # Wheelbase (m)
 
         # Turn radius based on steering angle
         # turn_radius = abs(L / np.tan(steering_angle + 1e-6))  # Adding a small value to avoid division by zero

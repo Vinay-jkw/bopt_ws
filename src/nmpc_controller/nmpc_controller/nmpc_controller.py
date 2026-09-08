@@ -278,7 +278,7 @@ class RobotClient(Node):
     def calculate_safe_velocity(self, steering_angle):
         mu = 0.3  # Coefficient of friction
         g = 9.81  # Acceleration due to gravity (m/s^2)
-        L = 1.36  # Wheelbase (m)
+        L = 1.40  # Wheelbase (m)
 
         turn_radius = abs(L / np.tan(steering_angle + 1e-6))  # Adding a small value to avoid division by zero
 

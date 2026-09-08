@@ -29,7 +29,7 @@ class RobotClient(Node):
         super().__init__('robot_client')
 
         self.declare_parameter('goal_tolerance', 0.05)
-        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl')
 
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.horizon = 5
@@ -46,7 +46,7 @@ class RobotClient(Node):
         self.pallet_loaded = False
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
         
         qos = QoSProfile(history=QoSHistoryPolicy.KEEP_LAST, depth=10)

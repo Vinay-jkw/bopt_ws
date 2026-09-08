@@ -20,7 +20,7 @@ from visualization_msgs.msg import Marker  # Import the Marker message
 
 # SCALE = 60
 MIN_VELOCITY = 0.2  # Define a minimum velocity limit
-MAX_VELOCITY = 1.42 # Define a maximum velocity limit
+MAX_VELOCITY = 1.0 #1.42 # Define a maximum velocity limit
 SLOW_DOWN_DISTANCE = 2.0 # Distance within which the robot starts to slow down
 VELOCITY_SMOOTHING_FACTOR = 0.01  # Smoothing factor for velocity adjustments
 STOPPING_VELOCITY = 0.3
@@ -40,7 +40,7 @@ class RobotClient(Node):
             for param in params:
                 if param.name == 'should_halt':
                     self._should_halt = param.value
-                    if not param.value: _MAX_VEL = 0.7
+                    if not param.value: _MAX_VEL = 1.0
             return SetParametersResult(successful=True)
         self.add_on_set_parameters_callback(param_changes)
         self.horizon = 5
@@ -118,7 +118,7 @@ class RobotClient(Node):
         global _MAX_VEL
         msg = json.loads(msg.data)
         if msg['type'] == 'speed_desynchronize':
-            _MAX_VEL = 0.7
+            _MAX_VEL = 1.0
         elif msg['type'] == 'speed_synchronize':
             _MAX_VEL = abs(msg['data'][0])
 
@@ -401,26 +401,31 @@ class RobotClient(Node):
             return
         
 
-        # Target velocity from lookup table
-        target_velocity = velocity
+        # Apply the S-curve velocity smoother
+        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, velocity)
 
+        # Ensure the velocity is within safe limits based on the steering angle
+        safe_velocity = self.calculate_safe_velocity(self.current_velocity ,steering_angle)
+        # safe_velocity = self.current_velocity
+        if self.current_velocity < 0:
+            self.current_velocity = -min(abs(self.current_velocity), abs(safe_velocity))
+        else:
+            self.current_velocity = min(abs(self.current_velocity), abs(safe_velocity))
+
+        # print(self.current_velocity, '=====')
+
+
+        
         # Calculate the target velocity based on the distance to the goal
         if distance_to_goal <= SLOW_DOWN_DISTANCE:
-            slowdown_vel = (distance_to_goal / SLOW_DOWN_DISTANCE) * STOPPING_VELOCITY
-            if target_velocity < 0:
-                target_velocity = -max(MIN_VELOCITY, abs(slowdown_vel))
+            target_velocity = (distance_to_goal / (SLOW_DOWN_DISTANCE)) * STOPPING_VELOCITY
+            if velocity < 0:
+                self.current_velocity = -max(MIN_VELOCITY, abs(target_velocity))
             else:
-                target_velocity = max(MIN_VELOCITY, slowdown_vel)
-
-        # Apply the S-curve velocity smoother towards target_velocity
-        self.current_velocity = self.apply_s_curve_velocity_smoother(self.current_velocity, target_velocity)
-
-        # Cap velocity within safe limits
-        if self.current_velocity < 0:
-            self.current_velocity = -min(abs(self.current_velocity), MAX_VELOCITY)
-        else:
-            self.current_velocity = min(abs(self.current_velocity), MAX_VELOCITY)
-
+                self.current_velocity = max(MIN_VELOCITY, target_velocity)
+            
+        
+        self.current_velocity = min(self.current_velocity, MAX_VELOCITY)
         self.send_command(self.current_velocity, steering_angle)
         self.publish_target_point_marker(target_point_on_plan)
 

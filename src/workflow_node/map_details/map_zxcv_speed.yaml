@@ -1,7 +1,0 @@
-image: map_zxcv_speed.pgm
-mode: scale
-resolution: 0.01
-origin: [-0.6200000000000002, -0.5199999999999996, 0]
-negate: 0
-occupied_thresh: 1.0
-free_thresh: 0.0

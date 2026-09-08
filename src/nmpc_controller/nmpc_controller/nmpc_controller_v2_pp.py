@@ -28,10 +28,15 @@ class RobotClient(Node):
     def __init__(self):
         super().__init__('robot_client')
 
+        global MAX_VELOCITY
         self.declare_parameter('goal_tolerance', 0.05)
-        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('path_file', '/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl')
+        self.declare_parameter('max_velocity', MAX_VELOCITY)
 
-        self.goal_tolerance = self.get_parameter('goal_tolerance').value
+        self.goal_tolerance = self.get_parameter('goal_tolerance').value       
+        
+        MAX_VELOCITY = self.get_parameter('max_velocity').value
+
         self.horizon = 5
         self.steering_angles = []
 
@@ -44,9 +49,12 @@ class RobotClient(Node):
         self.pallet_detected = False
         self.finished = False
         self.pallet_loaded = False
+        self.parking = False
+        self.timeout_flag_set = True
+        self.stfg = None
 
         # Load the lookup table
-        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.515.pkl', 'rb') as f:
+        with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
         
         qos = QoSProfile(history=QoSHistoryPolicy.KEEP_LAST, depth=10)
@@ -57,6 +65,12 @@ class RobotClient(Node):
             '/byd/can_odot_data',
             self.odot_callback,
             qos)
+        
+        self.subscription = self.create_subscription(
+                String,
+                '/charging_state',
+                self.charging_state_callback,
+                qos)
 
         self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
         self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
@@ -64,7 +78,8 @@ class RobotClient(Node):
         self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
         self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker',
                                                             10)  # Marker publisher for target point
-                                                           
+        self.safety_turnoff_publisher = self.create_publisher(String, '/safety_turnoff', 10)
+
         self.current_pose = None
         self.current_velocity = 0.0  # Initialize the current velocity to zero
 
@@ -89,24 +104,38 @@ class RobotClient(Node):
         self.sc_lookahead = 1  # meter
         # For path tracking
         self.pt_lookahead = 0.2
+        self.charger_connected = False
     
     def odot_callback(self, msg):
         self.get_logger().info(f'Received message: "{msg.data}"')
         sensor_data = msg.data.split(' ')[1]
-        sensor_byte_1 = sensor_data[0] #back sensors
+        # print(sensor_data)
+        # sensor_byte_1 = sensor_data[0] #back sensors
         sensor_byte_2 = sensor_data[-1] #forktip sensors
-        if sensor_byte_1 in ["0", "1"]:
+        # print(f"Can Lueze Replacement sensor_byte_1 :={sensor_byte_1}")
+        print(f"Can Lueze Replacement sensor_byte_2 :={sensor_byte_2}")
+        # if sensor_byte_1 in ["1", "0"]:
+            # self.pallet_loaded = True
+        if sensor_byte_2 in ["1"]:
             self.pallet_loaded = True
-        if sensor_byte_2 in ["0"]:
-            self.pallet_loaded = True
+    
+    def charging_state_callback(self, msg):
+        self.get_logger().info(f'Received charging state message: "{msg.data}"')
+        if msg.data == "ON":
+            self.charger_connected = True
         
 
-    def set_parameters(self, path_file, goal_tolerance):
+    def set_parameters(self, path_file, goal_tolerance, max_velocity, parking):
         self.goal_tolerance = goal_tolerance
         self.path_file = path_file
+        global MAX_VELOCITY
+        MAX_VELOCITY = max_velocity
+        self.parking = parking
         self.read_path_from_file(self.path_file)
         self.get_logger().info(f'Path file set to: {self.path_file}')
         self.get_logger().info(f'Goal tolerance set to: {self.goal_tolerance}')
+        self.get_logger().info(f'Max velocity set to: {max_velocity}')
+        self.get_logger().info(f'Parking mode set to: {self.parking}')
 
     def send_command(self, velocity, steering_angle):
         self.velocity_publisher.publish(Float64(data=velocity))
@@ -121,7 +150,7 @@ class RobotClient(Node):
         self.velocity_publisher.publish(Float64(data=velocity))
         self.steering_angle_publisher.publish(Float64(data=steering_angle))
         self.get_logger().info(
-            f'Sending command - Velocity: {velocity:.2f} m/s, Steering Angle: {steering_angle:.2f} degrees')
+            f'Sending command - Velocity: {velocity:.3f} m/s, Steering Angle: {steering_angle:.2f} degrees')
         state_msg = String()
         state_msg.data = 'Auto'
         self.state_publisher.publish(state_msg)
@@ -300,11 +329,29 @@ class RobotClient(Node):
         return self.calculate_curvature_finite_diff(scaled_segmented_path)
 
     def follow_path(self):
-        print(self.pallet_loaded)
-        if self.pallet_loaded: #self.goal_reached or not self.path_received or self.pallet_detected:
-            self.send_stop_command(0.0, 0.0)  # Stop the robot
-            self.finished = True
-            return
+        print(f"is pallete present:{self.pallet_loaded}")
+        if self.pallet_loaded: # or self.goal_reached or self.pallet_detected  or not self.path_received
+            if not self.parking:
+                self.send_stop_command(0.0, 0.0)  # Stop the robot
+                self.finished = True
+                print('pallet loaded, stopping robot')
+                return
+            self.safety_turnoff_publisher.publish(String(data='TurnOff'))
+            self.send_command(0.02, 0.0)  # Stop the robot
+            print('moving forward to charger', self.charger_connected)
+            
+            if self.timeout_flag_set:
+                self.timeout_flag_set = False
+                self.stfg = time.time()
+
+            # time.sleep(2.3)
+            if self.charger_connected or time.time() - self.stfg > 4:
+                self.safety_turnoff_publisher.publish(String(data='TurnOn'))
+                self.send_stop_command(0.0, 0.0)  # Stop the robot
+                # self.safety_turnoff_publisher.publish(String(data='TurnOn'))
+                print('charger connected, stopping robot')
+                self.finished = True
+                return
 
         state = self.current_pose
         if state is None:
@@ -329,8 +376,9 @@ class RobotClient(Node):
         self.get_logger().info(f'DTG: {distance_to_goal}')
         if distance_to_goal <= self.goal_tolerance or self.goal_reached == True:
             self.goal_reached = True
-            # self.send_command(0.0, 0.0)  # Stop the robot
-            # self.get_logger().info('Goal reached, shutting down...')
+            self.send_command(0.0, 0.0)  # Stop the robot
+            self.finished = True
+            self.get_logger().info('Goal reached, stopped...')
             # self.destroy_node()
             # rclpy.shutdown()
             # sys.exit(0)
@@ -445,12 +493,16 @@ def main(args=None):
     parser = argparse.ArgumentParser(description='RobotClient Node')
     parser.add_argument('--path_file', type=str, required=True, help='Path to the file containing the path data')
     parser.add_argument('--goal_tolerance', type=float, default=0.1, help='Goal tolerance distance')
+    parser.add_argument('--max_velocity', type=float, default=0.1, help='Maximum velocity')
+    parser.add_argument('--parking', type=lambda x: x.lower() == 'true', default=False, help='Whether the robot is parking (True/False)')
     parsed_args = parser.parse_args()
 
     client = RobotClient()
     client.set_parameters(
         path_file=parsed_args.path_file,
-        goal_tolerance=parsed_args.goal_tolerance
+        goal_tolerance=parsed_args.goal_tolerance,
+        max_velocity=parsed_args.max_velocity,
+        parking=parsed_args.parking
     )
 
     def signal_handler(sig, frame):
