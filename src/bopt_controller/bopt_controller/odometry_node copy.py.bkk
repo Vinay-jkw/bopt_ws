@@ -3,7 +3,7 @@ import math
 import rclpy
 from rclpy.node import Node
 
-from sensor_msgs.msg import JointState, Imu
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
@@ -60,56 +60,6 @@ class BoptOdometry(Node):
             'drive_wheel_Ass_joint'
         ).value
 
-        # =====================================================
-        # WEIGHTED YAW FUSION TEST
-        #
-        # Odometry yaw-rate contribution = 10%
-        # IMU yaw-rate contribution      = 90%
-        #
-        # We fuse angular velocity rather than directly
-        # averaging absolute yaw angles. This avoids the
-        # +/- pi angle-wrap problem.
-        # =====================================================
-        self.odom_yaw_weight = self.declare_parameter(
-            'odom_yaw_weight',
-            0.10
-        ).value
-
-        self.imu_yaw_weight = self.declare_parameter(
-            'imu_yaw_weight',
-            0.90
-        ).value
-
-        # =====================================================
-        # LATERAL VELOCITY TEST
-        #
-        # Estimate the lateral velocity of base_footprint from
-        # the difference between the wheel/steering kinematics
-        # and the fused yaw rate.
-        #
-        # For the reference point located wheelbase meters
-        # ahead of the drive wheel:
-        #
-        #   v_y_base = Vwheel*sin(delta) + omega_final*L
-        #
-        # Under ideal no-slip kinematics this becomes ~0.
-        # Therefore a non-zero value indicates a kinematic
-        # mismatch / apparent lateral motion.
-        #
-        # A scale allows the experiment to be conservative:
-        #   0.0 = disable correction
-        #   1.0 = use full estimated lateral velocity
-        # =====================================================
-        self.lateral_velocity_scale = self.declare_parameter(
-            'lateral_velocity_scale',
-            1.0
-        ).value
-
-        self.imu_topic = self.declare_parameter(
-            'imu_topic',
-            'imu/corrected'
-        ).value
-
         self.control_period = self.declare_parameter(
             'control_period',
             0.02
@@ -136,14 +86,6 @@ class BoptOdometry(Node):
         self.actual_steering_position = 0.0
         self.actual_steering_velocity = 0.0
 
-        # IMU rotational feedback
-        self.imu_angular_velocity_z = 0.0
-        self.received_imu = False
-
-        # Debug values from weighted yaw fusion
-        self.fused_angular_velocity = 0.0
-        self.estimated_lateral_velocity = 0.0
-
         # Previous drive wheel and steering positions
         self.previous_drive_position = 0.0
         self.previous_steering_position = 0.0
@@ -161,17 +103,6 @@ class BoptOdometry(Node):
             'joint_states',
             self.joint_state_callback,
             50
-        )
-
-        # =====================================================
-        # IMU SUBSCRIBER
-        # =====================================================
-
-        self.imu_subscription = self.create_subscription(
-            Imu,
-            self.imu_topic,
-            self.imu_callback,
-            100
         )
 
         # =====================================================
@@ -242,21 +173,6 @@ class BoptOdometry(Node):
         )
 
         self.get_logger().info(
-            f'IMU topic: {self.imu_topic}'
-        )
-
-        self.get_logger().info(
-            f'Yaw fusion weights: '
-            f'odom={self.odom_yaw_weight:.2f}, '
-            f'imu={self.imu_yaw_weight:.2f}'
-        )
-
-        self.get_logger().info(
-            f'Lateral velocity scale: '
-            f'{self.lateral_velocity_scale:.2f}'
-        )
-
-        self.get_logger().info(
             'Odometry reference: base_footprint '
             '(front load-wheel axle midpoint)'
         )
@@ -303,13 +219,6 @@ class BoptOdometry(Node):
 
         # Execute event-driven odometry update synchronized with joint state sensor sample
         self.update_odometry(current_time)
-
-    def imu_callback(self, msg):
-        # Use IMU gyro Z as the rotational measurement.
-        # Sign is assumed to follow the same ROS +Z convention
-        # as the odometry angular velocity.
-        self.imu_angular_velocity_z = msg.angular_velocity.z
-        self.received_imu = True
 
     def timer_callback(self):
         # Fallback if no joint states received yet
@@ -418,148 +327,52 @@ class BoptOdometry(Node):
             distance_base / dt
         )
 
-        # =====================================================
-        # WEIGHTED YAW-RATE FUSION
-        #
-        # Odometry rotational estimate:
-        #     omega_odom = delta_yaw / dt
-        #
-        # IMU rotational estimate:
-        #     omega_imu = gyro_z
-        #
-        # Final:
-        #     omega_final =
-        #         0.10 * omega_odom +
-        #         0.90 * omega_imu
-        #
-        # We intentionally fuse rates, not absolute yaw angles.
-        # =====================================================
-
-        angular_velocity_odom = (
+        angular_velocity = (
             delta_yaw / dt
         )
 
-        if self.received_imu:
-            angular_velocity = (
-                self.odom_yaw_weight *
-                angular_velocity_odom
-                +
-                self.imu_yaw_weight *
-                self.imu_angular_velocity_z
-            )
-        else:
-            # Safe fallback until an IMU sample is received.
-            angular_velocity = angular_velocity_odom
+        # =====================================================
+        # EXACT CIRCULAR ARC INTEGRATION
+        #
+        # For arc motion during step dt, the chord factor
+        # is sinc(delta_yaw / 2) = sin(delta_yaw/2) / (delta_yaw/2).
+        # This eliminates discrete integration truncation drift.
+        # =====================================================
 
-        self.fused_angular_velocity = angular_velocity
-
-        # Final yaw increment comes from the weighted yaw rate.
-        delta_yaw_final = (
-            angular_velocity * dt
+        yaw_mid = (
+            self.odom_yaw +
+            0.5 * delta_yaw
         )
 
-        # =====================================================
-        # FINAL YAW
-        # =====================================================
+        if abs(delta_yaw) > 1e-6:
+            sinc_factor = (
+                math.sin(0.5 * delta_yaw) /
+                (0.5 * delta_yaw)
+            )
+        else:
+            sinc_factor = 1.0
 
-        self.odom_yaw += delta_yaw_final
+        self.odom_x += (
+            distance_base *
+            sinc_factor *
+            math.cos(yaw_mid)
+        )
+
+        self.odom_y += (
+            distance_base *
+            sinc_factor *
+            math.sin(yaw_mid)
+        )
+
+        self.odom_yaw += delta_yaw
+
+        # =====================================================
+        # NORMALIZE YAW
+        # =====================================================
 
         self.odom_yaw = math.atan2(
             math.sin(self.odom_yaw),
             math.cos(self.odom_yaw)
-        )
-
-        # =====================================================
-        # BODY-FRAME TRANSLATIONAL VELOCITY
-        #
-        # Longitudinal velocity:
-        #   vx = Vwheel*cos(delta)
-        #
-        # Lateral velocity:
-        #   vy = Vwheel*sin(delta) + omega_final*L
-        #
-        # The second expression follows from the rigid-body
-        # velocity relationship between the drive-wheel point
-        # and base_footprint.
-        #
-        # In the ideal no-slip model:
-        #   omega_final = -Vwheel*sin(delta)/L
-        #   therefore vy = 0.
-        #
-        # A non-zero value therefore exposes the mismatch
-        # between measured rotational motion and wheel
-        # steering kinematics.
-        # =====================================================
-
-        wheel_linear_velocity = (
-            drive_distance / dt
-        )
-
-        body_vx = (
-            wheel_linear_velocity *
-            math.cos(steering_mid)
-        )
-
-        estimated_vy = (
-            wheel_linear_velocity *
-            math.sin(steering_mid)
-            +
-            angular_velocity *
-            self.wheelbase
-        )
-
-        body_vy = (
-            self.lateral_velocity_scale *
-            estimated_vy
-        )
-
-        self.estimated_lateral_velocity = body_vy
-
-        # =====================================================
-        # BODY -> WORLD VELOCITY
-        # =====================================================
-
-        world_vx = (
-            body_vx * math.cos(self.odom_yaw)
-            -
-            body_vy * math.sin(self.odom_yaw)
-        )
-
-        world_vy = (
-            body_vx * math.sin(self.odom_yaw)
-            +
-            body_vy * math.cos(self.odom_yaw)
-        )
-
-        self.odom_x += world_vx * dt
-        self.odom_y += world_vy * dt
-
-        # =====================================================
-        # NOTE
-        #
-        # We intentionally do NOT force vy to zero anymore.
-        # This is an experimental kinematic-consistency
-        # correction, not a claim that the robot physically
-        # has a fixed lateral slip velocity.
-        # =====================================================
-
-        # =====================================================
-        # DEBUG LOGGING
-        #
-        # Throttle to avoid flooding the terminal.
-        # =====================================================
-
-        self.get_logger().info(
-            f'YawFusion | '
-            f'odom_w={angular_velocity_odom:+.4f} '
-            f'imu_w={self.imu_angular_velocity_z:+.4f} '
-            f'final_w={angular_velocity:+.4f} '
-            f'vx={body_vx:+.4f} '
-            f'vy={body_vy:+.4f} '
-            f'yaw={math.degrees(self.odom_yaw):+.2f} deg '
-            f'x={self.odom_x:.3f} '
-            f'y={self.odom_y:.3f}',
-            throttle_duration_sec=1.0
         )
 
         # =====================================================
@@ -636,9 +449,7 @@ class BoptOdometry(Node):
             linear_velocity
         )
 
-        odom.twist.twist.linear.y = (
-            self.estimated_lateral_velocity
-        )
+        odom.twist.twist.linear.y = 0.0
 
         odom.twist.twist.linear.z = 0.0
 

@@ -15,3 +15,12 @@ src/bopt_description/models/
 
 src/workflow_node/map_details/
 
+
+# ROS bags — large binary files, never commit
+*.db3
+*.bag
+rosbag2_*/
+*.ros2bag
+
+# Large binary outputs
+*.zip
