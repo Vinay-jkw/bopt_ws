@@ -32,7 +32,7 @@ def save_points_to_json(before: np.ndarray, after: np.ndarray, lidar):
 
     # Save inside ~/.ros/lidar_points_timestamp.json
     filename = f"lidar_points_{lidar}.json"
-    filepath = os.path.join("/home/fbots/Nichiyu_RT/src/apds/lidar_clustering/lidar_clustering/", filename)
+    filepath = os.path.join("/home/jkw/bopt_ws/src/apds/lidar_clustering/lidar_clustering/", filename)
 
     with open(filepath, "w") as f:
         json.dump(data, f, indent=4)
@@ -97,7 +97,7 @@ class LidarClusteringNodeRight(Node):
         self.cluster_pub = self.create_publisher(String, 'map1', 10)  # Publishes cluster info
         self.subscription = self.create_subscription(
             LaserScan,
-            '/lidar/front/right/scan',  # Right LIDAR topic
+            '/Lidar_RFT',  # Right LIDAR topic
             self.lidar_callback,
             10
         )
@@ -303,7 +303,7 @@ class LidarClusteringNodeLeft(Node):
         self.cluster_pub = self.create_publisher(String, 'map2', 10)  # Publishes cluster info
         self.subscription = self.create_subscription(
             LaserScan,
-            '/lidar/front/left/scan',  # Left LIDAR topic
+            '/Lidar_LFT',  # Left LIDAR topic
             self.lidar_callback,
             10
         )

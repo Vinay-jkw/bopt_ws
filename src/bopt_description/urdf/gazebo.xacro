@@ -370,7 +370,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>$(arg robot_namespace)/lidar/front/right/scan</topic>
+            <topic>$(arg robot_namespace)/Lidar_RFT</topic>
             <gz_frame_id>front_lidar_frame_right</gz_frame_id>
             <lidar>
                 <scan>
@@ -400,7 +400,7 @@
             <always_on>true</always_on>
             <update_rate>10.0</update_rate>
             <visualize>true</visualize>
-            <topic>$(arg robot_namespace)/lidar/front/left/scan</topic>
+            <topic>$(arg robot_namespace)/Lidar_LFT</topic>
             <gz_frame_id>front_lidar_frame_left</gz_frame_id>
             <lidar>
                 <scan>

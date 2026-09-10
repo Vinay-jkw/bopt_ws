@@ -1,0 +1,229 @@
+[
+    {
+        "label": "glob",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "glob",
+        "description": "glob",
+        "detail": "glob",
+        "documentation": {}
+    },
+    {
+        "label": "sqlite3",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sqlite3",
+        "description": "sqlite3",
+        "detail": "sqlite3",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "LaunchDescription",
+        "importPath": "launch",
+        "description": "launch",
+        "isExtraImport": true,
+        "detail": "launch",
+        "documentation": {}
+    },
+    {
+        "label": "Node",
+        "importPath": "launch_ros.actions",
+        "description": "launch_ros.actions",
+        "isExtraImport": true,
+        "detail": "launch_ros.actions",
+        "documentation": {}
+    },
+    {
+        "label": "get_package_share_directory",
+        "importPath": "ament_index_python.packages",
+        "description": "ament_index_python.packages",
+        "isExtraImport": true,
+        "detail": "ament_index_python.packages",
+        "documentation": {}
+    },
+    {
+        "label": "Document",
+        "importPath": "docx",
+        "description": "docx",
+        "isExtraImport": true,
+        "detail": "docx",
+        "documentation": {}
+    },
+    {
+        "label": "Pt",
+        "importPath": "docx.shared",
+        "description": "docx.shared",
+        "isExtraImport": true,
+        "detail": "docx.shared",
+        "documentation": {}
+    },
+    {
+        "label": "RGBColor",
+        "importPath": "docx.shared",
+        "description": "docx.shared",
+        "isExtraImport": true,
+        "detail": "docx.shared",
+        "documentation": {}
+    },
+    {
+        "label": "WD_ALIGN_PARAGRAPH",
+        "importPath": "docx.enum.text",
+        "description": "docx.enum.text",
+        "isExtraImport": true,
+        "detail": "docx.enum.text",
+        "documentation": {}
+    },
+    {
+        "label": "fetch_lidar_info_from_db",
+        "kind": 2,
+        "importPath": "launch.ld19_launch",
+        "description": "launch.ld19_launch",
+        "peekOfCode": "def fetch_lidar_info_from_db():\n    \"\"\"\n    Fetches lidar topic names and their corresponding lidar_id from the database.\n    Returns a list of dictionaries containing lidar_id and topic name for each lidar.\n    \"\"\"\n    db_path = 'src/ldlidar_stl_ros2/config/bopt_2000.db'\n    # # Get the path to the database inside your package (config folder)\n    # package_share_directory = get_package_share_directory('ldlidar_stl_ros2')\n    # db_path = os.path.join(package_share_directory, 'config', 'amr_policies_01.db')\n    # if not os.path.exists(db_path):",
+        "detail": "launch.ld19_launch",
+        "documentation": {}
+    },
+    {
+        "label": "generate_launch_description",
+        "kind": 2,
+        "importPath": "launch.ld19_launch",
+        "description": "launch.ld19_launch",
+        "peekOfCode": "def generate_launch_description():\n    # Fetch LIDAR information (lidar_id and topic name) from the database\n    lidars = fetch_lidar_info_from_db()\n    # Create a custom mapping dictionary for assigning ports to LIDARs\n    # Example: {lidar_id: port_name}\n    custom_port_mapping = {\n        1: \"/dev/Lidar_L\",\n        2: \"/dev/Lidar_R\",\n        3: \"/dev/Lidar_F\",\n        4: \"/dev/Lidar_NFT\"",
+        "detail": "launch.ld19_launch",
+        "documentation": {}
+    },
+    {
+        "label": "heading",
+        "kind": 2,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "def heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")\ndef table(headers, rows):\n    t = doc.add_table(rows=1, cols=len(headers))\n    t.style = \"Light Grid Accent 1\"",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "para",
+        "kind": 2,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "def para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")\ndef table(headers, rows):\n    t = doc.add_table(rows=1, cols=len(headers))\n    t.style = \"Light Grid Accent 1\"\n    for i, h in enumerate(headers):\n        cell = t.rows[0].cells[i]",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "bullets",
+        "kind": 2,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "def bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")\ndef table(headers, rows):\n    t = doc.add_table(rows=1, cols=len(headers))\n    t.style = \"Light Grid Accent 1\"\n    for i, h in enumerate(headers):\n        cell = t.rows[0].cells[i]\n        cell.text = h\n        for r in cell.paragraphs[0].runs:",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "table",
+        "kind": 2,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "def table(headers, rows):\n    t = doc.add_table(rows=1, cols=len(headers))\n    t.style = \"Light Grid Accent 1\"\n    for i, h in enumerate(headers):\n        cell = t.rows[0].cells[i]\n        cell.text = h\n        for r in cell.paragraphs[0].runs:\n            r.bold = True\n    for row in rows:\n        cells = t.add_row().cells",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "doc",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "doc = Document()\n# --- Base style: clean, readable ---\nnormal = doc.styles[\"Normal\"]\nnormal.font.name = \"Calibri\"\nnormal.font.size = Pt(11)\n# --- Title ---\ntitle = doc.add_heading(\"360degree Safety Module\", level=0)\ntitle.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "normal",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "normal = doc.styles[\"Normal\"]\nnormal.font.name = \"Calibri\"\nnormal.font.size = Pt(11)\n# --- Title ---\ntitle = doc.add_heading(\"360degree Safety Module\", level=0)\ntitle.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "normal.font.name",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "normal.font.name = \"Calibri\"\nnormal.font.size = Pt(11)\n# --- Title ---\ntitle = doc.add_heading(\"360degree Safety Module\", level=0)\ntitle.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "normal.font.size",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "normal.font.size = Pt(11)\n# --- Title ---\ntitle = doc.add_heading(\"360degree Safety Module\", level=0)\ntitle.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "title",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "title = doc.add_heading(\"360degree Safety Module\", level=0)\ntitle.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "title.alignment",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "title.alignment = WD_ALIGN_PARAGRAPH.LEFT\nsub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "sub",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "sub = doc.add_paragraph(\"Feature Overview for the Testing Team\")\nsub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "sub.runs[0].italic",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "sub.runs[0].italic = True\nsub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")\ndef table(headers, rows):",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "sub.runs[0].font.color.rgb",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "sub.runs[0].font.color.rgb = RGBColor(0x59, 0x59, 0x59)\ndef heading(text):\n    doc.add_heading(text, level=1)\ndef para(text):\n    doc.add_paragraph(text)\ndef bullets(items):\n    for it in items:\n        doc.add_paragraph(it, style=\"List Bullet\")\ndef table(headers, rows):\n    t = doc.add_table(rows=1, cols=len(headers))",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    },
+    {
+        "label": "out",
+        "kind": 5,
+        "importPath": "gen_safety_doc",
+        "description": "gen_safety_doc",
+        "peekOfCode": "out = \"/media/aparnesh/D/CodeRefactoring/bopt_v2_ws/src/safety_demo/360degree_Safety_Module.docx\"\ndoc.save(out)\nprint(\"saved:\", out)",
+        "detail": "gen_safety_doc",
+        "documentation": {}
+    }
+]

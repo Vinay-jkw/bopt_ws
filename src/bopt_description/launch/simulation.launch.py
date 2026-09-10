@@ -72,8 +72,8 @@ def generate_launch_description():
             '/lidar/back/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/lidar/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/lidar/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/lidar/front/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/lidar/front/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/Lidar_LFT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/Lidar_RFT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
         ],
         output='screen',
     )

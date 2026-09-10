@@ -1,0 +1,748 @@
+ppts:
+  ros__parameters:
+
+    # ==========================================================
+    # 1. GENERAL
+    # ==========================================================
+    #
+    # General runtime configuration for the PPTS pipeline.
+    #
+    # frame_id:
+    #   Reference frame in which the complete PPTS processing
+    #   and output data is represented.
+    #
+    # processing_rate:
+    #   Main processing frequency in Hz.
+    #
+    # ==========================================================
+
+    general:
+
+      frame_id: "base_link"
+
+      processing_rate: 10.0
+
+
+    # ==========================================================
+    # 2. INPUT
+    # ==========================================================
+    #
+    # Defines all external inputs required by PPTS.
+    #
+    # ==========================================================
+
+    input:
+
+
+      # --------------------------------------------------------
+      # Topics
+      # --------------------------------------------------------
+      #
+      # Input:
+      #   LaserScan messages from left and right LiDAR.
+      #
+      # Output:
+      #   Intermediate and final PPTS results.
+      #
+      # --------------------------------------------------------
+
+      topics:
+
+        left_scan: "/Lidar_LFT"
+        right_scan: "/Lidar_RFT"
+
+        left_cloud: "/ppts/left_cloud"
+        right_cloud: "/ppts/right_cloud"
+
+        merged_cloud: "/ppts/merged_cloud"
+
+        clusters: "/ppts/clusters"
+        rois: "/ppts/rois"
+
+
+      # --------------------------------------------------------
+      # Transform
+      # --------------------------------------------------------
+      #
+      # provider:
+      #   tf   -> use ROS TF/TF2
+      #   yaml -> use static transforms from YAML
+      #
+      # timeout:
+      #   Maximum time allowed while waiting for TF.
+      #
+      # yaml_file:
+      #   Used only when provider = "yaml".
+      #
+      # --------------------------------------------------------
+
+      transform:
+
+        provider: "tf"
+
+        timeout: 2.0
+
+        yaml_file: ""
+
+
+    # ==========================================================
+    # 3. PREPROCESSING
+    # ==========================================================
+    #
+    # Converts and prepares LiDAR data before clustering.
+    #
+    # Processing:
+    #
+    #   LaserScan
+    #       ↓
+    #   PointCloud
+    #       ↓
+    #   Transform
+    #       ↓
+    #   Alignment
+    #       ↓
+    #   Merge
+    #
+    # ==========================================================
+
+    preprocessing:
+
+
+      # --------------------------------------------------------
+      # LaserScan → PointCloud
+      # --------------------------------------------------------
+
+      laser_scan_to_cloud:
+
+        enabled: true
+
+
+      # --------------------------------------------------------
+      # Coordinate Transformation
+      # --------------------------------------------------------
+
+      transform:
+
+        enabled: true
+
+
+      # --------------------------------------------------------
+      # Left/Right LiDAR Alignment
+      # --------------------------------------------------------
+
+      alignment:
+
+        enabled: true
+
+
+      # --------------------------------------------------------
+      # Merge Left and Right Point Clouds
+      # --------------------------------------------------------
+
+      merge:
+
+        enabled: true
+
+      use_roi:
+
+        enabled: true
+    # ==========================================================
+    # 4. ROI
+    # ==========================================================
+    #
+    # Region Of Interest generation and filtering.
+    #
+    # Only points inside the generated ROIs are passed to
+    # the clustering stage.
+    #
+    # Supported layouts:
+    #
+    #   grid
+    #   custom
+    #
+    # ==========================================================
+
+    roi:
+
+
+      # --------------------------------------------------------
+      # ROI Layout
+      # --------------------------------------------------------
+
+      layout: "grid"
+
+
+      # --------------------------------------------------------
+      # Grid Layout
+      # --------------------------------------------------------
+      #
+      # Example:
+      #
+      #   rows = 2
+      #   columns = 4
+      #
+      # produces:
+      #
+      #       ┌────┬────┬────┬────┐
+      #       │ 1  │ 2  │ 3  │ 4  │
+      #       ├────┼────┼────┼────┤
+      #       │ 5  │ 6  │ 7  │ 8  │
+      #       └────┴────┴────┴────┘
+      #
+      # Current configuration uses a single ROI.
+      #
+      # --------------------------------------------------------
+
+      grid:
+
+        rows: 1
+
+        columns: 1
+
+
+      # --------------------------------------------------------
+      # ROI Geometry
+      # --------------------------------------------------------
+      #
+      # inset_width:
+      #   Safety margin applied across the ROI width.
+      #
+      # inset_length:
+      #   Safety margin applied along the ROI length.
+      #
+      # lidar_offset:
+      #   Distance between LiDAR reference position and the
+      #   pallet/ROI reference.
+      #
+      # --------------------------------------------------------
+
+      geometry:
+
+        inset_width: 0.35
+
+        inset_length: 0.30
+
+        lidar_offset: 0.935
+
+
+      # --------------------------------------------------------
+      # Custom ROI Layout
+      # --------------------------------------------------------
+      #
+      # Used only when:
+      #
+      #   layout: "custom"
+      #
+      # Coordinates are normalized:
+      #
+      #   0.0 = beginning of pallet
+      #   1.0 = end of pallet
+      #
+      # Example:
+      #
+      # regions:
+      #
+      #   - id: "roi_1"
+      #     xmin: 0.00
+      #     xmax: 0.50
+      #     ymin: 0.50
+      #     ymax: 1.00
+      #
+      # --------------------------------------------------------
+
+      custom:
+
+        regions: []
+
+
+    # ==========================================================
+    # 5. CLUSTERING
+    # ==========================================================
+    #
+    # Converts ROI point clouds into individual clusters.
+    #
+    # Current algorithm:
+    #
+    #   DBSCAN
+    #
+    # Output:
+    #
+    #   ROI PointCloud
+    #       ↓
+    #   DBSCAN
+    #       ↓
+    #   Raw Clusters
+    #
+    # ==========================================================
+
+    clustering:
+
+
+      # --------------------------------------------------------
+      # Clustering Algorithm
+      # --------------------------------------------------------
+
+      algorithm: "euclidean"  #dbscan
+
+
+      # --------------------------------------------------------
+      # DBSCAN
+      # --------------------------------------------------------
+      #
+      # eps:
+      #   Maximum distance between neighbouring points for
+      #   them to belong to the same neighbourhood.
+      #
+      # min_samples:
+      #   Minimum number of neighbouring points required for
+      #   DBSCAN to consider a region dense.
+      #
+      # --------------------------------------------------------
+
+      dbscan:
+
+        eps: 0.06
+
+        min_samples: 3
+
+      euclidean:
+
+        cluster_tolerance: 0.14
+
+        min_cluster_size: 2
+        
+        max_cluster_size: 5000
+
+
+    # ==========================================================
+    # 6. CLUSTER VALIDATION
+    # ==========================================================
+    #
+    # Performs generic sanity checks on DBSCAN clusters.
+    #
+    # IMPORTANT:
+    #
+    # This stage determines whether a cluster is geometrically
+    # usable.
+    #
+    # It does NOT determine whether the cluster is a pole.
+    #
+    # Pole-specific validation is performed later.
+    #
+    # ==========================================================
+
+    cluster_validation:
+
+
+      # --------------------------------------------------------
+      # Minimum Point Count
+      # --------------------------------------------------------
+      #
+      # Clusters containing fewer points than this value are
+      # rejected.
+      #
+      # --------------------------------------------------------
+
+      min_points: 4
+
+
+    # ==========================================================
+    # 7. CLUSTER REFINEMENT
+    # ==========================================================
+    #
+    # Attempts to split clusters that contain multiple objects.
+    #
+    # Example:
+    #
+    #       DBSCAN Cluster
+    #       ┌─────────────┐
+    #       │ pole │ pole │
+    #       └─────────────┘
+    #
+    #               ↓
+    #
+    #            KMeans
+    #
+    #          ┌─────┐ ┌─────┐
+    #          │pole │ │pole │
+    #          └─────┘ └─────┘
+    #
+    # ==========================================================
+
+    refinement:
+
+
+      # --------------------------------------------------------
+      # KMeans Refinement
+      # --------------------------------------------------------
+
+      kmeans:
+
+        # Enable/disable cluster refinement.
+        enabled: false
+
+        # Maximum number of refinement iterations.
+        max_iteration: 3
+
+        # Number of clusters to attempt when splitting.
+        n_clusters: 2
+
+        # Fixed seed for deterministic results.
+        random_state: 42
+
+
+    # ==========================================================
+    # 8. FEATURE EXTRACTION
+    # ==========================================================
+    #
+    # Calculates geometric features from validated clusters.
+    #
+    # These features are later used by the pole candidate
+    # detector.
+    #
+    # ==========================================================
+
+    feature_extraction:
+
+
+      enabled: true
+
+
+      # --------------------------------------------------------
+      # Features
+      # --------------------------------------------------------
+      #
+      # point_count:
+      #   Number of points in the cluster.
+      #
+      # centroid:
+      #   Center position of the cluster.
+      #
+      # width:
+      #   Minor geometric dimension.
+      #
+      # height:
+      #   Major geometric dimension.
+      #
+      # major_spread:
+      #   Spread along the principal axis.
+      #
+      # minor_spread:
+      #   Spread perpendicular to the principal axis.
+      #
+      # aspect_ratio:
+      #   Ratio between major and minor dimensions.
+      #
+      # density:
+      #   Point density inside the cluster.
+      #
+      # yaw:
+      #   Orientation of the principal axis.
+      #
+      # --------------------------------------------------------
+
+      features:
+
+        - point_count
+        - centroid
+        - width
+        - height
+        - major_spread
+        - minor_spread
+        - aspect_ratio
+        - density
+        - yaw
+
+
+    # ==========================================================
+    # 9. POLE CANDIDATE DETECTION
+    # ==========================================================
+    #
+    # Determines whether a validated cluster can represent
+    # a pallet pole.
+    #
+    # Processing:
+    #
+    #   Cluster
+    #      ↓
+    #   Features
+    #      ↓
+    #   Geometry Checks
+    #      ↓
+    #   Candidate Score
+    #      ↓
+    #   Pole Candidate
+    #
+    # ==========================================================
+
+    pole_detection:
+
+
+      # --------------------------------------------------------
+      # Pole Geometry
+      # --------------------------------------------------------
+      #
+      # These limits describe the expected physical geometry
+      # of a pallet pole.
+      #
+      # --------------------------------------------------------
+
+      geometry:
+
+
+        # Pole width limits in meters.
+        width:
+
+          min: 0.03
+          max: 0.15
+
+
+        # Pole height limits in meters.
+        height:
+
+          min: 0.005
+          max: 0.16
+
+
+        # Minimum height/width relationship.
+        aspect_ratio:
+
+          min: 0.45
+
+
+      # --------------------------------------------------------
+      # Candidate Scoring
+      # --------------------------------------------------------
+      #
+      # A cluster must achieve at least this score to become
+      # a pole candidate.
+      #
+      # Score range:
+      #
+      #   0.0 -> definitely not a pole
+      #   1.0 -> strong pole candidate
+      #
+      # --------------------------------------------------------
+
+      scoring:
+
+        min_candidate_score: 0.55
+
+
+    # ==========================================================
+    # 10. PALLET VALIDATION
+    # ==========================================================
+    #
+    # Determines whether the detected pole candidates form
+    # a valid pallet structure.
+    #
+    # A pallet is NOT detected simply because enough clusters
+    # exist.
+    #
+    # The candidates must also satisfy:
+    #
+    #   - expected number of poles
+    #   - row arrangement
+    #   - spacing
+    #   - pallet dimensions
+    #
+    # ==========================================================
+
+    pallet:
+
+
+      # --------------------------------------------------------
+      # Pallet Type
+      # --------------------------------------------------------
+
+      type: "standard"
+
+
+      # --------------------------------------------------------
+      # Pallet Geometry
+      # --------------------------------------------------------
+      #
+      # Physical dimensions in meters.
+      #
+      # --------------------------------------------------------
+
+      geometry:
+
+        length: 1.40
+
+        width: 0.80
+
+
+      # --------------------------------------------------------
+      # Pole Configuration
+      # --------------------------------------------------------
+
+      poles:
+
+
+        # Expected total number of poles.
+        expected: 8
+
+
+        # ------------------------------------------------------
+        # Pole Rows
+        # ------------------------------------------------------
+        #
+        # Standard pallet currently expected to contain:
+        #
+        #   Row A -> 4 poles
+        #   Row B -> 4 poles
+        #
+        # ------------------------------------------------------
+
+        rows:
+
+
+          row_a:
+
+            expected: 4
+
+
+          row_b:
+
+            expected: 4
+
+
+        # ------------------------------------------------------
+        # Pole Spacing
+        # ------------------------------------------------------
+
+        spacing:
+
+
+          # Expected distance between poles along the
+          # longitudinal pallet direction.
+
+          longitudinal:
+
+            expected: 0.46
+
+            tolerance: 0.60
+
+
+      # --------------------------------------------------------
+      # Pallet Detection
+      # --------------------------------------------------------
+
+      detection:
+
+
+        # Minimum number of valid pole candidates required
+        # before pallet-level validation is attempted.
+
+        min_detected_poles: 5
+
+
+    # ==========================================================
+    # 11. OUTPUT
+    # ==========================================================
+    #
+    # Defines which processed results are published.
+    #
+    # ==========================================================
+
+    output:
+
+
+      publish:
+
+
+        # Merged/processed point cloud.
+        point_cloud: true
+
+
+        # Generated ROI information.
+        rois: true
+
+
+        # Validated/refined clusters.
+        clusters: true
+
+
+        # Pole candidate information.
+        pole_candidates: true
+
+
+        # Final pallet detection result.
+        pallet_result: true
+
+
+    # ==========================================================
+    # 12. VISUALIZATION
+    # ==========================================================
+    #
+    # RViz visualization parameters.
+    #
+    # ==========================================================
+
+    visualization:
+
+
+      # Point size used when displaying point clouds.
+      point_size: 0.03
+
+
+      # Bounding-box line width.
+      bbox_width: 0.02
+
+
+      # Text marker height.
+      text_height: 0.15
+
+  # ==========================================================
+  # Pole Candidate
+  # ==========================================================
+
+    pole_candidate:
+
+      # --------------------------------------------------------
+      # Basic geometry
+      # --------------------------------------------------------
+
+      min_points: 2
+      saturation_points: 10
+      min_width: 0.005
+      max_width: 0.10
+
+      min_height: 0.04
+      max_height: 0.16
+
+      min_aspect_ratio: 1.3
+
+
+      # --------------------------------------------------------
+      # Candidate decision
+      # --------------------------------------------------------
+
+      min_score: 0.45
+
+
+      # --------------------------------------------------------
+      # Score weights
+      # --------------------------------------------------------
+
+      weights:
+
+        point: 0.30
+
+        size: 0.20
+
+        aspect: 0.25
+
+        shape: 0.25
+
+
+      # --------------------------------------------------------
+      # Cluster quality modifiers
+      # --------------------------------------------------------
+
+      quality:
+
+        weak_factor: 0.85
+
+        suspicious_factor: 0.40

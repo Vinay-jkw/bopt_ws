@@ -40,10 +40,32 @@ class ActionHandler(RsManeuverMixin):
     # Fork control
     # ------------------------------------------------------------------
 
+    # def fork_up(self) -> None:
+    #     command = (
+    #         "ros2 service call /byd/send_command "
+    #         "example_interfaces/srv/Command \"{command: 'up'}\""
+    #     )
+    #     try:
+    #         subprocess.call(command, shell=True)
+    #     except Exception as error:
+    #         self._logger.error(f"fork_up subprocess failed: {error}")
+    #         traceback.print_exc()
+
+    # def fork_down(self) -> None:
+    #     command = (
+    #         "ros2 service call /byd/send_command "
+    #         "example_interfaces/srv/Command \"{command: 'down'}\""
+    #     )
+    #     try:
+    #         subprocess.call(command, shell=True)
+    #     except Exception as error:
+    #         self._logger.error(f"fork_down subprocess failed: {error}")
+    #         traceback.print_exc()
     def fork_up(self) -> None:
         command = (
-            "ros2 service call /byd/send_command "
-            "example_interfaces/srv/Command \"{command: 'up'}\""
+            "ros2 service call /set_lift_height "
+            "bopt_interfaces/srv/SetLiftHeight "
+            "\"{height: 0.095}\""
         )
         try:
             subprocess.call(command, shell=True)
@@ -51,10 +73,12 @@ class ActionHandler(RsManeuverMixin):
             self._logger.error(f"fork_up subprocess failed: {error}")
             traceback.print_exc()
 
+
     def fork_down(self) -> None:
         command = (
-            "ros2 service call /byd/send_command "
-            "example_interfaces/srv/Command \"{command: 'down'}\""
+            "ros2 service call /set_lift_height "
+            "bopt_interfaces/srv/SetLiftHeight "
+            "\"{height: 0.0}\""
         )
         try:
             subprocess.call(command, shell=True)
