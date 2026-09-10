@@ -97,7 +97,7 @@ class LidarClusteringNodeRight(Node):
         self.cluster_pub = self.create_publisher(String, 'map1', 10)  # Publishes cluster info
         self.subscription = self.create_subscription(
             LaserScan,
-            '/Lidar_RFTU',  # Right LIDAR topic
+            '/lidar/front/right/scan',  # Right LIDAR topic
             self.lidar_callback,
             10
         )
@@ -303,7 +303,7 @@ class LidarClusteringNodeLeft(Node):
         self.cluster_pub = self.create_publisher(String, 'map2', 10)  # Publishes cluster info
         self.subscription = self.create_subscription(
             LaserScan,
-            '/Lidar_LFTU',  # Left LIDAR topic
+            '/lidar/front/left/scan',  # Left LIDAR topic
             self.lidar_callback,
             10
         )
