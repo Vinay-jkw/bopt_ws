@@ -15,6 +15,7 @@
 #include "std_msgs/msg/float64.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "bopt_interfaces/msg/bopt_command_stamped.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 
@@ -67,6 +68,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr velocity_subscriber_;
+    rclcpp::Subscription<bopt_interfaces::msg::BoptCommandStamped>::SharedPtr bopt_cmd_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr safety_turnoff_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr pickdrop_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mqtt_status_subscriber_;

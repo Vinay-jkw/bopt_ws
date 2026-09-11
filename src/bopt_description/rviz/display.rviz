@@ -14,16 +14,8 @@ Panels:
         - /LaserScan1
         - /Odometry1
         - /Odometry2
-        - /Marker1
-        - /Marker2
-        - /Marker3
-        - /Marker4
-        - /Marker5
-        - /Marker6
         - /Marker7
         - /Marker8
-        - /Marker9
-        - /Marker10
       Splitter Ratio: 0.5
     Tree Height: 542
   - Class: rviz_common/Selection
@@ -445,20 +437,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        danger_zone: true
-      Topic:
-        Depth: 10
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Best Effort
-        Value: /visualization_marker_1_danger
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        danger_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -471,7 +450,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        warning_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -484,7 +463,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        warning_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -497,7 +476,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        warning_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -510,7 +489,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        danger_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -523,7 +502,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        warning_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -536,71 +515,32 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        danger_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /visualization_marker_5_danger
+        Value: /visualization_marker_ds
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Marker
       Namespaces:
-        danger_zone: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /visualization_marker_6_danger
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        warning_zone: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_6_warning
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        danger_zone: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_3_danger
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        warning_zone: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_3_warning
+        Value: /visualization_marker_pap
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_footprint
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -642,7 +582,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -4.390007495880127
+      Angle: -3.5750036239624023
       Class: rviz_default_plugins/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -652,11 +592,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 98.99797058105469
+      Scale: 93.76107788085938
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: 2.897972822189331
-      Y: 0.2111348807811737
+      X: 9.904708862304688
+      Y: 13.373116493225098
     Saved: ~
 Window Geometry:
   Displays:

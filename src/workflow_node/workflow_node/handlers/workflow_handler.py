@@ -278,14 +278,14 @@ class WorkflowHandler(Node):
 
         self.get_logger().info("Movement complete.")
 
-        # try:
-        #     self.action_handler.action_operation(self.action)
-        # except Exception as error:
-        #     self.get_logger().error(f"action_operation failed: {error}")
-        #     traceback.print_exc()
-        #     return False
+        try:
+            self.action_handler.action_operation(self.action)
+        except Exception as error:
+            self.get_logger().error(f"action_operation failed: {error}")
+            traceback.print_exc()
+            return False
 
-        # self.get_logger().info("Action complete.")
+        self.get_logger().info("Action complete.")
 
         if self.state.error_status is None:
             try:

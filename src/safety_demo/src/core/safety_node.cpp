@@ -88,6 +88,14 @@ SafetyNode::SafetyNode(const std::vector<std::string> &lidar_topics)
         velocity_controller_->updateVelocity(msg);
       });
 
+  bopt_cmd_subscriber_ =
+      create_subscription<bopt_interfaces::msg::BoptCommandStamped>(
+          "bopt/relay_cmd", 10,
+          [this](
+              const bopt_interfaces::msg::BoptCommandStamped::SharedPtr msg) {
+            velocity_controller_->updateBoptCommand(msg);
+          });
+
   safety_turnoff_subscriber_ = create_subscription<std_msgs::msg::String>(
       "safety_turnoff", 10,
       std::bind(&SafetyNode::safetyTurnoffCallback, this,
@@ -310,6 +318,15 @@ void SafetyNode::processLidarScan(
     }
     for (auto &pt : warning_polygon) {
       pt.first = -pt.first;
+    }
+  }
+  if (lidar_id == 4) {
+    for (auto &point : danger_polygon) {
+      point.first -= 1.2;
+    }
+
+    for (auto &point : warning_polygon) {
+      point.first -= 1.4;
     }
   }
 
