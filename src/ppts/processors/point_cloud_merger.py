@@ -17,7 +17,7 @@ class PointCloudMerger(BaseProcessor):
         self,
         input_keys,
         output_key="merged_cloud",
-        output_frame="load_wheel_base_link",
+        output_frame="base_link",
         output_source="merged",
     ):
         self.input_keys = input_keys

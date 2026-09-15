@@ -52,7 +52,7 @@ def generate_launch_description():
 
     yaw_arg = DeclareLaunchArgument(
         "yaw",
-        default_value="0.0"
+        default_value="3.14159"
     )
 
     robot_description = ParameterValue(

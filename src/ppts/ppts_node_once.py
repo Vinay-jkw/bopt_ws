@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import time
+from rclpy.time import Time
 import rclpy
 from rclpy.node import Node
 import pickle
@@ -82,6 +83,7 @@ class PPTSNode(Node):
     def _initialize_geometry(self):
         self._create_roi()
         self._create_tf()
+        self._wait_for_required_tf()
         self._create_transform_manager()
         self._create_processing_components()
 
@@ -127,7 +129,49 @@ class PPTSNode(Node):
         self.tf_listener = TransformListener(
             self.tf_buffer,
             self,
+            spin_thread=True
         )
+    def _wait_for_required_tf(self):
+        required = [
+            ("base_link", "front_lidar_frame_left"),
+            ("base_link", "front_lidar_frame_right"),
+        ]
+
+        timeout_sec = 10.0
+        start = self.get_clock().now()
+
+        for target_frame, source_frame in required:
+
+            self.get_logger().info(
+                f"Waiting for TF: {source_frame} -> {target_frame}"
+            )
+
+            while rclpy.ok():
+
+                try:
+                    self.tf_buffer.lookup_transform(
+                        target_frame,
+                        source_frame,
+                        Time()
+                    )
+
+                    self.get_logger().info(
+                        f"TF ready: {source_frame} -> {target_frame}"
+                    )
+                    break
+
+                except Exception:
+                    elapsed = (
+                        self.get_clock().now() - start
+                    ).nanoseconds / 1e9
+
+                    if elapsed > timeout_sec:
+                        raise RuntimeError(
+                            f"Timeout waiting for TF: "
+                            f"{source_frame} -> {target_frame}"
+                        )
+
+                    time.sleep(0.1)
 
     def _create_transform_manager(self):
         transform_config = self.config.input.transform
@@ -486,7 +530,7 @@ class PPTSNode(Node):
                 processor.process(self.ppts_context)
             self._log_pallet_detection()
             # self._publish_results()
-            # self._log_statistics()
+            self._log_statistics()
             self._save_ld(left_scan = self.ppts_context.left_scan, right_scan = self.ppts_context.right_scan, dataset_path = "/home/jkw/bopt_ws/lidar_dataset")
             self._pipeline_completed = True
 
@@ -499,7 +543,7 @@ class PPTSNode(Node):
                 f"Pipeline failed: {type(exc).__name__}: {exc}"
             )
         finally:
-            self.pipeline_completed = True
+            self._pipeline_completed = True
 
     def process_pipeline(self):
         self.process_pipeline_once()
@@ -727,32 +771,32 @@ class PPTSNode(Node):
             )
 
     def _log_pallet_detection(self):
-            detection = getattr(
-                self.ppts_context,
-                "pallet_detection",
-                None,
-            )
+        detection = getattr(
+            self.ppts_context,
+            "pallet_detection",
+            None,
+        )
 
-            if detection is None:
-                return
+        if detection is None:
+            return
 
-            self.get_logger().info(
-                f"Pallet Detection | "
-                f"detected={detection.detected} | "
-                f"score={detection.score:.3f} | "
-                f"detected_poles={detection.detected_poles} | "
-                f"expected_poles={detection.expected_poles} | "
-                f"row_a_count={detection.row_a_count} | "
-                f"row_b_count={detection.row_b_count} | "
-                f"x_deviation={detection.x_deviation} | "
-                f"y_deviation={detection.y_deviation} | "
-                f"orientation={detection.orientation}"
-            )
+        self.get_logger().info(
+            f"Pallet Detection | "
+            f"detected={detection.detected} | "
+            f"score={detection.score:.3f} | "
+            f"detected_poles={detection.detected_poles} | "
+            f"expected_poles={detection.expected_poles} | "
+            f"row_a_count={detection.row_a_count} | "
+            f"row_b_count={detection.row_b_count} | "
+            f"x_deviation={detection.x_deviation} | "
+            f"y_deviation={detection.y_deviation} | "
+            f"orientation={detection.orientation}"
+        )
 
-            self.get_logger().info(
-                f"Pallet Detection Result | "
-                f"reason={detection.reason}"
-            )
+        self.get_logger().info(
+            f"Pallet Detection Result | "
+            f"reason={detection.reason}"
+        )
 
 
 

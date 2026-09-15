@@ -10,7 +10,7 @@ from std_msgs.msg import Header, Bool
 
 class QuadrilateralPublisher(Node):
     def __init__(self):
-        super().__init__('quadrilateral_publisher')
+        super().__init__('forktip_lidar_ds')
 
         # Create a publisher for the Marker message
         self.marker_publisher = self.create_publisher(Marker, '/visualization_marker_ds', 10)
@@ -54,6 +54,8 @@ class QuadrilateralPublisher(Node):
         return inside
     
     def scan_callback(self, scan_msg):
+        if len(self.transformed_points) < 4:
+            return
         """Callback function for LaserScan messages."""
         points_inside = 0  # Counter for points inside the quadrilateral
         threshold = 2  # Set your threshold for how many points should be inside to publish True
@@ -61,7 +63,8 @@ class QuadrilateralPublisher(Node):
         # Iterate through every other range in the LaserScan message
         for i in range(0, len(scan_msg.ranges), 2):
             range_value = scan_msg.ranges[i]
-
+            if not math.isfinite(range_value):
+                continue
             # Calculate the angle for this scan point
             angle = scan_msg.angle_min + i * scan_msg.angle_increment
 
@@ -92,7 +95,19 @@ class QuadrilateralPublisher(Node):
     def publish_quadrilateral(self):
         try:
             # Lookup the transformation between right_forktip_laser and base_link
-            transform = self.tf_buffer.lookup_transform('base_link', 'front_lidar_frame_right', rclpy.time.Time())
+            if not self.tf_buffer.can_transform(
+                'base_link',
+                'front_lidar_frame_right',
+                rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.2)
+            ):
+                return
+
+            transform = self.tf_buffer.lookup_transform(
+                'base_link',
+                'front_lidar_frame_right',
+                rclpy.time.Time()
+            )
 
             # Create a Marker message for the quadrilateral
             marker = Marker()
@@ -112,7 +127,7 @@ class QuadrilateralPublisher(Node):
             marker.color.b = 0.0
             marker.color.a = 1.0  # Alpha (transparency)
 
-            base = 0.3
+            base = 0.2 + 0.43
             location_width = 0.96
             location_length = 0.3 + base
             
@@ -132,29 +147,26 @@ class QuadrilateralPublisher(Node):
             #     self.get_logger().info(f"Point: x={point.x}, y={point.y}, z={point.z}")
 
             # Transform the points to base_link frame
-            transformed_points = []
+           # Detection polygon remains in front_lidar_frame_right
+            self.transformed_points = points
+
+            # Transform only a copy for RViz
+            visual_points = []
+
             for point in points:
-                # Create a geometry_msgs/PointStamped from the point
                 point_stamped = PointStamped(
                     header=Header(frame_id='front_lidar_frame_right'),
                     point=point
                 )
-                # Transform the point
-                transformed_point_stamped = tf2_geometry_msgs.do_transform_point(point_stamped, transform)
-                
-                # Append the transformed point to the list
-                transformed_points.append(transformed_point_stamped.point)
 
-            # Log the transformed points after transformation
-            # self.get_logger().info("Transformed Points (base_link frame):")
-            # for point in transformed_points:
-            #     self.get_logger().info(f"Point: x={point.x}, y={point.y}, z={point.z}")
+                transformed_point_stamped = tf2_geometry_msgs.do_transform_point(
+                    point_stamped,
+                    transform
+                )
 
-            # Store the transformed points for later use
-            self.transformed_points = transformed_points
+                visual_points.append(transformed_point_stamped.point)
 
-            # Add the transformed points to the marker
-            marker.points = transformed_points
+            marker.points = visual_points
 
             # Publish the transformed marker
             self.marker_publisher.publish(marker)
