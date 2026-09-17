@@ -33,6 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'workflow_node = workflow_node.workflow_node:main',
+            'limit_switch_publisher = workflow_node.limit_switch_publisher:main',
         ],
     },
 )

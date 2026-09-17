@@ -141,6 +141,16 @@ def generate_launch_description():
             localization_launch
         ]
     )
+    limit_switch_node = Node(
+        package='workflow_node',
+        executable='limit_switch_publisher',
+        name='limit_switch_publisher',
+        output='screen',
+        parameters=[
+            {'use_sim_time': True}
+        ]
+    )
+
 
     return LaunchDescription([
         gui_arg,
@@ -149,6 +159,8 @@ def generate_launch_description():
 
         # BOPT controller stack
         controller_delayed,
+        limit_switch_node,
+
 
         # Sensors
         sensor_bridge,

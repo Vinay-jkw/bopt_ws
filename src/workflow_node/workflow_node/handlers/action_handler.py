@@ -418,21 +418,21 @@ class ActionHandler(RsManeuverMixin):
 
             
 
-            # try:
-            #     odot_state = get_current_odot_state()
-            #     self._logger.info(f"odot_state: {odot_state}")
-            # except RuntimeError as error:
-            #     self._logger.error(f"Could not read odot state: {error}")
-            #     traceback.print_exc()
-            #     return False
+            try:
+                odot_state = get_current_odot_state()
+                self._logger.info(f"odot_state: {odot_state}")
+            except RuntimeError as error:
+                self._logger.error(f"Could not read odot state: {error}")
+                traceback.print_exc()
+                return False
 
-            # # if '0' != odot_state[0] or '0' != odot_state[-1]:
-            # if '1' != odot_state[1]:
-            #     node.mqtt_node.publish2topic("machine/error/detected", "E012")
-            #     node.mqtt_node.publish2topic("machine/task/status", "Unable_To_Pickup")
-            #     state.error_status = "Unable_To_Pickup"
-            #     mvmt.drive_rs_path(node.dock_location, PROFILE_SLOW, adjust=False)
-            #     return False
+            # if '0' != odot_state[0] or '0' != odot_state[-1]:
+            if '1' != odot_state[1]:
+                node.mqtt_node.publish2topic("machine/error/detected", "E012")
+                node.mqtt_node.publish2topic("machine/task/status", "Unable_To_Pickup")
+                state.error_status = "Unable_To_Pickup"
+                mvmt.drive_rs_path(node.dock_location, PROFILE_SLOW, adjust=False)
+                return False
 
             node.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
 
