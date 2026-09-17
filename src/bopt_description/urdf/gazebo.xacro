@@ -145,6 +145,12 @@
         </physics>
     </gazebo>
 
+    <gazebo reference="limit_switch_bar_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+        <springStiffness>5.0</springStiffness>
+        <springReference>0.0</springReference>
+    </gazebo>
+
     <!-- ================================================================
          GAZEBO SENSOR PLUGINS
          ================================================================ -->
@@ -307,7 +313,7 @@
 
             <topic>$(arg robot_namespace)/camera/back</topic>
 
-            <gz_frame_id>depth_camera_back_optical</gz_frame_id>
+            <gz_frame_id>depth_camera_back</gz_frame_id>
 
             <camera>
                 <horizontal_fov>1.047198</horizontal_fov>

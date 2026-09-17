@@ -26,7 +26,7 @@ PALLET_SDF="$HOME/bopt_ws/src/bopt_description/models/pallet/model.sdf"
 # ------------------------------------------------------------
 
 PALLET_X="6.10"
-PALLET_Y="0.08"
+PALLET_Y="0.10"
 PALLET_Z="0.05"
 PALLET_YAW="0.0"
 

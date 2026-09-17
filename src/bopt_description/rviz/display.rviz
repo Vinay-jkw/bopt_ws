@@ -4,6 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /Map1/Topic1
       Splitter Ratio: 0.5
     Tree Height: 542
@@ -92,6 +93,15 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        depth_camera_back:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        depth_camera_back_optical:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         drive_wheel:
           Alpha: 1
           Show Axes: false
@@ -146,12 +156,17 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        toplidar_back:
+        toplidar_front:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        toplidar_front:
+        ultrasonic_link_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ultrasonic_link_right:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -185,6 +200,10 @@ Visualization Manager:
           Value: true
         caster_wheel_right:
           Value: true
+        depth_camera_back:
+          Value: true
+        depth_camera_back_optical:
+          Value: true
         drive_wheel:
           Value: true
         drive_wheel_Ass:
@@ -211,9 +230,11 @@ Visualization Manager:
           Value: true
         top3dl_link:
           Value: true
-        toplidar_back:
-          Value: true
         toplidar_front:
+          Value: true
+        ultrasonic_link_left:
+          Value: true
+        ultrasonic_link_right:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -233,6 +254,9 @@ Visualization Manager:
             caster_wheel_ass_right:
               caster_wheel_right:
                 {}
+            depth_camera_back:
+              depth_camera_back_optical:
+                {}
             drive_wheel_Ass:
               drive_wheel:
                 {}
@@ -251,13 +275,16 @@ Visualization Manager:
               {}
             top3dl_link:
               {}
-            toplidar_back:
-              {}
             toplidar_front:
               {}
+            ultrasonic_link_left:
+              {}
+            ultrasonic_link_right:
+              {}
         map:
-          odom:
-            {}
+          {}
+        odom:
+          {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -343,182 +370,10 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_2_danger
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_2_warning
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_1_warning
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_4_warning
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_4_danger
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_5_warning
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_ds
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /visualization_marker_pap
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz_default_plugins/LaserScan
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 0
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: LaserScan
-      Position Transformer: XYZ
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.019999999552965164
-      Style: Flat Squares
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /Lidar_RFT
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz_default_plugins/LaserScan
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 0
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: LaserScan
-      Position Transformer: XYZ
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.019999999552965164
-      Style: Flat Squares
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /Lidar_LFT
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_footprint
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -560,7 +415,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -1.5900042057037354
+      Angle: -1.57500422000885
       Class: rviz_default_plugins/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -570,11 +425,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 149.1769256591797
+      Scale: 41.545921325683594
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: -0.16502678394317627
-      Y: -0.039945393800735474
+      X: 3.4460196495056152
+      Y: 10.009315490722656
     Saved: ~
 Window Geometry:
   Displays:
