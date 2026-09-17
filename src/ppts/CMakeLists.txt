@@ -18,9 +18,8 @@ find_package(ament_cmake REQUIRED)
 
 install(
   PROGRAMS
-    ppts_node_once.py
-    run_pipeline.py
-    ppts_visualize_cluster.py
+  ppts_node_once.py
+  ppts_visualize_cluster.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -30,14 +29,14 @@ install(
 
 install(
   DIRECTORY
-    algorithms
-    config
-    detectors
-    processors
-    models
-    transforms
-    utils
-    visualization
+  algorithms
+  config
+  detectors
+  processors
+  models
+  transforms
+  utils
+  visualization
   DESTINATION lib/${PROJECT_NAME}
 )
 

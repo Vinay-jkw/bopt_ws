@@ -18,3 +18,4 @@ class PoleCandidate:
     shape_score: float = 0.0
 
     accepted: bool = False
+    pallet_pole: bool = False

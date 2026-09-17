@@ -1,3 +1,4 @@
+from launch.substitutions import local_substitution
 import math
 import pickle
 import subprocess
@@ -9,7 +10,7 @@ from workflow_node.constants import PROFILE_SLOW
 from workflow_node.handlers.fast_drive import FastDriveMixin
 from workflow_node.planners import rs_path_planner
 from workflow_node.states.current_location import get_current_pose
-from workflow_node.utils.math_utils import euclidean_distance
+from workflow_node.utils.math_utils import euclidean_distance, quaternion_to_angle_rad
 from workflow_node.utils.process_utils import run_command_with_retry
 
 
@@ -64,7 +65,117 @@ class MovementHandler(FastDriveMixin):
             self._logger.error(f"is_near_location failed: {error}")
             traceback.print_exc()
             return False
+    def drive_pp_path(        
+        self,
+        location: list,
+        drive_type: str,
+        adjust: bool = True,
+        MAX_SPEED: float = None,
+        parking: bool = False,
+    ) -> bool:
+        
+        try:
+            current_pose = get_current_pose()
+        except RuntimeError as error:
+            self._logger.error(f"drive_rs_path cannot get current pose: {error}")
+            traceback.print_exc()
+            return False
+        rx, ry = current_pose[0], current_pose[1]
+        robotO = quaternion_to_angle_rad(current_pose[2], current_pose[3]) 
+        rs_path_waypoints = []
 
+        for point in location:
+
+            x_local = point[0]
+            y_local = point[1]
+            yaw_local = point[3]
+
+            x_map = (
+                rx
+                + x_local * math.cos(robotO)
+                - y_local * math.sin(robotO)
+            )
+
+            y_map = (
+                ry
+                + x_local * math.sin(robotO)
+                + y_local * math.cos(robotO)
+            )
+
+            yaw_map = robotO + yaw_local
+
+            # Normalize yaw
+            yaw_map = math.atan2(
+                math.sin(yaw_map),
+                math.cos(yaw_map)
+            )
+
+            rs_path_waypoints.append(
+                (x_map, y_map, yaw_map, 0.3, 0.0)
+            )
+        rs_path = rs_path_planner.generate_rs_path(
+            current_pose,
+            rs_path_waypoints,
+            turn_radius=self.node.cfg.planner.turn_radius,
+            rev_drive=False,
+        )
+
+        rs_path_file = self.node.cfg.paths.rs_path_file
+        try:
+            with open(rs_path_file, 'wb') as f:
+                pickle.dump(rs_path, f)
+        except (OSError, pickle.PicklingError) as error:
+            self._logger.error(f"Failed to write RS path file '{rs_path_file}': {error}")
+            traceback.print_exc()
+            return False
+
+        nmpc_cmd = list(self.node.cfg.subprocesses.nmpc_controller)
+
+        try:
+            if MAX_SPEED is not None and parking:
+                self._logger.info(f"drive_rs_path: profile={drive_type}, max_speed={MAX_SPEED}, parking=True")
+                self.node.result1 = subprocess.run(
+                    nmpc_cmd + [
+                        "--profile", drive_type,
+                        "--path_file", rs_path_file,
+                        "--max_velocity", str(MAX_SPEED),
+                        "--parking", "True",
+                    ]
+                )
+            else:
+                self._logger.info(f"drive_rs_path: profile={drive_type}")
+                self.node.result1 = subprocess.run(
+                    nmpc_cmd + ["--profile", drive_type, "--path_file", rs_path_file]
+                )
+            self._logger.debug(f"nmpc stdout: {self.node.result1.stdout}")
+            self._logger.debug(f"nmpc stderr: {self.node.result1.stderr}")
+        except FileNotFoundError as error:
+            self._logger.error(f"nmpc_controller executable not found: {error}")
+            traceback.print_exc()
+            return False
+        except Exception as error:
+            self._logger.error(f"nmpc_controller subprocess failed (drive_type={drive_type}): {error}")
+            traceback.print_exc()
+            return False
+
+        if adjust:
+            pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
+                "--ros-args",
+                "-p", f"target_z:={location[2]}",
+                "-p", f"target_w:={location[3]}",
+            ]
+            try:
+                run_command_with_retry(
+                    pose_cmd,
+                    timeout=self.node.cfg.pose_correction.timeout,
+                    max_retries=self.node.cfg.pose_correction.max_retries,
+                    delay_between_retries=self.node.cfg.pose_correction.delay_between_retries,
+                )
+            except Exception as error:
+                self._logger.error(f"pose_correction failed after retries: {error}")
+                traceback.print_exc()
+
+        return True
     def drive_rs_path(
         self,
         location: list,

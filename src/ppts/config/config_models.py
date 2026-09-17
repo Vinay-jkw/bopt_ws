@@ -275,7 +275,7 @@ class PoleRowsConfig:
 @dataclass
 class LongitudinalSpacingConfig:
     expected: float = 0.46
-    tolerance: float = 0.08
+    tolerance: float = 0.80
 
 
 @dataclass

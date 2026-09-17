@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 
+from models.pallete_pole_input import PalletPoleInput
 from sensor_msgs.msg import LaserScan
 
 from models.point_cloud import PointCloud, ROICloud
@@ -9,7 +10,7 @@ from models.roi import ROI
 from models.pallete_perception import PalletDetectionResult
 from models.pallete_feature_set import PalletFeatureSet
 from models.pole_candidate import PoleCandidate
-
+from models.pallete_path import PalletPath
 @dataclass
 class PPTSContext:
     """
@@ -54,10 +55,19 @@ class PPTSContext:
     pallet_features: PalletFeatureSet = field(
             default_factory=PalletFeatureSet
         )
+    pallet_pole_input: PalletPoleInput = field(
+        default_factory=PalletPoleInput
+    )
     pallet_detection: PalletDetectionResult = field(
             default_factory=PalletDetectionResult
     )
+    # ----------------------------
+    # Planning Layer
+    # ----------------------------
 
+    pallet_path: PalletPath = field(
+        default_factory=PalletPath
+    )
     # ----------------------------
     # Tracking
     # ----------------------------

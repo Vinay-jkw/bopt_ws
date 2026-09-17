@@ -86,7 +86,6 @@ class QuadrilateralPublisher(Node):
 
         return points_inside
 
-
     def publish_boolean(self, publisher, points_inside, threshold=2):
         """Publish True if points_inside >= threshold, else False."""
         msg = Bool(data=(points_inside >= threshold))
@@ -118,9 +117,9 @@ class QuadrilateralPublisher(Node):
             marker.color.a = 1.0
 
             # Define PAP quadrilateral parameters
-            base = 0.37
-            location_width = 0.80
-            location_length = 0.55 + base
+            base = 0.42
+            location_width = 0.7
+            location_length = 0.45 + base
 
             # Define the 4 corners of the PAP quadrilateral in load_wheel_base_link frame
             points = [
@@ -135,7 +134,6 @@ class QuadrilateralPublisher(Node):
             transformed_points = self.transform_points(points, 'front_lidar_frame_right', transform)
             self.transformed_points_pap = transformed_points
             marker.points = transformed_points
-
 
             # Publish the PAP marker
             self.marker_publisher_pap.publish(marker)
@@ -181,6 +179,7 @@ class QuadrilateralPublisher(Node):
             transformed_points = self.transform_points(points, 'base_link', transform)
             self.transformed_points_ds = transformed_points
             marker.points = transformed_points
+
             # Publish the DS marker
             self.marker_publisher_ds.publish(marker)
 

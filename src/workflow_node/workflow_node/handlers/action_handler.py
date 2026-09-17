@@ -4,7 +4,7 @@ import subprocess
 import time
 import traceback
 from threading import Thread
-
+import math
 import numpy as np
 
 from workflow_node.constants import (
@@ -23,6 +23,7 @@ from workflow_node.states.current_location import get_current_pose
 from workflow_node.states.odot_state import get_current_odot_state
 from workflow_node.states.pap_status import get_pap_status
 from workflow_node.utils.process_utils import run_command_with_retry
+from workflow_node.planners import rs_path_planner
 
 
 class ActionHandler(RsManeuverMixin):
@@ -35,7 +36,7 @@ class ActionHandler(RsManeuverMixin):
     def __init__(self, node) -> None:
         self.node = node
         self._logger = node.get_logger()
-
+        self.path_file_path = "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path_pp_control.pkl"
     # ------------------------------------------------------------------
     # Fork control
     # ------------------------------------------------------------------
@@ -184,7 +185,7 @@ class ActionHandler(RsManeuverMixin):
         )
         return present, dx, dy, angle_rad
 
-    def ppts(self) -> tuple:
+    def ppts(self):
         """Run PPTS/lidar clustering once and parse the pallet detection result."""
 
         try:
@@ -215,102 +216,102 @@ class ActionHandler(RsManeuverMixin):
             traceback.print_exc()
             return None, None, None, None
 
-        stdout = result.stdout or ""
-        stderr = result.stderr or ""
+        # stdout = result.stdout or ""
+        # stderr = result.stderr or ""
 
-        self._logger.info(
-            f"ppts stdout:\n{stdout.strip()}"
-        )
+        # self._logger.info(
+        #     f"ppts stdout:\n{stdout.strip()}"
+        # )
 
-        self._logger.info(
-            f"ppts stderr:\n{stderr.strip()}"
-        )
+        # self._logger.info(
+        #     f"ppts stderr:\n{stderr.strip()}"
+        # )
 
-        # ROS logging normally appears in stderr.
-        output = f"{stdout}\n{stderr}"
+        # # ROS logging normally appears in stderr.
+        # output = f"{stdout}\n{stderr}"
 
-        # ==========================================================
-        # Parse current PPTS detection result
-        # ==========================================================
+        # # ==========================================================
+        # # Parse current PPTS detection result
+        # # ==========================================================
 
-        pattern = (
-            r'Pallet Detection\s*\|\s*'
-            r'detected=(?P<detected>\w+)\s*\|\s*'
-            r'score=(?P<score>[-\d.]+)\s*\|\s*'
-            r'detected_poles=(?P<detected_poles>\d+)\s*\|\s*'
-            r'expected_poles=(?P<expected_poles>\d+)\s*\|\s*'
-            r'row_a_count=(?P<row_a_count>\d+)\s*\|\s*'
-            r'row_b_count=(?P<row_b_count>\d+)\s*\|\s*'
-            r'x_deviation=(?P<x_deviation>[-\d.]+)\s*\|\s*'
-            r'y_deviation=(?P<y_deviation>[-\d.]+)\s*\|\s*'
-            r'orientation=(?P<orientation>[-\d.]+)'
-        )
+        # pattern = (
+        #     r'Pallet Detection\s*\|\s*'
+        #     r'detected=(?P<detected>\w+)\s*\|\s*'
+        #     r'score=(?P<score>[-\d.]+)\s*\|\s*'
+        #     r'detected_poles=(?P<detected_poles>\d+)\s*\|\s*'
+        #     r'expected_poles=(?P<expected_poles>\d+)\s*\|\s*'
+        #     r'row_a_count=(?P<row_a_count>\d+)\s*\|\s*'
+        #     r'row_b_count=(?P<row_b_count>\d+)\s*\|\s*'
+        #     r'x_deviation=(?P<x_deviation>[-\d.]+)\s*\|\s*'
+        #     r'y_deviation=(?P<y_deviation>[-\d.]+)\s*\|\s*'
+        #     r'orientation=(?P<orientation>[-\d.]+)'
+        # )
 
-        match = re.search(pattern, output)
-        reason_pattern = (
-            r'Pallet Detection Result\s*\|\s*'
-            r'reason=(?P<reason>.*)'
-        )
+        # match = re.search(pattern, output)
+        # reason_pattern = (
+        #     r'Pallet Detection Result\s*\|\s*'
+        #     r'reason=(?P<reason>.*)'
+        # )
 
-        reason_match = re.search(reason_pattern, output)
+        # reason_match = re.search(reason_pattern, output)
 
-        reason = None
+        # reason = None
 
-        if reason_match:
-            reason = reason_match.group("reason").strip()
-        if not match:
-            self._logger.error(
-                "PPTS: PPTS output did not contain a valid "
-                "'Pallet Detection' result."
-            )
+        # if reason_match:
+        #     reason = reason_match.group("reason").strip()
+        # if not match:
+        #     self._logger.error(
+        #         "PPTS: PPTS output did not contain a valid "
+        #         "'Pallet Detection' result."
+        #     )
 
-            self._logger.error(
-                f"Raw output:\n{output}"
-            )
+        #     self._logger.error(
+        #         f"Raw output:\n{output}"
+        #     )
 
-            return None, None, None, None
+        #     return None, None, None, None
 
-        detected = match.group("detected").lower() == "true"
+        # detected = match.group("detected").lower() == "true"
 
-        score = float(match.group("score"))
-        detected_poles = int(match.group("detected_poles"))
-        expected_poles = int(match.group("expected_poles"))
+        # score = float(match.group("score"))
+        # detected_poles = int(match.group("detected_poles"))
+        # expected_poles = int(match.group("expected_poles"))
 
-        x_deviation = float(match.group("x_deviation"))
-        y_deviation = float(match.group("y_deviation"))
-        orientation = float(match.group("orientation"))
+        # x_deviation = float(match.group("x_deviation"))
+        # y_deviation = float(match.group("y_deviation"))
+        # orientation = float(match.group("orientation"))
 
-        # ==========================================================
-        # No pallet
-        # ==========================================================
+        # # ==========================================================
+        # # No pallet
+        # # ==========================================================
 
-        if not detected:
-            self._logger.info(
-                f"PPTS: no pallet detected — "
-                f"poles={detected_poles}/{expected_poles}, "
-                f"score={score:.3f}, "
-                f"reason={reason}"
-            )
+        # if not detected:
+        #     self._logger.info(
+        #         f"PPTS: no pallet detected — "
+        #         f"poles={detected_poles}/{expected_poles}, "
+        #         f"score={score:.3f}, "
+        #         f"reason={reason}"
+        #     )
 
-            return None, None, None, None
+        #     return None, None, None, None
 
-        # ==========================================================
-        # Pallet detected
-        # ==========================================================
+        # # ==========================================================
+        # # Pallet detected
+        # # ==========================================================
 
-        self._logger.info(
-            f"PPTS: pallet detected — "
-            f"dx={x_deviation:.3f}m, "
-            f"dy={y_deviation:.3f}m, "
-            f"angle={orientation:.3f}rad"
-        )
+        # self._logger.info(
+        #     f"PPTS: pallet detected — "
+        #     f"dx={x_deviation:.3f}m, "
+        #     f"dy={y_deviation:.3f}m, "
+        #     f"angle={orientation:.3f}rad"
+        # )
 
-        return (
-            "Yes",
-            x_deviation,
-            y_deviation,
-            orientation,
-        )
+        # return (
+        #     "Yes",
+        #     x_deviation,
+        #     y_deviation,
+        #     orientation,
+        # )
     # ------------------------------------------------------------------
     # Main action dispatcher
     # ------------------------------------------------------------------
@@ -388,9 +389,21 @@ class ActionHandler(RsManeuverMixin):
                 self._logger.error(f"pose_correction subprocess failed: {error}")
                 traceback.print_exc()
 
-            present, dx, dy, dang = self.ppts()
-
-            if dx is None:
+            self.ppts()
+            with open(self.path_file_path, 'rb') as f:
+                self.pp_data = pickle.load(f)
+            if self.pp_data['valid'] is True:
+                # if abs(dx) >= cfg.thresholds.apds_dx_threshold + 30:
+                    # self._logger.info(f"In PP ")
+                    # self.pp_control(dx, dy, dang, node.dock_station_end_line[2:])
+                    # self.pp_control(dx)
+            # else:
+                self._logger.info(f"In Auto PP")
+                pp_path = self.pp_data['pallet_path']
+                self._logger.info(f"Generated PP pose path: {pp_path}")
+ 
+                mvmt.drive_pp_path(pp_path, PROFILE_PP, adjust=False)
+            else:
                 node.mqtt_node.publish2topic("machine/error/detected", "E002")
                 node.mqtt_node.publish2topic("machine/task/status", "Pallet_Not_Present")
                 state.error_status = "Pallet_Not_Present"
@@ -403,28 +416,23 @@ class ActionHandler(RsManeuverMixin):
                     traceback.print_exc()
                 return True
 
-            if abs(dx) >= cfg.thresholds.apds_dx_threshold:
-                self._logger.info(f"In PP {dx}")
-                self.pp_control(dx, dy, dang, node.dock_station_end_line[2:])
-                # self.pp_control(dx)
-            else:
-                mvmt.drive_rs_path(node.dock_station_end_line, PROFILE_PP, adjust=False)
+            
 
-            try:
-                odot_state = get_current_odot_state()
-                self._logger.info(f"odot_state: {odot_state}")
-            except RuntimeError as error:
-                self._logger.error(f"Could not read odot state: {error}")
-                traceback.print_exc()
-                return False
+            # try:
+            #     odot_state = get_current_odot_state()
+            #     self._logger.info(f"odot_state: {odot_state}")
+            # except RuntimeError as error:
+            #     self._logger.error(f"Could not read odot state: {error}")
+            #     traceback.print_exc()
+            #     return False
 
-            # if '0' != odot_state[0] or '0' != odot_state[-1]:
-            if '1' != odot_state[1]:
-                node.mqtt_node.publish2topic("machine/error/detected", "E012")
-                node.mqtt_node.publish2topic("machine/task/status", "Unable_To_Pickup")
-                state.error_status = "Unable_To_Pickup"
-                mvmt.drive_rs_path(node.dock_location, PROFILE_SLOW, adjust=False)
-                return False
+            # # if '0' != odot_state[0] or '0' != odot_state[-1]:
+            # if '1' != odot_state[1]:
+            #     node.mqtt_node.publish2topic("machine/error/detected", "E012")
+            #     node.mqtt_node.publish2topic("machine/task/status", "Unable_To_Pickup")
+            #     state.error_status = "Unable_To_Pickup"
+            #     mvmt.drive_rs_path(node.dock_location, PROFILE_SLOW, adjust=False)
+            #     return False
 
             node.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
 

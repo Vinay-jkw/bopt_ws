@@ -358,19 +358,8 @@ class PalletFeatureProcessor(BaseProcessor):
         clusters,
     ):
         """
-        Separate clusters into two pallet rows.
-
-        The pallet orientation is first estimated from
-        nearest-neighbor cluster directions.
-
-        Cluster centroids are then transformed into the
-        pallet coordinate frame:
-
-            local X -> along pallet rows
-            local Y -> across pallet rows
-
-        The largest gap in local Y is used to separate
-        the two rows.
+        Separate clusters into two pallet rows using
+        the pallet coordinate frame.
         """
 
         if len(clusters) < 2:
@@ -388,7 +377,7 @@ class PalletFeatureProcessor(BaseProcessor):
         sin_angle = np.sin(angle)
 
         # --------------------------------------------------
-        # Transform clusters into pallet coordinates
+        # Transform cluster centroids
         # --------------------------------------------------
 
         local_clusters = []
@@ -403,7 +392,6 @@ class PalletFeatureProcessor(BaseProcessor):
                 cluster.centroid[1]
             )
 
-            # Rotate global coordinates into pallet frame.
             local_x = (
                 cos_angle * x
                 + sin_angle * y
@@ -431,20 +419,19 @@ class PalletFeatureProcessor(BaseProcessor):
         )
 
         # --------------------------------------------------
-        # Extract local Y values
+        # Get local Y values
         # --------------------------------------------------
 
         local_y_values = np.array(
             [
                 local_y
-                for _, _, local_y
-                in local_clusters
+                for _, _, local_y in local_clusters
             ],
             dtype=np.float32,
         )
 
         # --------------------------------------------------
-        # Find largest gap between the two rows
+        # Find largest gap
         # --------------------------------------------------
 
         gaps = np.diff(
@@ -459,7 +446,7 @@ class PalletFeatureProcessor(BaseProcessor):
         )
 
         # --------------------------------------------------
-        # Split into rows
+        # Split
         # --------------------------------------------------
 
         row_a_data = local_clusters[
@@ -490,7 +477,7 @@ class PalletFeatureProcessor(BaseProcessor):
             return clusters, []
 
         # --------------------------------------------------
-        # Calculate row centers in local Y
+        # Row separation
         # --------------------------------------------------
 
         row_a_y = float(
@@ -518,7 +505,7 @@ class PalletFeatureProcessor(BaseProcessor):
         )
 
         # --------------------------------------------------
-        # Validate row separation
+        # Validate separation
         # --------------------------------------------------
 
         if row_separation < self.row_tolerance:

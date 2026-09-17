@@ -1,0 +1,698 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="bopt_robot">
+
+    <xacro:arg name="robot_name" default=""/>
+    <xacro:arg name="robot_namespace" default=""/>
+    <xacro:arg name="lidar_frame" default="top3dl_link"/>
+    <xacro:arg name="robot_param_node" default="robot_state_publisher"/>
+
+    <xacro:property name="robot_name" value="$(arg robot_name)"/>
+    <xacro:include filename="materials.xacro"/>
+    <xacro:include filename="ros2_control.xacro"/>
+    <xacro:include filename="gazebo.xacro"/>
+
+    <!-- ================================================================
+         BASE LINKS
+         ================================================================ -->
+
+    <link name="base_footprint"/>
+
+    <!-- Base chassis link -->
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_base.stl"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_base.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 -0.2500" rpy="0 0 0"/>
+            <mass value="200.0"/>
+            <inertia ixx="3.46" ixy="0.0" ixz="0.0"
+                     iyy="7.73" iyz="0.0"
+                     izz="9.06"/>
+        </inertial>
+    </link>
+
+    <joint name="base_footprint_joint" type="fixed">
+        <parent link="base_footprint"/>
+        <child link="base_link"/>
+        <origin xyz="-1.542 0 0.337" rpy="0 0 0"/>
+    </joint>
+
+    <!-- ================================================================
+         DRIVE WHEEL ASSEMBLY (Steering + Drive)
+         ================================================================ -->
+
+    <!-- Drive wheel steering assembly -->
+    <link name="drive_wheel_Ass">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_drive_wheel_ass.stl"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_drive_wheel_ass.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="5.0"/>called an in-wheel sensor, w
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="drive_wheel_Ass_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="drive_wheel_Ass"/>
+        <origin xyz="0 0 -0.0010" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-3.14159" upper="3.14159" effort="1000" velocity="2"/>
+        <dynamics damping="6" friction="0.1"/>
+    </joint>
+
+    <!--imu link -->
+    <link name="imu_link">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0"/>
+            <mass value="0.01"/>
+            <inertia ixx="0.02" iyy="0.02" izz="0.02"
+                    ixy="0" ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+
+    <joint name="imu_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="imu_link"/>
+        <origin xyz="0 0 0"/>
+    </joint>
+
+    <!-- Drive wheel -->
+    <link name="drive_wheel">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_drive_wheel.stl"/>
+            </geometry>
+            <material name="rubber_black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <cylinder radius="0.115" length="0.074"/>
+            </geometry>
+            <surface>
+                <friction>
+                    <ode>
+                        <mu>5.0</mu>
+                        <mu2>5.0</mu2>
+                    </ode>
+                </friction>
+            </surface>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="10.0"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+                     iyy="0.02" iyz="0.0"
+                     izz="0.02"/>
+        </inertial>
+    </link>
+
+    <joint name="drive_wheel_joint" type="continuous">
+        <parent link="drive_wheel_Ass"/>
+        <child link="drive_wheel"/>
+        <origin xyz="0 0 -0.21916" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="10" friction="6"/>
+    </joint>
+
+
+    <!-- ================================================================
+         CASTER WHEEL ASSEMBLIES
+         ================================================================ -->
+
+    <!-- Caster assembly - right -->
+    <link name="caster_wheel_ass_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_caster_wheel_ass.stl"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_caster_wheel_ass.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="2.0"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+                     iyy="0.02" iyz="0.0"
+                     izz="0.02"/>
+        </inertial>
+    </link>
+
+    <joint name="caster_wheel_ass_joint_right" type="continuous">
+        <parent link="base_link"/>
+        <child link="caster_wheel_ass_right"/>
+        <origin xyz="0 -0.26066 -0.205" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <dynamics damping="1" friction="0.01"/>
+    </joint>
+
+    <!-- Caster assembly - left -->
+    <link name="caster_wheel_ass_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_caster_wheel_ass.stl"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_caster_wheel_ass.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="2.0"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+                     iyy="0.02" iyz="0.0"
+                     izz="0.02"/>
+        </inertial>
+    </link>
+
+    <joint name="caster_wheel_ass_joint_left" type="continuous">
+        <parent link="base_link"/>
+        <child link="caster_wheel_ass_left"/>
+        <origin xyz="0 0.26066 -0.205" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <dynamics damping="1" friction="0.01"/>
+    </joint>
+
+    <!-- Caster wheel - right -->
+    <link name="caster_wheel_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_casster_wheel.stl"/>
+            </geometry>
+            <material name="rubber_black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <cylinder radius="0.050" length="0.055"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="1.8"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+                     iyy="0.02" iyz="0.0"
+                     izz="0.02"/>
+        </inertial>
+    </link>
+
+    <joint name="caster_wheel_joint_right" type="continuous">
+        <parent link="caster_wheel_ass_right"/>
+        <child link="caster_wheel_right"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="10" friction="6"/>
+    </joint>
+
+    <!-- Caster wheel - left -->
+    <link name="caster_wheel_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_casster_wheel.stl"/>
+            </geometry>
+            <material name="rubber_black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <cylinder radius="0.050" length="0.055"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="1.8"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+                     iyy="0.02" iyz="0.0"
+                     izz="0.02"/>
+        </inertial>
+    </link>
+
+    <joint name="caster_wheel_joint_left" type="continuous">
+        <parent link="caster_wheel_ass_left"/>
+        <child link="caster_wheel_left"/>
+        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="10" friction="6"/>
+    </joint>
+
+
+    <!-- ================================================================
+         BOTTOM LIDAR SENSORS (rear corners)
+         ================================================================ -->
+
+    <!-- Bottom lidar - left rear -->
+    <link name="LLt">
+        <visual>
+            <origin xyz="0 0 -0.009" rpy="0 0 2.356"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="LLt_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="LLt"/>
+        <origin xyz="-0.1854 0.3704 -0.230" rpy="3.14 0 0"/>
+    </joint>
+
+    <!-- Bottom lidar - right rear -->
+    <link name="LRt">
+        <visual>
+            <origin xyz="0 0 -0.009" rpy="0 0 0.784"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="LRt_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="LRt"/>
+        <origin xyz="-0.1854 -0.3704 -0.230" rpy="3.14 0 0"/>
+    </joint>
+
+
+    <!-- ================================================================
+         TOP 2D LIDAR SENSORS
+         ================================================================ -->
+
+    <!-- Top 2D lidar - back -->
+    <link name="toplidar_back">
+        <visual>
+            <origin xyz="0 0 -0.005" rpy="0 0 1.5708"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="toplidar_joint_back" type="fixed">
+        <parent link="base_link"/>
+        <child link="toplidar_back"/>
+        <origin xyz="0.175 -0.0063 1.720" rpy="0 -0.45 0"/>
+    </joint>
+
+    <!-- Top 2D lidar - front -->
+    <link name="toplidar_front">
+        <visual>
+            <origin xyz="0 0 -0.003" rpy="0 0 -1.5708"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>     
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.2"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="toplidar_joint_front" type="fixed">
+        <parent link="base_link"/>
+        <child link="toplidar_front"/>
+        <origin xyz="0.288 -0.0063 1.66" rpy="0 0.47 0"/>
+    </joint>
+
+
+    <!-- ================================================================
+         TOP 3D LIDAR
+         ================================================================ -->
+
+    <link name="top3dl_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/3Dlidar.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.1"/>
+            </geometry>     
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="top3dl_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="top3dl_link"/>
+        <origin xyz="0.2356 0.00 2.0731" rpy="0 0 0"/>
+    </joint>
+
+    <!--front safety lidar-->
+
+    <link name="front_lidar_frame_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 -1.5708"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+        </inertial>
+    </link>
+
+    <joint name="front_lidar_frame_left_joint" type="fixed">
+        <parent link="front_lift_link"/>
+        <child link="front_lidar_frame_left"/>
+        <origin xyz="1.233 0.180 0.025" rpy="3.14 0 0"/>
+    </joint>
+
+    <link name="front_lidar_frame_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 -1.5708"/>
+            <geometry> 
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/lidar19.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.05 0.05 0.05"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+        </inertial>
+    </link>
+
+    <joint name="front_lidar_frame_right_joint" type="fixed">
+        <parent link="front_lift_link"/>
+        <child link="front_lidar_frame_right"/>
+        <origin xyz="1.233 -0.190 0.025" rpy="3.14 0 0"/>
+    </joint>
+
+
+
+    <!-- ================================================================
+         FRONT LIFT MECHANISM
+         ================================================================ -->
+
+    <link name="front_lift_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0.177 0 0" rpy="0 0 0"/>
+            <mass value="125"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0"
+                     iyy="2.0" iyz="0.0"
+                     izz="2.0"/>
+        </inertial>
+    </link>
+
+    <joint name="front_lift_joint" type="prismatic">
+        <parent link="base_link"/>
+        <child link="front_lift_link"/>
+        <origin xyz="0.477 0 -0.265" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="0" upper="0.095" effort="30000" velocity="0.05"/>
+        <dynamics damping="125" friction="15"/>
+    </joint>
+
+
+    <!-- ================================================================
+         FRONT WHEELS
+         ================================================================ -->
+
+    <!-- Front wheel shaft - left -->
+    <link name="front_wheel_shaft_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel_shaft.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel_shaft.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0.148 0 0" rpy="0 0 0"/>
+            <mass value="1"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="front_wheel_shaft_left_joint" type="revolute">
+        <parent link="front_lift_link"/>
+        <child link="front_wheel_shaft_left"/>
+
+        <origin xyz="0.9190 0.2485 0.0196"
+            rpy="0 0.259 0"/>
+
+        <axis xyz="0 1 0"/>
+
+        <limit lower="0"
+            upper="0.785"
+            effort="500000"
+            velocity="1"/>  
+
+        <dynamics damping="125.0"
+                friction="0.8"/>
+
+        <mimic joint="front_lift_joint"
+               multiplier="7.725"
+               offset="0"/>
+    </joint>
+
+
+    <!-- Front wheel shaft - right -->
+    <link name="front_wheel_shaft_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel_shaft.stl"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel_shaft.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0.148 0 0" rpy="0 0 0"/>
+            <mass value="1"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="front_wheel_shaft_right_joint" type="revolute">
+        <parent link="front_lift_link"/>
+        <child link="front_wheel_shaft_right"/>
+
+        <origin xyz="0.9190 -0.1205 0.0196"
+            rpy="0 0.259 0"/>
+
+        <axis xyz="0 1 0"/>
+
+        <limit lower="0"
+            upper="0.785"
+            effort="500000"
+            velocity="1"/>
+
+        <dynamics damping="125.0"
+                friction="0.8"/>
+
+        <mimic joint="front_lift_joint"
+            multiplier="7.725"
+            offset="0"/>
+    </joint>
+    <!-- Front wheel - right -->
+    <link name="front_wheel_right">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel.stl"/>
+            </geometry>
+            <material name="rubber_black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+                <cylinder radius="0.0425" length="0.110"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="5.0"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="front_wheel_right_joint" type="continuous">
+        <parent link="front_wheel_shaft_right"/>
+        <child link="front_wheel_right"/>
+        <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 -0.259 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="10" friction="6"/>
+    </joint>
+
+    <!-- Front wheel - left -->
+    <link name="front_wheel_left">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/extended_front_wheel.stl"/>
+            </geometry>
+            <material name="rubber_black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+            <geometry>
+               <cylinder radius="0.0425" length="0.110"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="5.0"/>
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                     iyy="0.01" iyz="0.0"
+                     izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="front_wheel_left_joint" type="continuous">
+        <parent link="front_wheel_shaft_left"/>
+        <child link="front_wheel_left"/>
+        <origin xyz="0.1488 -0.067 -0.0025435" rpy="0 -0.259 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="10" friction="6"/>
+    </joint>
+
+    
+    <xacro:ros2_control robot_name="$(arg robot_name)"/>
+
+</robot>

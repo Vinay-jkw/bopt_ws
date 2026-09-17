@@ -145,11 +145,12 @@ def _log_segment_diagnostics(current_pose, end_pose_tuple, tr, path) -> None:
 
 
 
-def generate_rs_path(start_pose, graph_path, turn_radius, rev_drive, SCALE=1):
+def generate_rs_path(start_pose: list[float], graph_path: list[list[float]], turn_radius: float, rev_drive: bool, SCALE: float = 1.0) -> list[list[float]]:
 
         rs_path_waypoints = []
         print('gp:::',graph_path)
         for waypoint in graph_path:
+            print('wp::',waypoint)
             if waypoint == graph_path[-1] and rev_drive == True:
                 rs_path_waypoints.append([waypoint[0]*SCALE, waypoint[1]*SCALE, quaternion_to_euler(waypoint[3], 0, 0, waypoint[2])[2], turn_radius, 0.0*SCALE])
             elif waypoint == graph_path[-1] and rev_drive == False:

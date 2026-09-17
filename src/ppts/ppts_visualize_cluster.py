@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
+from detectors.pallete_pole_algorithm import PalletPoleAlgorithm
+from processors.pallete_pole_processor import PalletPoleProcessor
 import rclpy
 from rclpy.node import Node
-
+import math
 from sensor_msgs.msg import LaserScan, PointCloud2
 from visualization_msgs.msg import MarkerArray
 from tf2_ros import Buffer, TransformListener
-
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 from models.enums import ClusterAlgorithm, TransformProviderType
 from models.ppts_context import PPTSContext
 
@@ -29,6 +32,7 @@ from processors.roi_filter_processor import ROIFilterProcessor
 from processors.pallete_feature_processor import PalletFeatureProcessor
 from processors.pallete_detection_processor import PalletDetectionProcessor
 from processors.pole_candidate_processor import PoleCandidateProcessor
+from processors.pallete_path_processor import PalletPathProcessor
 
 from transforms.transform_manager import TransformManager
 from transforms.tf_transform_provider import TFTransformProvider
@@ -37,7 +41,8 @@ from transforms.yaml_transform_provider import YAMLTransformProvider
 from visualization.cluster_visualizer import ClusterVisualizer
 from visualization.roi_visualizer import ROIVisualizer
 from visualization.point_cloud_visualizer import PointCloudVisualizer
-
+from visualization.pallete_path_visualizer import PalletPathVisualizer
+from detectors.pallete_path_detector import PalletPathAlgorithm
 from utils.roi_creation import ROIGenerator
 
 
@@ -101,7 +106,12 @@ class PPTSNode(Node):
         self.roi_visualizer = ROIVisualizer(
             frame_id=frame_id
         )
-
+        self.path_visualizer = PalletPathVisualizer(
+            frame_id = frame_id
+        )
+        self.path_visualizer = PalletPathVisualizer(
+            frame_id=frame_id
+        )
     def _initialize_pipeline(self):
         self.pipeline = self._build_pipeline()
 
@@ -185,7 +195,8 @@ class PPTSNode(Node):
             )
         )
         self.pallet_detector = self._create_pallet_detector()
-
+        self.pallet_path_algorithm = PalletPathAlgorithm()
+        self.pallet_pole_algorithm = PalletPoleAlgorithm()
     def _create_pallet_detector(self):
         return PalletDetector(
             expected_poles=(
@@ -229,8 +240,7 @@ class PPTSNode(Node):
                 .width
             ),
 
-            row_spacing_tolerance=0.05,
-            geometry_threshold = 0.50,
+            row_spacing_tolerance=0.12,
         )
 
     def _create_cluster_algorithm(self):
@@ -345,7 +355,16 @@ class PPTSNode(Node):
                         10,
                     )
                 )
-
+        self.path_marker_pub = self.create_publisher(
+            MarkerArray,
+            "/ppts/pallet_marker",
+            10,
+        )
+        self.path_pub = self.create_publisher(
+            Path,
+            "/ppts/pallet_path",
+            10,
+        )
     # ==========================================================
     # PIPELINE
     # ==========================================================
@@ -444,13 +463,27 @@ class PPTSNode(Node):
                 ),
             )
         )
-
+        pipeline.append(        
+            PalletPoleProcessor(
+                algorithm=self.pallet_pole_algorithm,
+                input_key= "pole_candidates",
+                feature_key= "pallet_features",
+                output_key= "pallet_pole_input",
+            )
+        )
         pipeline.append(
             PalletDetectionProcessor(
                 detector=self.pallet_detector,
-                input_key="pallet_features",
+                input_key="pallet_pole_input",
                 output_key="pallet_detection",
             )
+        )
+        pipeline.append(
+            PalletPathProcessor(
+                input_key="pallet_detection",
+                output_key="pallet_path",
+                algorithm=self.pallet_path_algorithm,
+            ),
         )
 
         return pipeline
@@ -463,17 +496,17 @@ class PPTSNode(Node):
         if not self._inputs_ready():
             return
 
-        try:
-            for processor in self.pipeline:
-                processor.process(self.ppts_context)
+        # try:
+        for processor in self.pipeline:
+            processor.process(self.ppts_context)
 
-            self._publish_results()
-            self._log_statistics()
+        self._publish_results()
+        self._log_statistics()
 
-        except Exception as exc:
-            self.get_logger().error(
-                f"Pipeline failed: {type(exc).__name__}: {exc}"
-            )
+        # except Exception as exc:
+        #     self.get_logger().error(
+        #         f"Pipeline failed: {type(exc).__name__}: {exc}"
+        #     )
 
     def _inputs_ready(self):
         return (
@@ -496,6 +529,8 @@ class PPTSNode(Node):
 
         if output.rois:
             self._publish_rois()
+        
+        self._publish_path()
 
     def _publish_point_clouds(self):
         clouds = (
@@ -551,7 +586,68 @@ class PPTSNode(Node):
                 self.ppts_context.rois
             )
         )
+    def _publish_path(self):
 
+        if self.path_pub is None:
+            empty_path = Path()
+            empty_path.header.stamp = self.get_clock().now().to_msg()
+            empty_path.header.frame_id = "map"
+
+            self.path_pub.publish(empty_path)
+            return
+
+        path = self.ppts_context.pallet_path
+
+        if path is None or not path.valid:
+            empty_path = Path()
+            empty_path.header.stamp = self.get_clock().now().to_msg()
+            empty_path.header.frame_id = "map"
+
+            self.path_pub.publish(empty_path)
+            return
+
+        marker_array = self.path_visualizer.create_markers(
+            path=path,
+            pallet_centroid=(
+                self.ppts_context
+                .pallet_detection
+                .centroid
+            ),
+            pallet_orientation=(
+                self.ppts_context
+                .pallet_detection
+                .orientation
+            ),
+        )
+
+        self.path_marker_pub.publish(marker_array)
+
+        nav_path = Path()
+
+        nav_path.header.stamp = self.get_clock().now().to_msg()
+        nav_path.header.frame_id = self.config.general.frame_id
+
+        for waypoint in path.waypoints:
+
+            pose = PoseStamped()
+
+            pose.header = nav_path.header
+
+            pose.pose.position.x = waypoint.x
+            pose.pose.position.y = waypoint.y
+            pose.pose.position.z = 0.0
+
+            pose.pose.orientation.z = math.sin(
+                waypoint.yaw / 2.0
+            )
+
+            pose.pose.orientation.w = math.cos(
+                waypoint.yaw / 2.0
+            )
+
+            nav_path.poses.append(pose)
+
+        self.path_pub.publish(nav_path)
     # ==========================================================
     # LOGGING
     # ==========================================================
@@ -603,16 +699,23 @@ class PPTSNode(Node):
                 )
 
     def _log_pole_candidates(self):
-        candidates = getattr(
+
+        pallet_pole_input = getattr(
             self.ppts_context,
-            "pole_candidates",
+            "pallet_pole_input",
             None,
         )
 
-        if candidates is None:
+        if pallet_pole_input is None:
+            return
+
+        candidates = pallet_pole_input.candidates
+
+        if not candidates:
             return
 
         for candidate in candidates:
+
             cluster = candidate.cluster
 
             self.get_logger().info(
@@ -621,6 +724,7 @@ class PPTSNode(Node):
                 f"quality={cluster.quality} | "
                 f"score={candidate.score:.3f} | "
                 f"accepted={candidate.accepted} | "
+                f"pallet_pole={candidate.pallet_pole} | "
                 f"points={candidate.point_score:.3f} | "
                 f"size={candidate.size_score:.3f} | "
                 f"aspect={candidate.aspect_score:.3f} | "
@@ -632,10 +736,16 @@ class PPTSNode(Node):
             for candidate in candidates
         )
 
+        pallet_pole_count = sum(
+            candidate.pallet_pole
+            for candidate in candidates
+        )
+
         self.get_logger().info(
             f"Pole Candidates | "
             f"total={len(candidates)} | "
-            f"accepted={accepted_count}"
+            f"accepted={accepted_count} | "
+            f"pallet_poles={pallet_pole_count}"
         )
 
     def _log_pallet_features(self):

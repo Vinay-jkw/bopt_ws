@@ -25,3 +25,18 @@ class BaseDetectorAlgorithm(
         Detect objects from processed perception data.
         """
         raise NotImplementedError
+
+class BasePathAlgorithm(
+    ABC,
+    Generic[InputType, OutputType],
+):
+
+    @abstractmethod
+    def generate(
+        self,
+        data: InputType,
+    ) -> OutputType:
+        """
+        Generate a path from the input perception result.
+        """
+        raise NotImplementedError

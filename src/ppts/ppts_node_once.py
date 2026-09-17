@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
-import time
-from rclpy.time import Time
+
+import pickle
+from ast import Tuple
+from ast import List
+from detectors.pallete_pole_algorithm import PalletPoleAlgorithm
+from processors.pallete_pole_processor import PalletPoleProcessor
 import rclpy
 from rclpy.node import Node
-import pickle
+import math
 from sensor_msgs.msg import LaserScan, PointCloud2
 from visualization_msgs.msg import MarkerArray
 from tf2_ros import Buffer, TransformListener
-import os
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 from models.enums import ClusterAlgorithm, TransformProviderType
 from models.ppts_context import PPTSContext
-from datetime import datetime
+
 from config.config_loader import PPTSConfig
 
 from algorithms.dbscan_cluster import DBSCANCluster
@@ -30,6 +35,7 @@ from processors.roi_filter_processor import ROIFilterProcessor
 from processors.pallete_feature_processor import PalletFeatureProcessor
 from processors.pallete_detection_processor import PalletDetectionProcessor
 from processors.pole_candidate_processor import PoleCandidateProcessor
+from processors.pallete_path_processor import PalletPathProcessor
 
 from transforms.transform_manager import TransformManager
 from transforms.tf_transform_provider import TFTransformProvider
@@ -38,9 +44,9 @@ from transforms.yaml_transform_provider import YAMLTransformProvider
 from visualization.cluster_visualizer import ClusterVisualizer
 from visualization.roi_visualizer import ROIVisualizer
 from visualization.point_cloud_visualizer import PointCloudVisualizer
-
+from visualization.pallete_path_visualizer import PalletPathVisualizer
+from detectors.pallete_path_detector import PalletPathAlgorithm
 from utils.roi_creation import ROIGenerator
-from utils.save_ld import Save_Lidar_Data
 
 class PPTSNode(Node):
     """
@@ -70,10 +76,9 @@ class PPTSNode(Node):
 
         self._initialize_geometry()
         self._initialize_ros_interfaces()
-        self._initialize_visualization()
         self._initialize_pipeline()
         self._pipeline_completed = False
-
+        self.path_file_path = "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path_pp_control.pkl"
         self.get_logger().info("PPTS geometry pipeline started")
 
     # ==========================================================
@@ -83,7 +88,6 @@ class PPTSNode(Node):
     def _initialize_geometry(self):
         self._create_roi()
         self._create_tf()
-        self._wait_for_required_tf()
         self._create_transform_manager()
         self._create_processing_components()
 
@@ -91,21 +95,21 @@ class PPTSNode(Node):
         self._create_subscribers()
         self._create_publishers()
 
-    def _initialize_visualization(self):
-        frame_id = self.config.general.frame_id
-
-        self.point_cloud_visualizer = PointCloudVisualizer(
-            frame_id=frame_id
-        )
-        self.cluster_visualizer = ClusterVisualizer(
-            frame_id=frame_id
-        )
-        self.roi_visualizer = ROIVisualizer(
-            frame_id=frame_id
-        )
-
     def _initialize_pipeline(self):
         self.pipeline = self._build_pipeline()
+
+    def _initialize_timer(self):
+        rate = self.config.general.processing_rate
+
+        if rate <= 0:
+            raise ValueError(
+                "general.processing_rate must be greater than zero"
+            )
+
+        self.timer = self.create_timer(
+            1.0 / rate,
+            self.process_pipeline,
+        )
 
     # ==========================================================
     # ROI
@@ -129,49 +133,7 @@ class PPTSNode(Node):
         self.tf_listener = TransformListener(
             self.tf_buffer,
             self,
-            spin_thread=True
         )
-    def _wait_for_required_tf(self):
-        required = [
-            ("base_link", "front_lidar_frame_left"),
-            ("base_link", "front_lidar_frame_right"),
-        ]
-
-        timeout_sec = 10.0
-        start = self.get_clock().now()
-
-        for target_frame, source_frame in required:
-
-            self.get_logger().info(
-                f"Waiting for TF: {source_frame} -> {target_frame}"
-            )
-
-            while rclpy.ok():
-
-                try:
-                    self.tf_buffer.lookup_transform(
-                        target_frame,
-                        source_frame,
-                        Time()
-                    )
-
-                    self.get_logger().info(
-                        f"TF ready: {source_frame} -> {target_frame}"
-                    )
-                    break
-
-                except Exception:
-                    elapsed = (
-                        self.get_clock().now() - start
-                    ).nanoseconds / 1e9
-
-                    if elapsed > timeout_sec:
-                        raise RuntimeError(
-                            f"Timeout waiting for TF: "
-                            f"{source_frame} -> {target_frame}"
-                        )
-
-                    time.sleep(0.1)
 
     def _create_transform_manager(self):
         transform_config = self.config.input.transform
@@ -216,7 +178,8 @@ class PPTSNode(Node):
             )
         )
         self.pallet_detector = self._create_pallet_detector()
-
+        self.pallet_path_algorithm = PalletPathAlgorithm()
+        self.pallet_pole_algorithm = PalletPoleAlgorithm()
     def _create_pallet_detector(self):
         return PalletDetector(
             expected_poles=(
@@ -261,8 +224,6 @@ class PPTSNode(Node):
             ),
 
             row_spacing_tolerance=0.12,
-            geometry_threshold = 0.60,
-
         )
 
     def _create_cluster_algorithm(self):
@@ -324,87 +285,13 @@ class PPTSNode(Node):
     # ==========================================================
     # PUBLISHERS
     # ==========================================================
-    def _save_ld(self, left_scan: LaserScan, right_scan: LaserScan, dataset_path: str):
-        import glob
-        os.makedirs(dataset_path, exist_ok=True)
-        existing_files = sorted(
-            glob.glob(os.path.join(dataset_path, "frame_*.pkl"))
-        )
-
-        frame_number = len(existing_files) + 1
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-
-        filename = os.path.join(
-            dataset_path,
-            f"BOPT002_frame_{timestamp}.pkl"
-        )
-
-        dataset = {
-            "left_scan": left_scan,
-            "right_scan": right_scan
-        }
-
-        with open(filename, "wb") as f:
-            pickle.dump(dataset, f)
-
-        self.get_logger().info(f"Dataset saved to {filename}")
-
-        self.saved = True
 
     def _create_publishers(self):
-        topics = self.config.input.topics
-        output = self.config.output.publish
-
-        self.left_cloud_pub = None
-        self.right_cloud_pub = None
-        self.merged_cloud_pub = None
-        self.cluster_pub = None
-        self.roi_pub = None
-
-        if output.point_cloud:
-            self.left_cloud_pub = self.create_publisher(
-                PointCloud2,
-                topics.left_cloud,
-                10,
-            )
-            self.right_cloud_pub = self.create_publisher(
-                PointCloud2,
-                topics.right_cloud,
-                10,
-            )
-            self.merged_cloud_pub = self.create_publisher(
-                PointCloud2,
-                topics.merged_cloud,
-                10,
-            )
-
-        if output.clusters:
-            self.cluster_pub = self.create_publisher(
-                MarkerArray,
-                topics.clusters,
-                10,
-            )
-
-        if output.rois:
-            self.roi_pub = self.create_publisher(
-                MarkerArray,
-                topics.rois,
-                10,
-            )
-
-        self.roi_cloud_publishers = {}
-
-        if output.point_cloud:
-            for roi in self.ppts_context.rois:
-                self.roi_cloud_publishers[roi.id] = (
-                    self.create_publisher(
-                        PointCloud2,
-                        f"/ppts/{roi.id}/cloud",
-                        10,
-                    )
-                )
-
+        self.path_marker_pub = self.create_publisher(
+            MarkerArray,
+            "/ppts/pallet_path",
+            10,
+        )
     # ==========================================================
     # PIPELINE
     # ==========================================================
@@ -503,16 +390,31 @@ class PPTSNode(Node):
                 ),
             )
         )
-
+        pipeline.append(        
+            PalletPoleProcessor(
+                algorithm=self.pallet_pole_algorithm,
+                input_key= "pole_candidates",
+                feature_key= "pallet_features",
+                output_key= "pallet_pole_input",
+            )
+        )
         pipeline.append(
             PalletDetectionProcessor(
                 detector=self.pallet_detector,
-                input_key="pallet_features",
+                input_key="pallet_pole_input",
                 output_key="pallet_detection",
             )
         )
+        pipeline.append(
+            PalletPathProcessor(
+                input_key="pallet_detection",
+                output_key="pallet_path",
+                algorithm=self.pallet_path_algorithm,
+            ),
+        )
 
         return pipeline
+    
 
     # ==========================================================
     # PIPELINE EXECUTION
@@ -528,12 +430,19 @@ class PPTSNode(Node):
         try:
             for processor in self.pipeline:
                 processor.process(self.ppts_context)
-            self._log_pallet_detection()
-            # self._publish_results()
-            self._log_statistics()
-            self._save_ld(left_scan = self.ppts_context.left_scan, right_scan = self.ppts_context.right_scan, dataset_path = "/home/jkw/bopt_ws/lidar_dataset")
-            self._pipeline_completed = True
 
+            self._log_pallet_detection()
+            self._pipeline_completed = True
+            data = {
+                    'pallet_path': [
+                        [wp.x, wp.y, 0.0, wp.yaw]
+                        for wp in self.ppts_context.pallet_path.waypoints
+                    ],
+                    'valid': self.ppts_context.pallet_path.valid,
+                    'reason': self.ppts_context.pallet_path.reason
+                }
+
+            self._save_path(data)
             self.get_logger().info(
                 "PPTS pipeline completed successfully. Shutting down."
             )
@@ -543,260 +452,77 @@ class PPTSNode(Node):
                 f"Pipeline failed: {type(exc).__name__}: {exc}"
             )
         finally:
-            self._pipeline_completed = True
+            self.pipeline_completed = True
 
     def process_pipeline(self):
         self.process_pipeline_once()
 
+    def _save_path(self, output) -> None:
+        try:
+            with open(self.path_file_path, 'wb') as file:
+                pickle.dump(output, file)
+        except Exception as e:
+            self.get_logger().error(f"Failed to save path: {e}")
+    
     def _inputs_ready(self):
         return (
             self.ppts_context.left_scan is not None
             and self.ppts_context.right_scan is not None
         )
+    def publish_visualization(self):
+        path = self.ppts_context.pallet_path
 
-    # ==========================================================
-    # PUBLISH RESULTS
-    # ==========================================================
+        if path is None or not path.valid:
+            empty_path = Path()
+            empty_path.header.stamp = self.get_clock().now().to_msg()
+            empty_path.header.frame_id = "map"
 
-    def _publish_results(self):
-        output = self.config.output.publish
-
-        if output.point_cloud:
-            self._publish_point_clouds()
-
-        if output.clusters:
-            self._publish_clusters()
-
-        if output.rois:
-            self._publish_rois()
-
-    def _publish_point_clouds(self):
-        clouds = (
-            ("left_cloud", self.left_cloud_pub),
-            ("right_cloud", self.right_cloud_pub),
-            ("merged_cloud", self.merged_cloud_pub),
-        )
-
-        for key, publisher in clouds:
-            cloud = getattr(self.ppts_context, key, None)
-
-            if cloud is None or publisher is None:
-                continue
-
-            publisher.publish(
-                self.point_cloud_visualizer.create_cloud_msg(cloud)
-            )
-
-        for roi_cloud in self.ppts_context.roi_clouds or []:
-            if roi_cloud.cloud is None:
-                continue
-
-            publisher = self.roi_cloud_publishers.get(roi_cloud.roi.id)
-
-            if publisher is None:
-                continue
-
-            publisher.publish(
-                self.point_cloud_visualizer.create_cloud_msg(
-                    roi_cloud.cloud
-                )
-            )
-
-    def _publish_clusters(self):
-        if not self.ppts_context.roi_clusters:
+            self.path_pub.publish(empty_path)
             return
 
-        if self.cluster_pub is None:
-            return
-
-        self.cluster_pub.publish(
-            self.cluster_visualizer.create_markers(
-                self.ppts_context.roi_clusters
-            )
+        marker_array = self.path_visualizer.create_markers(
+            path=path,
+            pallet_centroid=(
+                self.ppts_context
+                .pallet_detection
+                .centroid
+            ),
+            pallet_orientation=(
+                self.ppts_context
+                .pallet_detection
+                .orientation
+            ),
         )
 
-    def _publish_rois(self):
-        if not self.ppts_context.rois or self.roi_pub is None:
-            return
-
-        self.roi_pub.publish(
-            self.roi_visualizer.create_markers(
-                self.ppts_context.rois
-            )
-        )
-
-    # ==========================================================
-    # LOGGING
-    # ==========================================================
-
-    def _log_statistics(self):
-        left_points = self._cloud_size("left_cloud")
-        right_points = self._cloud_size("right_cloud")
-        merged_points = self._cloud_size("merged_cloud")
-        cluster_count = self._cluster_count()
-
-        self.get_logger().info(
-            f"Left: {left_points} | "
-            f"Right: {right_points} | "
-            f"Merged: {merged_points} | "
-            f"Clusters: {cluster_count}"
-        )
-
-        self._log_cluster_features()
-        self._log_pole_candidates()
-        self._log_pallet_features()
-        self._log_pallet_detection()
-
-    def _cloud_size(self, attribute):
-        cloud = getattr(self.ppts_context, attribute, None)
-        return cloud.size if cloud is not None else 0
-
-    def _cluster_count(self):
-        count = 0
-
-        for roi_cluster in self.ppts_context.roi_clusters or []:
-            count += len(roi_cluster.clusters or [])
-
-        return count
-
-    def _log_cluster_features(self):
-        for roi_cluster in self.ppts_context.roi_clusters or []:
-            for cluster in roi_cluster.clusters or []:
-                self.get_logger().info(
-                    f"Cluster {cluster.id} | "
-                    f"quality={cluster.quality} | "
-                    f"points={cluster.point_count} | "
-                    f"centroid={cluster.centroid} | "
-                    f"width={cluster.width:.3f} | "
-                    f"height={cluster.height:.3f} | "
-                    f"yaw={cluster.yaw:.3f} | "
-                    f"density={cluster.density:.2f} | "
-                    f"major={cluster.major_spread:.4f} | "
-                    f"minor={cluster.minor_spread:.4f}"
-                )
-
-    def _log_pole_candidates(self):
-        candidates = getattr(
-            self.ppts_context,
-            "pole_candidates",
-            None,
-        )
-
-        if candidates is None:
-            return
-
-        for candidate in candidates:
-            cluster = candidate.cluster
-
-            self.get_logger().info(
-                f"PoleCandidate | "
-                f"cluster={cluster.id} | "
-                f"quality={cluster.quality} | "
-                f"score={candidate.score:.3f} | "
-                f"accepted={candidate.accepted} | "
-                f"points={candidate.point_score:.3f} | "
-                f"size={candidate.size_score:.3f} | "
-                f"aspect={candidate.aspect_score:.3f} | "
-                f"shape={candidate.shape_score:.3f}"
-            )
-
-        accepted_count = sum(
-            candidate.accepted
-            for candidate in candidates
-        )
-
-        self.get_logger().info(
-            f"Pole Candidates | "
-            f"total={len(candidates)} | "
-            f"accepted={accepted_count}"
-        )
-
-    def _log_pallet_features(self):
-        pallet_features = getattr(
-            self.ppts_context,
-            "pallet_features",
-            None,
-        )
-
-        if pallet_features is None:
-            return
-
-        candidates = pallet_features.candidates
-        row_a = pallet_features.row_a
-        row_b = pallet_features.row_b
-
-        self.get_logger().info(
-            f"Pallet Features | "
-            f"candidates={len(candidates)} | "
-            f"row_a={len(row_a)} | "
-            f"row_b={len(row_b)} | "
-            f"row_a_order={[c.id for c in row_a]} | "
-            f"row_b_order={[c.id for c in row_b]}"
-        )
-
-        self.get_logger().info(
-            f"Pallet Geometry | "
-            f"centroid={pallet_features.centroid} | "
-            f"x_range=({pallet_features.min_x:.3f}, "
-            f"{pallet_features.max_x:.3f}) | "
-            f"y_range=({pallet_features.min_y:.3f}, "
-            f"{pallet_features.max_y:.3f})"
-        )
-
-        self.get_logger().info(
-            f"Pallet Spacing | "
-            f"row_a_gaps="
-            f"{[round(g, 3) for g in pallet_features.row_a_gaps]} | "
-            f"row_b_gaps="
-            f"{[round(g, 3) for g in pallet_features.row_b_gaps]} | "
-            f"row_a_spacing={pallet_features.row_a_spacing:.3f} | "
-            f"row_b_spacing={pallet_features.row_b_spacing:.3f} | "
-            f"row_spacing={pallet_features.row_spacing:.3f}"
-        )
-
-        for index, cluster in enumerate(row_a):
-            self.get_logger().info(
-                f"Pallet Row A [{index}] | "
-                f"id={cluster.id} | "
-                f"x={cluster.centroid[0]:.3f} | "
-                f"y={cluster.centroid[1]:.3f}"
-            )
-
-        for index, cluster in enumerate(row_b):
-            self.get_logger().info(
-                f"Pallet Row B [{index}] | "
-                f"id={cluster.id} | "
-                f"x={cluster.centroid[0]:.3f} | "
-                f"y={cluster.centroid[1]:.3f}"
-            )
-
+        self.path_marker_pub.publish(marker_array)
+    
     def _log_pallet_detection(self):
-        detection = getattr(
-            self.ppts_context,
-            "pallet_detection",
-            None,
-        )
+            detection = getattr(
+                self.ppts_context,
+                "pallet_detection",
+                None,
+            )
 
-        if detection is None:
-            return
+            if detection is None:
+                return
 
-        self.get_logger().info(
-            f"Pallet Detection | "
-            f"detected={detection.detected} | "
-            f"score={detection.score:.3f} | "
-            f"detected_poles={detection.detected_poles} | "
-            f"expected_poles={detection.expected_poles} | "
-            f"row_a_count={detection.row_a_count} | "
-            f"row_b_count={detection.row_b_count} | "
-            f"x_deviation={detection.x_deviation} | "
-            f"y_deviation={detection.y_deviation} | "
-            f"orientation={detection.orientation}"
-        )
+            self.get_logger().info(
+                f"Pallet Detection | "
+                f"detected={detection.detected} | "
+                f"score={detection.score:.3f} | "
+                f"detected_poles={detection.detected_poles} | "
+                f"expected_poles={detection.expected_poles} | "
+                f"row_a_count={detection.row_a_count} | "
+                f"row_b_count={detection.row_b_count} | "
+                f"x_deviation={detection.x_deviation} | "
+                f"y_deviation={detection.y_deviation} | "
+                f"orientation={detection.orientation}"
+            )
 
-        self.get_logger().info(
-            f"Pallet Detection Result | "
-            f"reason={detection.reason}"
-        )
+            self.get_logger().info(
+                f"Pallet Detection Result | "
+                f"reason={detection.reason}"
+            )
 
 
 

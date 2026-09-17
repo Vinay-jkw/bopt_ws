@@ -41,24 +41,24 @@ def save_points_to_json(before: np.ndarray, after: np.ndarray, lidar):
 
 def calculate_rois(b: float, l: float) -> List[Tuple[float, float, float, float]]:
     """
-    Calculate three Regions of Interest (ROIs) across the pallet width:
-     - left, center, right
+    Calculate two Regions of Interest (ROIs) across the pallet width:
+     - left, right
     ROI format: (xmin, xmax, ymin, ymax)
     """
     b2 = b / 2.0  # half breadth
-    lidar_offset = 0.3   # approximate y offset from lidar to pallet area
-    roi_width = 0.4      # width of each ROI in x
-    roi_height = l + 0.2 # y-range extent (tunable)
+    lidar_offset = 0.3   # approximate x offset from lidar to pallet area
+    roi_length = l + 0.2 # x-range extent (tunable)
+    roi_width = 0.4      # width of each ROI in y
 
-    # Centers for three columns: left, right
-    centers_x = [-b2 , b2]
+    # Centers for two pockets: left, right
+    centers_y = [b2 , -b2]
 
     rois = []
-    ymin = lidar_offset - 0.1
-    ymax = ymin + roi_height
-    for cx in centers_x:
-        xmin = cx - roi_width / 2.0
-        xmax = cx + roi_width / 2.0
+    xmin = lidar_offset - 0.1
+    xmax = xmin + roi_length
+    for cy in centers_y:
+        ymin = cy - roi_width / 2.0
+        ymax = cy + roi_width / 2.0
         rois.append((xmin, xmax, ymin, ymax))
 
     return rois
@@ -114,7 +114,7 @@ class LidarClusteringNodeRight(Node):
         if self.processed:
             return  # Already processed once, ignore further messages
 
-        rois = calculate_rois(0.80, 1.40)  # or adjust pallet size
+        rois = calculate_rois(0.80, 1.40)  # Standardized with left Lidar
         points = self.calculate_points(msg)
         self.roi_cluster_mapping = {i + 1: "No Data" for i in range(len(rois))}
 
@@ -598,16 +598,9 @@ class TwinLidarNode(Node):
         pallet_present = (clusters_detected >= 2)
 
         # 2) Middle offset (example: ROI #2 is "middle")
-        ideal_position = (0.0, 0.3)
-        # if len(combined_data) >= 2 and combined_data[1] is not None:
-        #     obs_x, obs_y = combined_data[1]
-        #     dx = obs_x - ideal_position[0]
-        #     dy = obs_y - ideal_position[1]
-        #     middle_offset = f"dx={dx:.2f}, dy={dy:.2f}"
-        # else:
-        #     middle_offset = "No Data"
+        ideal_position = (0.3, 0.0) # Forward 0.3m, centered on Y=0
 
-        # 3) Angle offset (example: using ROI #1 and ROI #3)
+        # 3) Angle offset (example: using ROI #1 and ROI #2)
         if len(combined_data) >= 2 and combined_data[0] is not None and combined_data[1] is not None:
             x1, y1 = combined_data[0]
             x3, y3 = combined_data[1]
@@ -615,13 +608,15 @@ class TwinLidarNode(Node):
             dx = obs_x - ideal_position[0]
             dy = obs_y - ideal_position[1]
             middle_offset = f"dx={dx:.2f}, dy={dy:.2f}"
-            if abs(x3 - x1) > 1e-9:
-                slope = (y3 - y1) / (x3 - x1)
+            
+            # slope based on X difference vs Y difference
+            if abs(y1 - y3) > 1e-9:
+                slope = (x1 - x3) / (y1 - y3)
                 angle_rad = np.arctan(slope)
                 angle_deg = np.degrees(angle_rad)
                 angle_offset = f"{angle_deg:.2f} degrees"
             else:
-                angle_offset = "90.00 degrees (vertical line)"
+                angle_offset = "90.00 degrees"
         else:
             angle_offset = "No Data"
             middle_offset = "No Data"

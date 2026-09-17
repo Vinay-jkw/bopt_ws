@@ -69,13 +69,19 @@ def generate_launch_description():
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/lidar/top3dl/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/lidar/front/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/lidar/back/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/camera/back/image@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/camera/back/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/camera/back/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+            '/camera/back/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/lidar/left/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/lidar/right/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/Lidar_LFT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/Lidar_RFT@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/ultrasonic/left/range@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/ultrasonic/right/range@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
         ],
         output='screen',
+        parameters=[{'use_sim_time': True}]
     )
 
 
