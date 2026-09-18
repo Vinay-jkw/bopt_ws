@@ -4,22 +4,43 @@ Welcome to the **BOPT (Battery Operated Pallet Truck)** ROS 2 workspace. This re
 
 ---
 
+## 🎯 Objective
+To develop a fully autonomous, robust, and scalable navigation and fleet management stack for the Battery Operated Pallet Truck (BOPT). The system aims to automate material handling in industrial environments by accurately localizing the robot, executing complex pick-and-drop pallet workflows via Reeds-Shepp path tracking and NMPC, reliably detecting pallets via lidar sensors, and integrating seamlessly with external Fleet Management Systems (FMS) over MQTT.
+
+## 📈 Current Progress & Achievements
+- **Simulation & Control**: Built an end-to-end simulation in Gazebo with an accurate reverse-tricycle drive and hydraulic forklift model. Implemented a robust modular controller stack (`bopt_controller`) for seamless transition between manual teleop and autonomous execution.
+- **Mapping & Localization**: Successfully implemented online SLAM using `slam_toolbox` and AMCL-based 2D localization. Fused Odometry, IMU (`wit_ros2_imu`), and LiDAR data via `robot_localization` (EKF) for high-accuracy pose estimation. Added pose correction mechanisms (`byd_pose_correction_node_cpp`).
+- **Autonomous Navigation & Workflow**: Developed an NMPC (Nonlinear Model Predictive Control) controller for precise trajectory tracking. Implemented a full mission orchestrator (`workflow_node`) capable of generating Reeds-Shepp paths, reading maps/graphs from a SQLite database, and managing pick-drop routines (`run_pick_drop_cycle.sh`).
+- **Perception**: Integrated an Automated Pallet Detection System (APDS) with dual LiDAR clustering (`lidar_clustering`, `forktip_lidar_detection`) to accurately detect pallet poses for alignment. Added hardware IMU drivers (`wit_ros2_imu`) to improve real-world localization and heading estimation.
+- **System Integration**: Setup MQTT bridging (`ros2_mqtt_bridge`) for live telemetry and remote task requests. Implemented robust TF trees and joint state publishing.
+
+## 🏆 Results & Outcomes
+- **Precision Tracking**: The NMPC controller ensures sub-centimeter accuracy when aligning the rear forks to the pallet.
+- **Reliable Workflows**: The robot successfully executes autonomous pick and drop cycles, seamlessly tracking and picking pallets based on task requests.
+- **Robust Localization**: IMU integration coupled with LiDAR/AMCL yields stable state estimation even in dynamic industrial conditions without wheel slip issues.
+- **Scalability**: The modular ros2_control architecture allows effortless deployment between Gazebo simulation and the actual physical hardware.
+
+---
+
 ## 📑 Table of Contents
-1. [System Architecture](#-system-architecture)
-2. [Packages Overview](#-packages-overview)
-3. [Prerequisites & Dependencies](#-prerequisites--dependencies)
-4. [Building the Workspace](#-building-the-workspace)
-5. [Quick Start & Launch Instructions](#-quick-start--launch-instructions)
+1. [Objective](#-objective)
+2. [Current Progress & Achievements](#-current-progress--achievements)
+3. [Results & Outcomes](#-results--outcomes)
+4. [System Architecture](#-system-architecture)
+5. [Packages Overview](#-packages-overview)
+6. [Prerequisites & Dependencies](#-prerequisites--dependencies)
+7. [Building the Workspace](#-building-the-workspace)
+8. [Quick Start & Launch Instructions](#-quick-start--launch-instructions)
    - [Full Simulation (Gazebo + RViz + Navigation)](#1-full-simulation-gazebo--rviz--navigation)
    - [Multi-Robot Simulation](#2-multi-robot-simulation)
    - [SLAM / Mapping Mode](#3-slam--mapping-mode)
    - [Standalone Localization](#4-standalone-localization)
    - [Mission Workflow & Fleet Management](#5-mission-workflow--fleet-management)
    - [Pallet Detection (APDS)](#6-pallet-detection-apds)
-6. [Keyboard Teleoperation (bopt_keyboard)](#-keyboard-teleoperation-bopt_keyboard)
-7. [ROS 2 Topics & Interface Map](#-ros-2-topics--interface-map)
-8. [Configuration & Environment Variables](#-configuration--environment-variables)
-9. [Troubleshooting](#-troubleshooting)
+9. [Keyboard Teleoperation (bopt_keyboard)](#-keyboard-teleoperation-bopt_keyboard)
+10. [ROS 2 Topics & Interface Map](#-ros-2-topics--interface-map)
+11. [Configuration & Environment Variables](#-configuration--environment-variables)
+12. [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -82,11 +103,18 @@ The workspace is organized into modular ROS 2 packages inside `src/`:
 | **`bopt_interfaces`** | CMake/ROS IDL | Custom ROS 2 message and service definitions (`BoptCommand`, `BoptCommandStamped`, `SetLiftHeight`). |
 | **`bopt_controller`** | Python | Modular control stack for reverse-tricycle drive and hydraulics (`bopt_key_node`, `bopt_hydraulic_controller`, `bopt_twist_relay`, `bopt_main_controller`), odometry estimation (`odometry_node`), and teleoperation (`teleop_keyboard`). |
 | **`bopt_localization`** | Python | Nav2 AMCL and Map Server lifecycle management for 2D map-based localization. |
+| **`bopt_localization_test`** | Python | Test utilities and launch scripts for validating localization and odometry parameters. |
 | **`bopt_mapping`** | Python | Online 2D SLAM utilizing `slam_toolbox` (async mode) and sensor fusion via `robot_localization` EKF. |
-| **`nmpc_controller`** | Python | Nonlinear Model Predictive Control path tracking nodes with lookup table acceleration for smooth pallet pickup, drop, and parking. |
-| **`workflow_node`** | Python | Mission orchestrator, SQLite database integration, graph waypoint traversal, Reeds-Shepp (RS) trajectory generation, and state machine. |
-| **`ros2_mqtt_bridge`** | Python | Bi-directional bridge connecting ROS 2 topics with MQTT for remote fleet coordination and telemetry. |
+| **`byd_pose_correction_node_cpp`** | C++ | C++ implementation for correcting estimated poses and drift handling. |
 | **`current_pose_fetch`** | Python | Utility node to sample and verify `/current_pose` topics with configurable QoS profiles. |
+| **`forktip_lidar_detection`** | Python | Specific detection nodes using forktip LiDAR for high-precision pallet engagement. |
+| **`load_transporter_node`** | Python | Logic for transporter mechanisms and load-handling state management. |
+| **`nmpc_controller`** | Python | Nonlinear Model Predictive Control path tracking nodes with lookup table acceleration for smooth pallet pickup, drop, and parking. |
+| **`ppts`** | Python | Path Planning and Tracking System modules and utilities. |
+| **`ros2_mqtt_bridge`** | Python | Bi-directional bridge connecting ROS 2 topics with MQTT for remote fleet coordination and telemetry. |
+| **`safety_demo`** | Python | Demonstration of safety stop protocols based on sensor fusion (LiDAR/obstacle detection). |
+| **`wit_ros2_imu`** | CMake/Python | Driver and ROS 2 launch integration for the WIT standard IMU to provide robust heading and acceleration data. |
+| **`workflow_node`** | Python | Mission orchestrator, SQLite database integration, graph waypoint traversal, Reeds-Shepp (RS) trajectory generation, and state machine. |
 | **`apds`** | Meta/Python | **Automated Pallet Detection System**: includes `lidar_rectifier` and `lidar_clustering` for detecting and estimating pallet orientations from 2D LiDAR scans. |
 
 ---
