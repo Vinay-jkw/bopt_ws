@@ -20,7 +20,7 @@ def generate_launch_description():
         name='imu',
         parameters=[
             {'port': '/dev/ttyUSB0'},
-            {'baud': 9600}
+            {'baud': 230400}
         ],
         output='screen'
     )

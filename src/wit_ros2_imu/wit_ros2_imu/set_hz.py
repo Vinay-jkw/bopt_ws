@@ -3,7 +3,7 @@ import time
  
 # Note: We are opening the port at your working 115200 speed now!
 SERIAL_PORT = '/dev/imu_wit'
-CURRENT_BAUD = 115200
+CURRENT_BAUD = 230400
  
 try:
     print(f"Opening port {SERIAL_PORT} at {CURRENT_BAUD} bps...")

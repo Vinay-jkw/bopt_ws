@@ -7,7 +7,7 @@ def send_command(ser, cmd_name, cmd_bytes):
     time.sleep(0.1)
 
 port = '/dev/ttyUSB0'
-baud = 9600
+baud = 230400
 
 ser = serial.Serial(port, baud, timeout=1)
 time.sleep(1)

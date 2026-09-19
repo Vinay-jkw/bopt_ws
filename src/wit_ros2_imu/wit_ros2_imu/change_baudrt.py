@@ -3,7 +3,7 @@ import time
  
 # Target device definition
 SERIAL_PORT = '/dev/imu_wit'
-INITIAL_BAUD = 9600
+INITIAL_BAUD = 230400
  
 try:
     print(f"Opening port {SERIAL_PORT} at {INITIAL_BAUD} bps...")
@@ -14,9 +14,9 @@ try:
     # Target address: 0x69 | Payload: 0x88, 0xB5
     unlock_cmd = bytes([0xFF, 0xAA, 0x69, 0x88, 0xB5])
     
-    # 2. CONFIG BAUD RATE TO 115200
-    # Target address: 0x04 (Baud control) | Payload: 0x06 (115200 mapping value)
-    baud_115200_cmd = bytes([0xFF, 0xAA, 0x04, 0x06, 0x00])
+    # 2. CONFIG BAUD RATE TO 230400
+    # Target address: 0x04 (Baud control) | Payload: 0x07 (230400 mapping value)
+    baud_230400_cmd = bytes([0xFF, 0xAA, 0x04, 0x07, 0x00])
     
     # 3. SAVE TO ONBOARD FLASH
     # Target address: 0x00 | Payload: 0x00, 0x00
@@ -27,8 +27,8 @@ try:
     ser.write(unlock_cmd)
     time.sleep(0.1)
     
-    print("Step 2: Writing new Baud Rate configuration (115200)...")
-    ser.write(baud_115200_cmd)
+    print("Step 2: Writing new Baud Rate configuration (230400)...")
+    ser.write(baud_230400_cmd)
     time.sleep(0.1)
     
     print("Step 3: Committing configurations permanently to Flash Memory...")

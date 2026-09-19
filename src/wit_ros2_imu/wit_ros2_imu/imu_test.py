@@ -70,7 +70,7 @@ class IMUParser:
         print("-" * 50)
 
 
-def read_imu(port="/dev/ttyUSB0", baud=115200):
+def read_imu(port="/dev/ttyUSB0", baud=230400):
     ser = serial.Serial(port, baud, timeout=0.1)
     parser = IMUParser()
 
@@ -98,4 +98,4 @@ def read_imu(port="/dev/ttyUSB0", baud=115200):
                 frame = []
 
 if __name__ == "__main__":
-    read_imu("/dev/ttyUSB0", 9600)
+    read_imu("/dev/ttyUSB0", 230400)

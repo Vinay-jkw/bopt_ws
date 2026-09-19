@@ -64,7 +64,7 @@ def calibrate_magnetic(port, baud):
 
 if __name__ == '__main__':
     PORT = '/dev/ttyUSB0'
-    BAUD = 9600 # Matching your current hardware speed
+    BAUD = 230400 # Matching your current hardware speed
     
     print("WIT-Motion IMU Calibration Utility")
     print("1. Accelerometer & Gyroscope (Zeroing)")

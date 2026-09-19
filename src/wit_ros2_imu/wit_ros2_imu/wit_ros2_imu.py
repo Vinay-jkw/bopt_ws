@@ -141,7 +141,7 @@ class IMUDriverNode(Node):
         self.imu_pub = self.create_publisher(Imu, 'imu/data', 10)
         
         self.declare_parameter('port', '/dev/ttyUSB0')
-        self.declare_parameter('baud', 115200)
+        self.declare_parameter('baud', 230400)
         self.port = self.get_parameter('port').value
         self.baud = self.get_parameter('baud').value
 
