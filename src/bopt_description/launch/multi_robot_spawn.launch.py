@@ -31,9 +31,9 @@ def spawn_robot_with_params(
     # ============================================================
 
     # Base map coordinates corresponding to Gazebo (0, 0, 0)
-    base_x = 6.89593
-    base_y = 10.5518
-    base_yaw = -0.0114491
+    base_x = 0.0
+    base_y = 0.0
+    base_yaw = 0.0
 
     # Add the individual robot's Gazebo spawn offset
     px = base_x + x
@@ -519,7 +519,10 @@ def generate_launch_description():
                 "launch",
                 "gazebo_model.launch.py",
             )
-        )
+        ),
+        launch_arguments={
+            "world_name": "fg_warehouse.world",
+        }.items(),
     )
 
     # ============================================================
@@ -558,7 +561,7 @@ def generate_launch_description():
     # CHANGE ONLY THIS
     # ============================================================
 
-    num_robots = 2
+    num_robots = 4
 
     actions = []
 

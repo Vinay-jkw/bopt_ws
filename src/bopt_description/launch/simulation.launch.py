@@ -167,7 +167,7 @@ def generate_launch_description():
         sensor_bridge,
 
         # Localization
-        # localization_delayed,
+        localization_delayed,
 
         # Visualization
         rviz,

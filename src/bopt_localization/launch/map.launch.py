@@ -9,9 +9,9 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 def generate_launch_description():
 
     map_path = PathJoinSubstitution([
-        get_package_share_directory("workflow_node"),
-        "map_details",
-        "Simulation_Map_amcl.yaml"
+        get_package_share_directory("bopt_localization"),
+        "maps",
+        "warehouse_fg_final_01.yaml"
     ])
 
     lifecycle_nodes = ["map_server"]

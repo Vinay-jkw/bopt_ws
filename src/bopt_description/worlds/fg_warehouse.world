@@ -87,7 +87,7 @@
 
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200 200</size>
             </plane>
 
           </geometry>
@@ -101,7 +101,7 @@
 
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>200 200</size>
             </plane>
 
           </geometry>
@@ -132,7 +132,7 @@
 
       <!-- Warehouse position and orientation -->
       <!-- Center the warehouse by offsetting its original coordinates -->
-      <pose>-4550.187 -4.0 0 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
 
       <link name="warehouse_link">
 
@@ -147,14 +147,8 @@
             <mesh>
 
               <uri>
-                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_map.stl
+                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_updated.stl
               </uri>
-
-              <!--
-                STL assumed to be in millimeters.
-                1 mm = 0.001 m
-              -->
-              <scale>0.001 0.001 0.001</scale>
 
             </mesh>
 
@@ -173,11 +167,8 @@
             <mesh>
 
               <uri>
-                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_map.stl
+                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_updated.stl
               </uri>
-
-              <!-- Same scale as collision -->
-              <scale>0.001 0.001 0.001</scale>
 
             </mesh>
 
