@@ -89,13 +89,20 @@ public:
      * @brief Load all LiDAR configurations from database
      * @return Map of topic name to LiDAR configuration
      */
-    std::map<std::string, LiDARConfig> loadLiDARConfigs();
+    std::map<std::string, std::vector<LiDARConfig>> loadLiDARConfigs();
 
     /**
      * @brief Get list of LiDAR topics from database
      * @return Vector of topic names
      */
     std::vector<std::string> getLidarTopics();
+
+    /**
+     * @brief Check if this topic has any policy
+     * @param topic Topic name
+     * @return has any policy in the table of given topic
+     */
+    bool hasAnyPolicyByTopic(std::string topic) const;
 
 private:
     sqlite3* db_;  ///< SQLite database handle

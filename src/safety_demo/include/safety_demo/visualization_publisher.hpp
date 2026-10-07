@@ -22,7 +22,7 @@ public:
      * @param node ROS2 node for creating publishers
      * @param lidar_configs Map of LiDAR configurations
      */
-    VisualizationPublisher(rclcpp::Node* node, const std::map<std::string, LiDARConfig>& lidar_configs);
+    VisualizationPublisher(rclcpp::Node* node, const std::map<std::string, std::vector<LiDARConfig>>& lidar_configs);
 
     /**
      * @brief Publish visualization markers for danger and warning zones
@@ -33,7 +33,7 @@ public:
      */
     void publishZoneMarkers(
         int lidar_id,
-        const std::string& topic,
+        const std::string& frame_id,
         const std::vector<std::pair<double, double>>& danger_polygon,
         const std::vector<std::pair<double, double>>& warning_polygon);
 

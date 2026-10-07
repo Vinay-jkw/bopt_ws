@@ -44,8 +44,21 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {"node_names": lifecycle_nodes},
-            {"autostart": True}
+            {"autostart": True},
+            {"use_sim_time": True}
         ],
+    )
+
+    current_pose_publisher = Node(
+        package="bopt_localization",
+        executable="current_pose_publisher",
+        name="current_pose_publisher",
+        output="screen",
+        parameters=[
+            {"use_sim_time": True},
+            {"base_frame": [robot_name, "/base_footprint"]},
+            {"map_frame": "map"}
+        ]
     )
 
     return LaunchDescription([
@@ -53,4 +66,5 @@ def generate_launch_description():
         amcl_config_arg,
         nav2_amcl,
         nav2_lifecycle_manager,
+        current_pose_publisher,
     ])

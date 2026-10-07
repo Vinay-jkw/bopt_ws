@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.8)
 project(safety_demo)
 
+# Default to an optimized build. Without this the per-scan geometry sweep is
+# compiled at -O0, which costs more than any amount of threading buys back.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Add compiler options for warnings and C++17 standard
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -std=c++17)
@@ -15,11 +21,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sqlite3_vendor REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(ament_index_cpp REQUIRED)
-find_package(bopt_interfaces REQUIRED)
+# Parallelizes the per-beam sweep in processLidarScan
+find_package(OpenMP REQUIRED)
 
 # Include directories
 include_directories(include)
@@ -43,16 +46,14 @@ ament_target_dependencies(safety_demo_lib
   nav_msgs
   sensor_msgs
   std_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-  ament_index_cpp
-  bopt_interfaces
 )
 
 # Link SQLiteCpp and sqlite3 libraries
+# OpenMP::OpenMP_CXX carries -fopenmp through to both this library's sources and
+# anything that links it
 target_link_libraries(safety_demo_lib
   sqlite3
+  OpenMP::OpenMP_CXX
 )
 
 # Add executable

@@ -90,7 +90,18 @@ source install/setup.bash
 ros2 run safety_demo safety_node_viz
 ```
 
-> The node reads `share/safety_demo/config/bopt_ws_body.db` relative to the working directory. Run from the workspace root.
+> The node reads `src/safety_demo/config/bopt_2000.db` relative to the working directory. Run from the workspace root.
+
+### Node with parameters
+
+Tunable parameters live in `config/safety_params.yaml`. Load them with `--params-file`:
+
+```bash
+ros2 run safety_demo safety_node_viz \
+    --ros-args --params-file src/safety_demo/config/safety_params.yaml
+```
+
+Without the flag the node uses the built-in defaults (which match the YAML).
 
 ---
 
@@ -127,10 +138,46 @@ ros2 run safety_demo safety_node_viz
 | --- | --- | --- |
 | `broker_disconnected` | MQTT timeout (> 2 s) or explicit `"disconnected"` message | Zero — emergency stop |
 | `danger` | ≥ 5 LiDAR points in a danger zone, or LiDAR timeout (> 5 s) | Zero — emergency stop |
-| `warning` | ≥ 5 LiDAR points in a warning zone | Reduced to 1/3 of commanded velocity |
+| `warning` | ≥ 5 LiDAR points in a warning zone | **Proximity-scaled** — slows continuously with obstacle distance |
 | `safe` | No obstacles detected, all systems healthy | Unmodified velocity passed through |
 
 If `safety_turnoff` is active, velocities are always published unmodified regardless of status.
+
+### Proximity-based velocity scaling
+
+Inside the warning zone, velocity is no longer cut by a flat 1/3. Instead the node finds
+the **closest obstacle point** across all LiDARs (the smallest sensor-to-point range that
+falls inside a warning polygon) and maps it to a speed multiplier with a linear ramp:
+
+```text
+closest_range ≤ near  ->  factor = min_factor        (slowest, obstacle at danger edge)
+closest_range ≥ far   ->  factor = 1.0               (full speed, obstacle at outer edge)
+in between            ->  factor = min_factor + (1 - min_factor) * (range - near)/(far - near)
+```
+
+The most conservative (smallest) factor across all sensors is applied to both
+`/cmd_vel_remapped` and `/velocity_remapped`. Danger zones still force a hard stop.
+
+**`near` and `far` are not fixed numbers — they are derived per scan from the active
+policy.** Each scan the node already selects a danger and a warning policy (based on
+speed/direction) and builds their polygons; `near` is taken as the **danger field reach**
+and `far` as the **warning field reach** (distance from the sensor to the farthest vertex).
+So the ramp automatically spans whatever the live warning band is for the current speed,
+direction and sensor — no per-policy tuning needed.
+
+> Note: the warning band in `bopt_2000.db` is thin (~0.1–0.2 m between the danger and
+> warning edges), so the ramp acts over a short distance. To make the slowdown more
+> gradual, widen the `Warning` fields in the database relative to their `Danger` fields.
+
+Only two values are set in `config/safety_params.yaml` (see [Running](#node-with-parameters)):
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `proximity_scaling_enabled` | `true` | When `false`, reverts to the fixed 1/3 warning reduction |
+| `proximity_min_factor` | `0.15` | Slowest multiplier, applied at the danger edge of the band |
+
+> If a policy's warning field is not larger than its danger field (degenerate band),
+> the factor falls back to `proximity_min_factor`.
 
 ### Operational modes
 
@@ -194,36 +241,9 @@ Both watchdogs fire every 200 ms.
 
 ## Visualization
 
-Markers are published as `LINE_STRIP` in the LiDAR's own frame (`base_link`):
+Markers are published as `LINE_STRIP` in the LiDAR's own frame (`frame_{topic}`):
 
 - **Warning zone** — yellow (RGBA: 1, 1, 0, 0.5), line width 0.03 m
 - **Danger zone** — red (RGBA: 1, 0, 0, 0.5), line width 0.05 m
 
 Load `safety_viz.rviz` in RViz to see pre-configured zone overlays.
-
-
-## BOPT LiDAR mapping
-
-The runtime database uses these exact ROS topics:
-
-| ID | Topic | Shape | Frame source | Purpose |
-|---:|---|---|---|---|
-| 1 | `/lidar/left/scan` | L-Shape | `LaserScan.header.frame_id` → TF | Left body safety |
-| 2 | `/lidar/right/scan` | Mirror L-Shape | `LaserScan.header.frame_id` → TF | Right body safety |
-| 3 | `/lidar/front/scan` | Rectangle | `LaserScan.header.frame_id` → TF | Front safety |
-| 4 | `/lidar/back/scan` | Rectangle | `LaserScan.header.frame_id` → TF | Rear safety |
-| 5 | `/Lidar_LFT` | Rectangle | `front_lidar_frame_left` in current BOPT simulation | Fork-left safety |
-| 6 | `/Lidar_RFT` | Rectangle | `front_lidar_frame_right` in current BOPT simulation | Fork-right safety |
-
-The `x_offset`, `y_offset`, `theta`, and `theta_N` columns are retained for database compatibility but are not used to place sensors. URDF/TF supplies the real sensor transform. Zone dimensions are built in each sensor's local frame and transformed to `base_link` using one TF lookup per scan; every LaserScan point uses that cached transform.
-
-## Safety geometry rules
-
-- `LaserScan` angle 0 is treated as the sensor +X axis.
-- Rectangle width `a` spans local Y; length `b` extends along local +X.
-- Sensor mounting position and orientation come only from TF.
-- A valid point inside a danger polygon immediately sets that LiDAR to `danger`.
-- Warning still requires 5 valid points.
-- Pick/drop mode does not disable LiDARs 3, 5, or 6. Their normal safety policies remain active until a validated pick/drop-specific policy is added.
-- If a required TF transform cannot be obtained, the affected LiDAR is treated as `danger` rather than `safe`.
-- RViz zone markers are published in `base_link`.

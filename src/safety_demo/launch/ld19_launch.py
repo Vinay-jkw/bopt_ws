@@ -90,6 +90,8 @@ def generate_launch_description():
             executable='ldlidar_stl_ros2_node',  # Replace with your node executable
             name=node_name,  # Unique node name based on lidar_id
             output='screen',  # Output to the terminal
+            respawn=True,
+            respawn_delay=0.0,
             parameters=[parameters],
         )
         

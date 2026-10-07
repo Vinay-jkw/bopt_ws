@@ -1,0 +1,40 @@
+costmap_to_laserscan:
+  ros__parameters:
+
+    # ---- input ---------------------------------------------------------------------
+    # "occupancy_grid" -> nav_msgs/OccupancyGrid   (local_costmap/costmap)
+    # "costmap_raw"    -> nav2_msgs/Costmap        (local_costmap/costmap_raw, true 0..255 costs)
+    input_type: "occupancy_grid"
+    costmap_topic: "costmap/costmap"
+    costmap_updates_topic: ""          # empty -> <costmap_topic>_updates
+    use_costmap_updates: true          # patch the mirror from map_msgs/OccupancyGridUpdate
+    # Nav2 publishes the costmap TRANSIENT_LOCAL. Keep this true or you may never receive
+    # a full raster from a non-rolling costmap. Verify with: ros2 topic info -v <topic>
+    costmap_transient_local_qos: true
+
+    # ---- output --------------------------------------------------------------------
+    scan_topic: "costmap_scan"
+    scan_best_effort_qos: false         # false -> RELIABLE (needed by some RViz configs)
+    target_frame: "base_footprint"          # must match the costmap's robot_base_frame
+    skip_when_no_subscribers: true
+
+    # ---- timing --------------------------------------------------------------------
+    publish_rate: 10.0                  # 0 -> publish on every costmap message (lowest latency)
+                                       # >0 -> fixed rate using the latest TF (smoother, decoupled)
+    transform_tolerance: 0.1
+    costmap_timeout: 0.5               # refuse to emit a scan from a stale raster
+
+    # ---- scan geometry (dynamically reconfigurable) --------------------------------
+    angle_min: -3.14159265
+    angle_max: 3.14159265
+    angle_increment: 0.00872665        # 0.5 deg -> 720 beams
+    range_min: 0.15                    # obstacles nearer than this are skipped, not clamped
+    range_max: 0.0                     # 0 -> half the costmap diagonal, latched on first msg
+    use_inf: true
+    inf_epsilon: 1.0                   # used only when use_inf is false
+
+    # ---- cost interpretation (dynamically reconfigurable) --------------------------
+    # 254 = lethal cells only (scan geometry matches the real obstacles)
+    # 253 = also stop on the inscribed ring (obstacles appear inflated by the inscribed radius)
+    lethal_cost_threshold: 254
+    unknown_is_obstacle: false

@@ -6,8 +6,6 @@
 #include <mutex>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float64.hpp>
-#include "bopt_interfaces/msg/bopt_command_stamped.hpp"
-#include "bopt_interfaces/msg/bopt_command.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace safety_demo {
@@ -36,52 +34,37 @@ public:
     void updateVelocity(const std_msgs::msg::Float64::SharedPtr msg);
 
     /**
-     * @brief Update current BOPT command
-     * @param msg BoptCommandStamped message from bopt/relay_cmd
-     */
-    void updateBoptCommand(const bopt_interfaces::msg::BoptCommandStamped::SharedPtr msg);
-
-    /**
      * @brief Publish modified velocities based on safety status
-     * @param safety_status Current safety status ("safe", "warning", "danger",
-     *                      "broker_disconnected", "localization_lost")
+     * @param safety_status Current safety status ("safe", "warning", "danger", "broker_disconnected")
      * @param safety_turn_off Whether safety is turned off
+     * @param speed_factor Proximity-based multiplier applied in the "warning" state
+     *        (1.0 = full speed, lower = closer obstacle). Ignored for other states.
      */
-    void publishModifiedVelocities(const std::string& safety_status, bool safety_turn_off);
+    void publishModifiedVelocities(const std::string& safety_status, bool safety_turn_off,
+                                   double speed_factor);
 
 private:
     rclcpp::Node* node_;  ///< ROS2 node reference
 
     // Publishers
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_remapped_publisher_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr velocity_remapped_publisher_;
-    rclcpp::Publisher<bopt_interfaces::msg::BoptCommandStamped>::SharedPtr bopt_cmd_publisher_;
-    rclcpp::Publisher<bopt_interfaces::msg::BoptCommandStamped>::SharedPtr bopt_key_cmd_publisher_;
-    rclcpp::Publisher<bopt_interfaces::msg::BoptCommand>::SharedPtr bopt_nmpc_cmd_publisher_;
-
-    // 50 Hz control timer to continuously enforce zero/reduced velocity when in danger/warning
-    rclcpp::TimerBase::SharedPtr control_timer_;
 
     // Stored velocity commands
     geometry_msgs::msg::Twist current_cmd_vel_;
     std_msgs::msg::Float64 current_velocity_msg_;
-    bopt_interfaces::msg::BoptCommandStamped current_bopt_cmd_;
-
-    // Safety state tracking for the 50 Hz timer loop
-    std::string current_safety_status_{"safe"};
-    bool current_safety_turn_off_{false};
 
     // Mutexes for thread safety
     std::mutex cmd_vel_mutex_;
     std::mutex velocity_msg_mutex_;
-    std::mutex bopt_cmd_mutex_;
-    std::mutex safety_state_mutex_;
 
-    /**
-     * @brief 50 Hz Timer Callback that continuously publishes safety override commands
-     */
-    void controlTimerCallback();
+    // Watchdog: this controller re-publishes the last velocity on EVERY lidar
+    // scan. If the source (/velocity, /cmd_vel) stops (e.g. nmpc died) we must
+    // emit ZERO instead of re-emitting the last command forever, or the robot
+    // runs away. Track the last-update time of each source.
+    rclcpp::Time last_velocity_time_;
+    rclcpp::Time last_cmd_vel_time_;
+    double watchdog_timeout_{0.3};  // seconds
 
     /**
      * @brief Round a float value to two decimal places

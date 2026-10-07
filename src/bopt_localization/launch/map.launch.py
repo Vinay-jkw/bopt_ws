@@ -11,7 +11,7 @@ def generate_launch_description():
     map_path = PathJoinSubstitution([
         get_package_share_directory("workflow_node"),
         "map_details",
-        "demo_warehouse.yaml"
+        "Simulation_Map_amcl.yaml"
     ])
 
     lifecycle_nodes = ["map_server"]
@@ -23,17 +23,19 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {"yaml_filename": map_path},
+            {"use_sim_time": True}
         ],
     )
 
     nav2_lifecycle_manager = Node(
         package="nav2_lifecycle_manager",
         executable="lifecycle_manager",
-        name="lifecycle_manager_localization",
+        name="lifecycle_manager_map",
         output="screen",
         parameters=[
             {"node_names": lifecycle_nodes},
-            {"autostart": True}
+            {"autostart": True},
+            {"use_sim_time": True}
         ],
     )
 

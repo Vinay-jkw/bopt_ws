@@ -7,17 +7,13 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/float64.hpp"
-#include "geometry_msgs/msg/point.hpp"
-#include "geometry_msgs/msg/transform_stamped.hpp"
-#include "bopt_interfaces/msg/bopt_command_stamped.hpp"
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_listener.h"
 
 #include "safety_demo/database_manager.hpp"
 #include "safety_demo/safety_zone_detector.hpp"
@@ -53,37 +49,41 @@ private:
     std::unique_ptr<ErrorHandler> error_handler_;
     std::unique_ptr<PolicySelector> policy_selector_;
 
-    // TF2 is the single source of truth for every LiDAR pose/orientation.
-    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
-
-    const std::string base_frame_ = "base_link";
-
     // Data loaded from database
     std::map<int, std::multiset<Policy>> policies_;
-    std::map<std::string, LiDARConfig> lidar_configs_;
+    std::map<std::string, std::vector<LiDARConfig>> lidar_configs_;
 
     // ROS subscriptions
     std::vector<rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr> lidar_subscriptions_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber_;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr velocity_subscriber_;
-    rclcpp::Subscription<bopt_interfaces::msg::BoptCommandStamped>::SharedPtr bopt_cmd_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr safety_turnoff_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr pickdrop_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mqtt_status_subscriber_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr localization_status_subscriber_;
 
     // ROS publishers
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr safety_status_publisher_;
 
     // State variables
     std::map<int, std::string> lidar_status_map_;  ///< Status per LiDAR ("safe", "warning zone", "danger zone")
+    std::map<int, double> lidar_speed_factor_;     ///< Proximity speed multiplier per LiDAR (1.0 = full speed)
     geometry_msgs::msg::Twist current_velocity_;   ///< Current robot velocity
     std_msgs::msg::String safety_status_;          ///< Current overall safety status
 
+    // Proximity-based velocity scaling (configurable via ROS parameters).
+    // near/far are NOT parameters — they are derived per scan from the active policy's
+    // danger and warning field reach, so the ramp always spans the live warning band.
+    bool proximity_scaling_enabled_;   ///< When false, falls back to a fixed 1/3 warning reduction
+    double proximity_min_factor_;      ///< Slowest multiplier at the danger edge of the warning band
+
     // Control flags
-    bool safety_turn_off_;        ///< Whether safety system is turned off
+    /// Whether safety system is turned off. Atomic rather than mutex-guarded: it is
+    /// a standalone flag written by safetyTurnoffCallback and read by the scan path,
+    /// with no invariant tying it to other state, so there is nothing for a lock to
+    /// hold together. The neighbouring flags below stay under their mutexes because
+    /// they are read alongside the maps those mutexes already guard.
+    std::atomic<bool> safety_turn_off_;
     bool pickdrop_mode_;          ///< Whether in pick/drop mode
     bool robot_in_parking_;       ///< Whether robot is in parking area
 
@@ -103,7 +103,6 @@ private:
     void safetyTurnoffCallback(const std_msgs::msg::String::SharedPtr msg);
     void pickdropCallback(const std_msgs::msg::String::SharedPtr msg);
     void mqttStatusCallback(const std_msgs::msg::String::SharedPtr msg);
-    void localizationStatusCallback(const std_msgs::msg::String::SharedPtr msg);
 
     /**
      * @brief Process LiDAR scan and update safety status
@@ -124,24 +123,19 @@ private:
     void updateOverallSafetyStatus();
 
     /**
+     * @brief Map the closest warning-zone obstacle distance to a velocity multiplier
+     * @param closest_distance Range (m) of the nearest point inside the warning zone
+     *        (non-finite means no obstacle — returns 1.0)
+     * @param near Distance at/below which the slowest factor applies (danger field reach)
+     * @param far  Distance at/above which full speed is allowed (warning field reach)
+     * @return Multiplier in [proximity_min_factor_, 1.0]; linear between near and far
+     */
+    double computeProximityFactor(double closest_distance, double near, double far) const;
+
+    /**
      * @brief Publish current safety status
      */
     void publishSafetyStatus();
-
-    /** Look up the sensor -> base_link transform at the LaserScan timestamp. */
-    bool lookupSensorToBase(
-        const sensor_msgs::msg::LaserScan::SharedPtr& msg,
-        geometry_msgs::msg::TransformStamped& transform);
-
-    /** Apply a cached TF transform to a 2D point (one TF lookup per scan). */
-    std::pair<double, double> transformPointToBase(
-        const std::pair<double, double>& point_sensor,
-        const geometry_msgs::msg::TransformStamped& transform);
-
-    /** Transform a local LiDAR-frame polygon into base_link. */
-    std::vector<std::pair<double, double>> transformPolygonToBase(
-        const std::vector<std::pair<double, double>>& polygon_sensor,
-        const geometry_msgs::msg::TransformStamped& transform);
 };
 
 } // namespace safety_demo

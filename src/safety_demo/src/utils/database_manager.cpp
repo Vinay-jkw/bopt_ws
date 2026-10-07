@@ -86,9 +86,9 @@ std::map<int, std::multiset<Policy>> DatabaseManager::loadPolicies() {
     return policies;
 }
 
-std::map<std::string, LiDARConfig> DatabaseManager::loadLiDARConfigs() {
-    // Keyed by exact ROS topic name so SafetyNode can do a fast lookup when a scan arrives.
-    std::map<std::string, LiDARConfig> configs;
+std::map<std::string, std::vector<LiDARConfig>> DatabaseManager::loadLiDARConfigs() {
+    // Keyed by topic name so SafetyNode can do a fast lookup when a scan arrives
+    std::map<std::string, std::vector<LiDARConfig>> configs;
 
     sqlite3_stmt* stmt = nullptr;
     const char* sql = "SELECT lidar_id, topic, shape_type, x_offset, y_offset, theta, theta_N, description "
@@ -114,7 +114,7 @@ std::map<std::string, LiDARConfig> DatabaseManager::loadLiDARConfigs() {
         const char* desc_raw = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
         config.description = desc_raw ? desc_raw : "";
 
-        configs[config.topic] = config;
+        configs[config.topic].push_back(config);
     }
 
     sqlite3_finalize(stmt);
@@ -125,10 +125,9 @@ std::vector<std::string> DatabaseManager::getLidarTopics() {
     std::vector<std::string> topics;
 
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT topic FROM lidar";
+    const char* sql = "SELECT DISTINCT topic FROM lidar";
 
     checkResult(sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr), "Prepare topic statement");
-
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         const char* topic_raw = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         if (topic_raw) {
@@ -138,6 +137,22 @@ std::vector<std::string> DatabaseManager::getLidarTopics() {
 
     sqlite3_finalize(stmt);
     return topics;
+}
+
+bool DatabaseManager::hasAnyPolicyByTopic(std::string topic) const {
+    bool result = false;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT EXISTS(SELECT * FROM lidar AS l INNER JOIN policy AS p ON p.lidar_id = l.lidar_id WHERE l.topic = ?)";
+
+    checkResult(sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr), "Prepare topic statement");
+    sqlite3_bind_text(stmt, 1, topic.c_str(), -1, SQLITE_STATIC);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        result = sqlite3_column_int(stmt, 0) != 0;
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
 }
 
 } // namespace safety_demo

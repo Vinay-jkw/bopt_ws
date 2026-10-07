@@ -20,6 +20,11 @@ setup(
             os.path.join('share', package_name, 'config'),
             glob('config/*.yaml'),
         ),
+        # Install map details
+        (
+            os.path.join('share', package_name, 'map_details'),
+            glob('map_details/*'),
+        ),
         # data/ is a runtime-writable directory; nothing to install from it
         # (constructed_rs_path.pkl is written here at runtime, not shipped)
     ],

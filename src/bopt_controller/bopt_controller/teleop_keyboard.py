@@ -15,17 +15,17 @@ MSG = """
                     BOPT Keyboard Teleoperation
 -----------------------------------------------------------------------
 Drive & Steer (Keypad or WASD / Arrows):
-      U    I    O                W
-      J    K    L       or     A S D     or    [Arrow Keys]
+      U    I    O  
+      J    K    L 
       M    ,    .
 
-  I / W / Up       : Forward
-  , / S / Down     : Backward
-  J / A / Left     : Steer Left  (+ angle)
-  L / D / Right    : Steer Right (- angle)
-  U                : Forward-Left
-  O                : Forward-Right
-  M                : Back-Left
+  I       : Forward
+  ,       : Backward
+  J       : Steer Left  (+ angle)
+  L       : Steer Right (- angle)
+  U       : Forward-Left
+  O       : Forward-Right
+  M       : Back-Left
   .                : Back-Right
 
 Lift Control:
@@ -50,7 +50,7 @@ class BOPTKeyboard(Node):
         self.declare_parameter('speed_step', 0.10)
         self.declare_parameter('steering_step', 0.05)
         self.declare_parameter('lift_step', 0.01)
-        self.declare_parameter('max_speed', 1.0)
+        self.declare_parameter('max_speed', 3.0)
         self.declare_parameter('max_steering', 1.57)
         self.declare_parameter('max_lift', 0.095)
         self.declare_parameter('control_rate', 20.0)
@@ -250,27 +250,25 @@ class BOPTKeyboard(Node):
         if abs(speed_error) > 1e-6:
             if abs(self.target_speed) > abs(self.speed):
                 step = self.acceleration * dt
+                if abs(speed_error) <= step:
+                    self.speed = self.target_speed
+                else:
+                    self.speed += math.copysign(step, speed_error)
             else:
-                step = self.deceleration * dt
-
-            if abs(speed_error) <= step:
+                # Instant deceleration/stop
                 self.speed = self.target_speed
-            else:
-                self.speed += math.copysign(step, speed_error)
 
-        # Steering can return smoothly to center
-        # Smooth steering ramp
+        # Steering logic (exponential approach + instant center)
         steering_error = self.target_steering - self.steering
-        steering_rate = 1.2
-        steering_step = steering_rate * dt
 
-        if abs(steering_error) <= steering_step:
-            self.steering = self.target_steering
-        else:
-            self.steering += math.copysign(
-                steering_step,
-                steering_error
-            )
+        if abs(steering_error) > 1e-4:
+            if abs(self.target_steering) > abs(self.steering):
+                # Exponential approach (slows down as it reaches desired angle)
+                k_steer = 5.0
+                self.steering += steering_error * (1.0 - math.exp(-k_steer * dt))
+            else:
+                # Instant deceleration/stop (snap to center)
+                self.steering = self.target_steering
 
         self.publish_drive()
 
@@ -282,7 +280,13 @@ class BOPTKeyboard(Node):
     def publish_drive(self):
         msg = Twist()
 
-        msg.linear.x = float(self.speed)
+        # Apply exponential speed reduction based on steering error
+        # Wheel velocity is near zero when steering error is high, and increases to max as error approaches 0.
+        steering_error = self.target_steering - self.steering
+        k_speed_reduction = 4.0
+        speed_multiplier = math.exp(-k_speed_reduction * abs(steering_error))
+
+        msg.linear.x = float(self.speed * speed_multiplier)
         msg.linear.y = 0.0
         msg.linear.z = 0.0
 

@@ -58,8 +58,9 @@ def generate_launch_description():
         name='bopt_odometry',
         output='screen',
         parameters=[
-        {'use_sim_time': True}
-    ]
+            {'use_sim_time': True},
+            {'publish_tf': True}
+        ]
     )
     sensor_bridge = Node(
         package='ros_gz_bridge',
@@ -166,7 +167,7 @@ def generate_launch_description():
         sensor_bridge,
 
         # Localization
-        localization_delayed,
+        # localization_delayed,
 
         # Visualization
         rviz,

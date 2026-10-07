@@ -56,9 +56,7 @@ def signal_handler(sig, frame) -> None:
         path_publisher = node.create_publisher(String, '/path', 10)
         holded_nodes_publisher = node.create_publisher(String, '/holded_nodes', 10)
         path_publisher.publish(String(data=json.dumps({'path': []})))
-        holded_nodes_publisher.publish(
-            String(data=json.dumps({"holded_nodes": []}))
-        )
+        holded_nodes_publisher.publish(String(data=json.dumps({"holded_nodes": []})))
     except Exception as error:
         _logger.error(f"Failed to publish stop paths: {error}")
         traceback.print_exc()

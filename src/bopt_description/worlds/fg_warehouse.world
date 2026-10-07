@@ -1,0 +1,204 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+
+  <world name="fg_warehouse_world">
+
+    <!-- ===================================================== -->
+    <!-- PHYSICS                                               -->
+    <!-- ===================================================== -->
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+
+    <!-- ===================================================== -->
+    <!-- GAZEBO SYSTEM PLUGINS                                 -->
+    <!-- ===================================================== -->
+
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics"/>
+
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands"/>
+
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster"/>
+
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-contact-system"
+      name="gz::sim::systems::Contact"/>
+
+    <plugin
+      filename="gz-sim-imu-system"
+      name="gz::sim::systems::Imu"/>
+
+
+    <!-- ===================================================== -->
+    <!-- LIGHT                                                 -->
+    <!-- ===================================================== -->
+
+    <light
+      type="directional"
+      name="sun">
+
+      <cast_shadows>true</cast_shadows>
+
+      <pose>0 0 10 0 0 0</pose>
+
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+
+      <direction>-0.5 0.1 -0.9</direction>
+
+    </light>
+
+
+    <!-- ===================================================== -->
+    <!-- GROUND PLANE                                          -->
+    <!-- ===================================================== -->
+
+    <model name="ground_plane">
+
+      <static>true</static>
+
+      <link name="link">
+
+        <collision name="collision">
+
+          <geometry>
+
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+
+          </geometry>
+
+        </collision>
+
+
+        <visual name="visual">
+
+          <geometry>
+
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+
+          </geometry>
+
+          <material>
+
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+
+          </material>
+
+        </visual>
+
+      </link>
+
+    </model>
+
+
+    <!-- ===================================================== -->
+    <!-- FG WAREHOUSE STL                                      -->
+    <!-- ===================================================== -->
+
+    <model name="fg_warehouse">
+
+      <!-- Warehouse is static -->
+      <static>true</static>
+
+      <!-- Warehouse position and orientation -->
+      <!-- Center the warehouse by offsetting its original coordinates -->
+      <pose>-4550.187 -4.0 0 0 0 0</pose>
+
+      <link name="warehouse_link">
+
+        <!-- ================================================= -->
+        <!-- WAREHOUSE COLLISION                                -->
+        <!-- ================================================= -->
+
+        <collision name="warehouse_collision">
+
+          <geometry>
+
+            <mesh>
+
+              <uri>
+                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_map.stl
+              </uri>
+
+              <!--
+                STL assumed to be in millimeters.
+                1 mm = 0.001 m
+              -->
+              <scale>0.001 0.001 0.001</scale>
+
+            </mesh>
+
+          </geometry>
+
+        </collision>
+
+        <!-- ================================================= -->
+        <!-- WAREHOUSE VISUAL                                   -->
+        <!-- ================================================= -->
+
+        <visual name="warehouse_visual">
+
+          <geometry>
+
+            <mesh>
+
+              <uri>
+                file:///home/jkw/bopt_ws/src/bopt_description/meshes/FG_warehouse_map.stl
+              </uri>
+
+              <!-- Same scale as collision -->
+              <scale>0.001 0.001 0.001</scale>
+
+            </mesh>
+
+          </geometry>
+
+
+          <material>
+
+            <ambient>0.6 0.6 0.6 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+
+          </material>
+
+        </visual>
+
+      </link>
+
+    </model>
+
+
+  </world>
+
+</sdf>

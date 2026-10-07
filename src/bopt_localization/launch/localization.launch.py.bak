@@ -1,0 +1,203 @@
+# pyrefly: ignore [missing-import]
+import os
+
+from launch import LaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration
+
+from launch_ros.actions import Node
+
+from ament_index_python.packages import get_package_share_directory
+
+
+def generate_launch_description():
+
+    map_name = LaunchConfiguration("map_name")
+    amcl_config = LaunchConfiguration("amcl_config")
+    use_sim_time = LaunchConfiguration("use_sim_time")
+
+    lifecycle_nodes = [
+        "map_server",
+        "amcl",
+        "costmap/costmap"
+    ]
+
+    # --------------------------------------------------
+    # Launch arguments
+    # --------------------------------------------------
+
+    map_name_arg = DeclareLaunchArgument(
+        "map_name",
+        default_value="bopt_map",
+        description="Map yaml filename without extension"
+    )
+
+    amcl_config_arg = DeclareLaunchArgument(
+        "amcl_config",
+        default_value=os.path.join(
+            get_package_share_directory("bopt_localization"),
+            "config",
+            "amcl.yaml"
+        ),
+        description="Full path to AMCL config file"
+    )
+
+    ekf_config = os.path.join(
+        get_package_share_directory("bopt_localization"),
+        "config",
+        "ekf.yaml"
+    )
+
+    use_sim_time_arg = DeclareLaunchArgument(
+        "use_sim_time",
+        default_value="true",
+        description="Use simulation clock"
+    )
+    stvl_config = os.path.join(
+        get_package_share_directory('costmap_pkg'),
+        'config',
+        'stvl_costmap.yaml'
+    )
+    costmap_to_laserscan_pkg = get_package_share_directory('costmap_to_laserscan')
+
+    # --------------------------------------------------
+    # Map path
+    # --------------------------------------------------
+
+    map_path = os.path.join(
+        get_package_share_directory("bopt_localization"),
+        "maps"
+    )
+
+    map_file = os.path.join(
+        get_package_share_directory("bopt_localization"),
+        "maps",
+        "Simulation_Map_amcl.yaml"
+    )
+
+    # --------------------------------------------------
+    # Map Server
+    # --------------------------------------------------
+
+    nav2_map_server = Node(
+        package="nav2_map_server",
+        executable="map_server",
+        name="map_server",
+        output="screen",
+        parameters=[
+            {
+            "yaml_filename": map_file,
+            "use_sim_time": use_sim_time,
+            },
+        ],
+    )
+
+    # --------------------------------------------------
+    # AMCL
+    # --------------------------------------------------
+
+    nav2_amcl = Node(
+        package="nav2_amcl",
+        executable="amcl",
+        name="amcl",
+        output="screen",
+        emulate_tty=True,
+        parameters=[
+            amcl_config,
+            {
+                "use_sim_time": use_sim_time,
+            },
+        ],
+    )
+
+    # --------------------------------------------------
+    # EKF
+    # --------------------------------------------------
+    imu_relay = Node(
+        package="bopt_localization",
+        executable="imu_covariance_relay",
+        name="imu_covariance_relay",
+        output="screen",
+        parameters=[{"use_sim_time": use_sim_time}],
+    )
+
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[ekf_config, {"use_sim_time": use_sim_time}],
+    )
+
+    # --------------------------------------------------
+    # Lifecycle Manager
+    # --------------------------------------------------
+
+    nav2_lifecycle_manager = Node(
+        package="nav2_lifecycle_manager",
+        executable="lifecycle_manager",
+        name="lifecycle_manager_localization",
+        output="screen",
+        parameters=[
+            {
+                "node_names": lifecycle_nodes,
+                "autostart": True,
+                "use_sim_time": use_sim_time,
+            },
+        ],
+    )
+
+    # --------------------------------------------------
+    # Current Pose Publisher (TF -> /current_pose)
+    # --------------------------------------------------
+
+    current_pose_publisher = Node(
+        package="bopt_localization",
+        executable="current_pose_publisher",
+        name="current_pose_publisher",
+        output="screen",
+        parameters=[
+            {
+                "use_sim_time": use_sim_time,
+                "map_frame": "map",
+                "base_frame": "base_footprint",
+                "pose_topic": "current_pose",
+                "publish_rate": 20.0,
+            },
+        ],
+    )
+
+    nav2_costmap_2d = Node(
+        package='nav2_costmap_2d',
+        executable='nav2_costmap_2d',
+        # nav2_costmap_2d creates a Costmap2DROS node named "costmap".
+        # Keep this name aligned with the YAML root key and lifecycle manager.
+        name='costmap',
+        output='screen',
+        parameters=[stvl_config, {"use_sim_time": use_sim_time}]
+    )
+    costmap_to_laserscan_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                costmap_to_laserscan_pkg,
+                'launch',
+                'costmap_to_laserscan.launch.py'
+            )
+        )
+    )
+
+
+    return LaunchDescription([
+        map_name_arg,
+        amcl_config_arg,
+        use_sim_time_arg,
+        nav2_map_server,
+        imu_relay,
+        nav2_amcl,
+        ekf_node,
+        nav2_costmap_2d,
+        nav2_lifecycle_manager,
+        current_pose_publisher,
+        costmap_to_laserscan_launch
+    ])

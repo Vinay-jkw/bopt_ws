@@ -5,28 +5,30 @@ namespace safety_demo {
 
 VisualizationPublisher::VisualizationPublisher(
     rclcpp::Node* node,
-    const std::map<std::string, LiDARConfig>& lidar_configs)
+    const std::map<std::string, std::vector<LiDARConfig>>& lidar_configs)
     : node_(node) {
 
     // One warning + one danger publisher per LiDAR, keyed by topic name for fast lookup
-    for (const auto& [topic, config] : lidar_configs) {
-        std::string warning_topic = "visualization_marker_" + std::to_string(config.lidar_id) + "_warning";
-        std::string danger_topic = "visualization_marker_" + std::to_string(config.lidar_id) + "_danger";
+    for (const auto& [topic, configs] : lidar_configs) {
+        for (const auto& config : configs) {
+            std::string warning_topic = "visualization_marker_" + std::to_string(config.lidar_id) + "_warning";
+            std::string danger_topic = "visualization_marker_" + std::to_string(config.lidar_id) + "_danger";
 
-        marker_publishers_[warning_topic] = node_->create_publisher<visualization_msgs::msg::Marker>(
-            warning_topic, 10);
-        marker_publishers_[danger_topic] = node_->create_publisher<visualization_msgs::msg::Marker>(
-            danger_topic, 10);
+            marker_publishers_[warning_topic] = node_->create_publisher<visualization_msgs::msg::Marker>(
+                warning_topic, 10);
+            marker_publishers_[danger_topic] = node_->create_publisher<visualization_msgs::msg::Marker>(
+                danger_topic, 10);
 
-        RCLCPP_INFO(node_->get_logger(),
-                   "Created visualization publishers for LiDAR %d: warning=%s, danger=%s",
-                   config.lidar_id, warning_topic.c_str(), danger_topic.c_str());
+            RCLCPP_INFO(node_->get_logger(),
+                    "Created visualization publishers for LiDAR %d: warning=%s, danger=%s",
+                    config.lidar_id, warning_topic.c_str(), danger_topic.c_str());
+        }
     }
 }
 
 void VisualizationPublisher::publishZoneMarkers(
     int lidar_id,
-    const std::string& topic,
+    const std::string& frame_id,
     const std::vector<std::pair<double, double>>& danger_polygon,
     const std::vector<std::pair<double, double>>& warning_polygon) {
 
@@ -35,9 +37,9 @@ void VisualizationPublisher::publishZoneMarkers(
 
     // Only publish if a policy was actually selected (empty polygon = no active policy)
     if (!warning_polygon.empty()) {
-        // Zone points are already expressed in base_link by SafetyNode.
+        // Frame ID matches what the static_transform_publisher broadcasts for this sensor
         auto warning_marker = createZoneMarker(
-            "base_link", "warning_zone", lidar_id,
+            frame_id, "warning_zone", lidar_id,
             1.0f, 1.0f, 0.0f, 0.5f,  // yellow, semi-transparent
             0.03f, warning_polygon);
 
@@ -49,7 +51,7 @@ void VisualizationPublisher::publishZoneMarkers(
 
     if (!danger_polygon.empty()) {
         auto danger_marker = createZoneMarker(
-            "base_link", "danger_zone", lidar_id,
+            frame_id, "danger_zone", lidar_id,
             1.0f, 0.0f, 0.0f, 0.5f,  // red, semi-transparent
             0.05f, danger_polygon);   // thicker line than warning to stand out
 
@@ -86,6 +88,9 @@ visualization_msgs::msg::Marker VisualizationPublisher::createZoneMarker(
     marker.color.g = color_g;
     marker.color.b = color_b;
     marker.color.a = color_a;
+
+    // One allocation instead of a regrow per vertex — this runs on every scan
+    marker.points.reserve(polygon.size() + 1);  // +1 for the closing point below
 
     for (const auto& point : polygon) {
         geometry_msgs::msg::Point p;
