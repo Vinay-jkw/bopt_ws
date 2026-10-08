@@ -23,7 +23,7 @@ class BoptMainController(Node):
         # =====================================================
 
         self.declare_parameter('wheel_radius', 0.115)
-        self.declare_parameter('max_wheel_velocity', 3.0)
+        self.declare_parameter('max_wheel_velocity', 7.246)
         self.declare_parameter('max_steering_angle', 1.5708)
 
         self.declare_parameter('control_dt', 0.05)

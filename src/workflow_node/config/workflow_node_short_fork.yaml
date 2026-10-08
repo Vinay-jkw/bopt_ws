@@ -14,8 +14,8 @@ tcp:
   delay: 3
 
 paths:
-  graphml_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_waypoints.graphml"
-  wn_db_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/Simulation_Map_wn.db"
+  graphml_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/RB_waypoint.graphml"
+  wn_db_file: "/home/jkw/bopt_ws/src/workflow_node/map_details/RB_wn.db"
   rs_path_file: "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path.pkl"
 
 robot:

@@ -8,10 +8,16 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 
 def generate_launch_description():
 
+    map_arg = DeclareLaunchArgument(
+        'map_file',
+        default_value='RB_amcl.yaml',
+        description='Map yaml filename'
+    )
+
     map_path = PathJoinSubstitution([
         get_package_share_directory("bopt_localization"),
         "maps",
-        "warehouse_fg_final_01.yaml"
+        LaunchConfiguration('map_file')
     ])
 
     lifecycle_nodes = ["map_server"]
@@ -40,6 +46,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        map_arg,
         nav2_map_server,
         nav2_lifecycle_manager
     ])

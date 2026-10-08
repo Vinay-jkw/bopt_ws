@@ -19,6 +19,7 @@ def spawn_robot_with_params(
     context,
     mqtt_bridge_params_file,
     amcl_params_file,
+    ekf_params_file,
     robot_name,
     x,
     y,
@@ -62,6 +63,19 @@ def spawn_robot_with_params(
 
             "amcl.ros__parameters.scan_topic":
                 f"/{robot_name}/lidar/top3dl/scan",
+        },
+        convert_types=True,
+    )
+
+    rewritten_ekf = RewrittenYaml(
+        source_file=ekf_params_file,
+        root_key=robot_name,
+        param_rewrites={
+            "ekf_filter_node.ros__parameters.odom_frame": f"{robot_name}/odom",
+            "ekf_filter_node.ros__parameters.base_link_frame": f"{robot_name}/base_footprint",
+            "ekf_filter_node.ros__parameters.world_frame": f"{robot_name}/odom",
+            "ekf_filter_node.ros__parameters.odom0": f"/{robot_name}/odom",
+            "ekf_filter_node.ros__parameters.imu0": f"/{robot_name}/imu/corrected",
         },
         convert_types=True,
     )
@@ -164,6 +178,7 @@ def spawn_robot_with_params(
     )
 
     amcl_yaml_path = rewritten_amcl.perform(context)
+    ekf_yaml_path = rewritten_ekf.perform(context)
     mqtt_yaml_path = rewritten_mqtt.perform(context)
 
     # ============================================================
@@ -281,7 +296,7 @@ def spawn_robot_with_params(
                         {
                             "use_sim_time": True,
                             "wheel_radius": 0.115,
-                            "max_wheel_velocity": 3.0,
+                            "max_wheel_velocity": 7.246,
                             "max_steering_angle": 1.5708,
                             "control_dt": 0.05,
                             "lift_min": 0.0,
@@ -396,8 +411,23 @@ def spawn_robot_with_params(
                         {
                             "use_sim_time": True,
                             "robot_name": robot_name,
-                            "publish_tf": True,
+                            "publish_tf": False,
                         }
+                    ],
+                ),
+
+                # ==================================================
+                # EKF
+                # ==================================================
+
+                Node(
+                    package="robot_localization",
+                    executable="ekf_node",
+                    name="ekf_filter_node",
+                    output="screen",
+                    parameters=[
+                        ekf_yaml_path,
+                        {"use_sim_time": True}
                     ],
                 ),
 
@@ -555,6 +585,12 @@ def generate_launch_description():
         "properties.yaml",
     )
 
+    ekf_params_file = os.path.join(
+        get_package_share_directory("bopt_localization"),
+        "config",
+        "ekf.yaml",
+    )
+
     # ============================================================
     # NUMBER OF ROBOTS
     #
@@ -577,8 +613,8 @@ def generate_launch_description():
         # POSITION
         # --------------------------------------------------------
 
-        x = 0.0
-        y = i * -2.0
+        x = i * 2.5
+        y = 0.0
         yaw = 0.0
 
         # --------------------------------------------------------
@@ -608,6 +644,7 @@ def generate_launch_description():
                         args=[
                             mqtt_bridge_params_file,
                             amcl_params_file,
+                            ekf_params_file,
                             robot_name,
                             x,
                             y,

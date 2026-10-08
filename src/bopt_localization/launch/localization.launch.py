@@ -65,7 +65,7 @@ def generate_launch_description():
     map_file = os.path.join(
         bopt_localization_pkg,
         "maps",
-        "warehouse_fg_final_01.yaml",
+        "RB_amcl.yaml",
     )
 
     # ============================================================

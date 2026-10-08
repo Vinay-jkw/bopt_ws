@@ -50,7 +50,7 @@ class BOPTKeyboard(Node):
         self.declare_parameter('speed_step', 0.10)
         self.declare_parameter('steering_step', 0.05)
         self.declare_parameter('lift_step', 0.01)
-        self.declare_parameter('max_speed', 3.0)
+        self.declare_parameter('max_speed', 0.5)
         self.declare_parameter('max_steering', 1.57)
         self.declare_parameter('max_lift', 0.095)
         self.declare_parameter('control_rate', 20.0)
@@ -264,7 +264,7 @@ class BOPTKeyboard(Node):
         if abs(steering_error) > 1e-4:
             if abs(self.target_steering) > abs(self.steering):
                 # Exponential approach (slows down as it reaches desired angle)
-                k_steer = 5.0
+                k_steer = 6.0
                 self.steering += steering_error * (1.0 - math.exp(-k_steer * dt))
             else:
                 # Instant deceleration/stop (snap to center)
@@ -283,7 +283,7 @@ class BOPTKeyboard(Node):
         # Apply exponential speed reduction based on steering error
         # Wheel velocity is near zero when steering error is high, and increases to max as error approaches 0.
         steering_error = self.target_steering - self.steering
-        k_speed_reduction = 4.0
+        k_speed_reduction = 6.0
         speed_multiplier = math.exp(-k_speed_reduction * abs(steering_error))
 
         msg.linear.x = float(self.speed * speed_multiplier)

@@ -59,7 +59,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'use_sim_time': True},
-            {'publish_tf': True}
+            {'publish_tf': False}
         ]
     )
     sensor_bridge = Node(

@@ -1,7 +1,7 @@
 nmpc_controller:
 
   common:
-    path_file: "/home/fbots/bopt_v2_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
+    path_file: "/home/jkw/bopt_ws/src/workflow_node/workflow_node/constructed_rs_path.pkl"
     goal_tolerance: 0.05
     lookup_table: "data/mpc_lookup_table_2.5.pkl"
 
