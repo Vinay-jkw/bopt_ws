@@ -1,0 +1,2 @@
+[INFO] [1791622814.161511222] [test.talker]: Publishing: 'Hello World: 1'
+[INFO] [1791622815.161526797] [test.talker]: Publishing: 'Hello World: 2'

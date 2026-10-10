@@ -124,7 +124,6 @@ nmpc_controller:
 
       features:
         use_picking: true
-        sensor: ds_field
 
     park:
       max_velocity: 0.2

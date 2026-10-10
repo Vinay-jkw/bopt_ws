@@ -117,7 +117,7 @@ def generate_launch_description():
                 {
                     "use_sim_time": True,
                     "wheel_radius": 0.115,
-                    "max_wheel_velocity": 7.246,
+                    "max_wheel_velocity": 13.043,
                     "max_steering_angle": 1.5708,
                     "control_dt": 0.05,
                     "lift_min": 0.0,

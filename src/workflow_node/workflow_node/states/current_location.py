@@ -26,6 +26,8 @@ class CurrentLocationNode(Node):
         self.current_pose = msg.pose
 
 
+_shared_node = None
+
 def get_current_pose() -> list:
     """Spin a transient node until one /current_pose message arrives.
 
@@ -34,24 +36,28 @@ def get_current_pose() -> list:
     Raises:
         RuntimeError: if no pose is received within the timeout window.
     """
-    node = CurrentLocationNode()
-    node.get_logger().info('Waiting for /current_pose...')
+    global _shared_node
+    if _shared_node is None:
+        _shared_node = CurrentLocationNode()
+    
+    _shared_node.current_pose = None
+    _shared_node.get_logger().info('Waiting for /current_pose...')
     try:
         spins = 0
         while rclpy.ok() and spins < _MAX_SPIN_CYCLES:
-            rclpy.spin_once(node, timeout_sec=0.1)
+            rclpy.spin_once(_shared_node, timeout_sec=0.1)
             spins += 1
-            if node.current_pose is not None:
+            if _shared_node.current_pose is not None:
                 break
 
-        if node.current_pose is None:
+        if _shared_node.current_pose is None:
             raise RuntimeError(
                 f"Timed out waiting for /current_pose — no message received "
                 f"after {spins} spin cycles ({spins * 0.1:.1f}s). "
                 "Check that the pose source is publishing."
             )
 
-        pose = node.current_pose
+        pose = _shared_node.current_pose
         current_formatted_pose = [
             pose.position.x,
             pose.position.y,
@@ -63,11 +69,6 @@ def get_current_pose() -> list:
     except RuntimeError:
         raise
     except Exception as error:
-        node.get_logger().error(f"Unexpected error in get_current_pose: {error}")
+        _shared_node.get_logger().error(f"Unexpected error in get_current_pose: {error}")
         traceback.print_exc()
         raise
-    finally:
-        try:
-            node.destroy_node()
-        except Exception:
-            pass

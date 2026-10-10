@@ -76,16 +76,16 @@ timers:
   holded_nodes_period: 0.5       # seconds
 
 subprocesses:
-  pose_correction: ["ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node"]
-  nmpc_controller: ["ros2", "run", "nmpc_controller", "main"]
-  nmpc_pp_slow: ["ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow"]
-  nmpc_pp: ["ros2", "run", "nmpc_controller", "nmpc_controller_v2_pp"]
-  lidar_clustering: ["ros2", "run", "lidar_clustering", "lidar_clustering_node_once"]
-  pallet_detection: ["ros2", "run", "pallet_detection", "pallet_detection"]
-  pallet_detection_tag: ["ros2", "run", "pallet_detection", "pallet_detection_tag"]
+  pose_correction: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "byd_pose_correction_node_cpp", "pose_correction_node"]
+  nmpc_controller: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "nmpc_controller", "main"]
+  nmpc_pp_slow: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "nmpc_controller", "nmpc_controller_v2_slow"]
+  nmpc_pp: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "nmpc_controller", "nmpc_controller_v2_pp"]
+  lidar_clustering: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "lidar_clustering", "lidar_clustering_node_once"]
+  pallet_detection: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "pallet_detection", "pallet_detection"]
+  pallet_detection_tag: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "pallet_detection", "pallet_detection_tag"]
   fork_service: "/byd/send_command"
   fork_service_type: "example_interfaces/srv/Command"
-  ppts: ["ros2", "run", "ppts", "ppts_node_once.py"]
+  ppts: ["/home/jkw/bopt_ws/ros2_sim_wrapper.sh", "ros2", "run", "ppts", "ppts_node_once.py"]
 
 pose_correction:
   timeout: 45

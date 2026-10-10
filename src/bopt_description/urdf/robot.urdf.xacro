@@ -27,9 +27,9 @@
             <material name="blue"/>
         </visual>
         <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <origin xyz="0.057 0 0.874" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="file:///home/jkw/bopt_ws/install/bopt_description/share/bopt_description/meshes/visual/Base.stl"/>
+                <box size="0.583 0.821 2.315"/>
             </geometry>
         </collision>
         <inertial>
@@ -236,7 +236,7 @@
     <joint name="caster_wheel_joint_right" type="continuous">
         <parent link="caster_wheel_ass_right"/>
         <child link="caster_wheel_right"/>
-        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.078" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="10" friction="6"/>
     </joint>
@@ -268,7 +268,7 @@
     <joint name="caster_wheel_joint_left" type="continuous">
         <parent link="caster_wheel_ass_left"/>
         <child link="caster_wheel_left"/>
-        <origin xyz="0 0 -0.080" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.078" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <dynamics damping="10" friction="6"/>
     </joint>
