@@ -22,7 +22,7 @@ from nmpc_controller.utils.visualization import Visualizer
 
 class NMPCController(Node):
     def __init__(self, cfg):
-        super().__init__("nmpc_controller")
+        super().__init__("nmpc_controller", namespace=os.environ.get('ROS_NAMESPACE'))
         self.cfg = cfg
 
         # The LUT maps (x, y) target points in the robot body frame to
@@ -55,10 +55,10 @@ class NMPCController(Node):
         self._charging_active = False
         self._charge_start_time = None
 
-        self.vel_pub = self.create_publisher(Float64, "/velocity", 10)
-        self.steering_angle_publisher = self.create_publisher(Float64, "/steering_angle", 10)
-        self.state_pub = self.create_publisher(String, "/state", 10)
-        self.safety_turnoff_pub = self.create_publisher(String, "/safety_turnoff", 10)
+        self.vel_pub = self.create_publisher(Float64, "velocity", 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, "steering_angle", 10)
+        self.state_pub = self.create_publisher(String, "state", 10)
+        self.safety_turnoff_pub = self.create_publisher(String, "safety_turnoff", 10)
         self.viz = Visualizer(self)
 
         # Pose and CAN odometry are published with BEST_EFFORT so we match that QoS
@@ -69,12 +69,12 @@ class NMPCController(Node):
             depth=10
         )
 
-        self.create_subscription(PoseStamped, "/current_pose", self.pose_cb, best_effort)
-        self.create_subscription(Float64, "/byd/wheel_velocity", self.wheel_vel_cb, best_effort)
-        self.create_subscription(Bool, "/pallet_detected", self.pallet_cb, 1)
-        self.create_subscription(Bool, "/ds_field_status", self.ds_field_cb, 1)
-        self.create_subscription(String, "/byd/can_odot_data", self.can_cb, best_effort)
-        self.create_subscription(String, "/charging_state", self.charging_cb, best_effort)
+        self.create_subscription(PoseStamped, "current_pose", self.pose_cb, best_effort)
+        self.create_subscription(Float64, "byd/wheel_velocity", self.wheel_vel_cb, best_effort)
+        self.create_subscription(Bool, "pallet_detected", self.pallet_cb, 1)
+        self.create_subscription(Bool, "ds_field_status", self.ds_field_cb, 1)
+        self.create_subscription(String, "byd/can_odot_data", self.can_cb, best_effort)
+        self.create_subscription(String, "charging_state", self.charging_cb, best_effort)
 
         self.timer = self.create_timer(0.05, self.follow_path)
 

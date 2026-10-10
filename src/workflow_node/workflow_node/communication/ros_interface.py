@@ -10,15 +10,15 @@ class SafetyPublisher(Node):
     safety field commands without creating duplicate topic advertisements.
     """
 
-    def __init__(self):
-        super().__init__('Task_allocator')
-        self.publisher_ = self.create_publisher(String, '/byd/safety', 10)
+    def __init__(self, namespace=None):
+        super().__init__('Task_allocator', namespace=namespace)
+        self.publisher_ = self.create_publisher(String, 'byd/safety', 10)
         self.safety_switch_publisher = self.create_publisher(
-            String, '/byd/safety', 10
+            String, 'byd/safety', 10
         )
-        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.task_publisher = self.create_publisher(
-            String, '/byd/current_task', 10
+            String, 'byd/current_task', 10
         )
-        self.state_publisher = self.create_publisher(String, '/byd/status', 10)
+        self.state_publisher = self.create_publisher(String, 'byd/status', 10)
         print("publishers_created")

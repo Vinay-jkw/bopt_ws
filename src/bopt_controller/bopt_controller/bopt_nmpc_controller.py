@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import math
-
+import json
 import rclpy
 from rclpy.node import Node
 
@@ -54,6 +54,14 @@ class BoptNmpcController(Node):
         self.steering_angle = 0.0
         self.current_state = 'Custom'
 
+                # Lane-state feedback
+        self.in_lane = False
+        self.lane_id = None
+        self.on_buffer = False
+        self.buffer_id = None
+        self.terminate = False
+        self.data_updated = False
+
         # =====================================================
         # SUBSCRIBERS
         # =====================================================
@@ -77,6 +85,25 @@ class BoptNmpcController(Node):
             'state',
             self.state_callback,
             10
+        )
+                # Lane command state input
+        self.lane_cmd_state_sub = self.create_subscription(
+            String,
+            'lane_cmd_state',
+            self.lane_state_callback,
+            10
+        )
+
+        # Lane status feedback output
+        self.lane_status_pub = self.create_publisher(
+            String,
+            'lane_status',
+            10
+        )
+
+        self.lane_status_timer = self.create_timer(
+            0.05,  # 20 Hz
+            self.publish_lane_status
         )
 
         # =====================================================
@@ -200,6 +227,44 @@ class BoptNmpcController(Node):
             command.lift_height = 0.0
 
         self.command_pub.publish(command)
+
+    
+
+    def lane_state_callback(self, msg: String):
+        try:
+            data = json.loads(msg.data)
+
+            self.in_lane = data.get("in_lane", False)
+            self.lane_id = data.get("lane_id", None)
+            self.on_buffer = data.get("on_buffer", False)
+            self.buffer_id = data.get("buffer_id", None)
+            self.terminate = data.get("terminate", False)
+
+            self.data_updated = True
+
+        except (json.JSONDecodeError, TypeError) as exc:
+            self.get_logger().error(
+                f"Invalid lane_cmd_state JSON: {exc}"
+            )
+
+    def publish_lane_status(self):
+        if not self.data_updated:
+            return
+
+        payload = {
+            "robot_id": self.get_namespace().strip("/"),
+            "in_lane": self.in_lane,
+            "lane_id": self.lane_id,
+            "on_buffer": self.on_buffer,
+            "buffer_id": self.buffer_id,
+            "is_halted": False,
+            "terminate": self.terminate,
+            "redirect": False
+        }
+
+        msg = String()
+        msg.data = json.dumps(payload)
+        self.lane_status_pub.publish(msg)
 
     # =========================================================
     # SHUTDOWN

@@ -79,8 +79,8 @@ class RobotClient(Node):
         self.velocity_publisher = self.create_publisher(Float64, self.linear_velocity_publisher_topic, 10)
         self.steering_angle_publisher = self.create_publisher(Float64, self.steering_angle_publisher_topic, 10)
         self.state_publisher = self.create_publisher(String, self.state_publisher_topic, 10)
-        self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
-        self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker',
+        self.path_publisher = self.create_publisher(Path, 'visualization_path', 10)  # Path publisher
+        self.target_point_publisher = self.create_publisher(Marker, 'target_point_marker',
                                                             10)  # Marker publisher for target point
         self.add_nodes_publisher = self.create_publisher(String, '/add_nodes', 10)
 
@@ -103,13 +103,13 @@ class RobotClient(Node):
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/current_pose',
+            'current_pose',
             self.current_pose_callback,
             qos_settings)
 
         self.pd_sub = self.create_subscription(
             Bool,
-            '/pallet_detected',
+            'pallet_detected',
             self.pallet_detection_callback,
             1)
 

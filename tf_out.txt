@@ -1,0 +1,62 @@
+Gathering data on all frames for 10 seconds...
+
+
+
+RESULTS: for all Frames
+
+Frames:
+Frame: robot001/LLt, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/LRt, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/base_footprint, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/base_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/caster_wheel_ass_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/caster_wheel_ass_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/caster_wheel_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/caster_wheel_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/depth_camera_back, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/depth_camera_back_optical, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/drive_wheel, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/drive_wheel_Ass, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/front_lidar_frame_left, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/front_lidar_frame_right, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/front_lift_link, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/front_wheel_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/front_wheel_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/front_wheel_shaft_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/front_wheel_shaft_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/imu_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/limit_switch_bar, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/limit_switch_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/odom, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot001/top3dl_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/toplidar_front, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/ultrasonic_link_left, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot001/ultrasonic_link_right, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/LLt, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/LRt, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/base_footprint, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/base_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/caster_wheel_ass_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/caster_wheel_ass_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/caster_wheel_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/caster_wheel_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/depth_camera_back, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/depth_camera_back_optical, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/drive_wheel, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/drive_wheel_Ass, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/front_lidar_frame_left, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/front_lidar_frame_right, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/front_lift_link, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/front_wheel_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/front_wheel_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/front_wheel_shaft_left, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/front_wheel_shaft_right, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/imu_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/limit_switch_bar, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/limit_switch_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/odom, published by <no authority available>, Average Delay: 1.7916e+09, Max Delay: 1.7916e+09
+Frame: robot002/top3dl_link, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/toplidar_front, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/ultrasonic_link_left, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Frame: robot002/ultrasonic_link_right, published by <no authority available>, Average Delay: 1.79161e+09, Max Delay: 1.79161e+09
+Node: <no authority available> 160.657 Hz, Average Delay: 1.7916e+09 Max Delay: 1.7916e+09

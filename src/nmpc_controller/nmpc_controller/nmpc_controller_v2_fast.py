@@ -63,11 +63,11 @@ class RobotClient(Node):
         self._lut_keys = list(self.lookup_table.keys())  # full 3-D keys
         self._kd_tree = KDTree(np.array([k[:2] for k in self._lut_keys], dtype=np.float32))
 
-        self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
-        self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
-        self.state_publisher = self.create_publisher(String, '/state', 10)
-        self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
-        self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker',
+        self.velocity_publisher = self.create_publisher(Float64, 'velocity', 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, 'steering_angle', 10)
+        self.state_publisher = self.create_publisher(String, 'state', 10)
+        self.path_publisher = self.create_publisher(Path, 'visualization_path', 10)  # Path publisher
+        self.target_point_publisher = self.create_publisher(Marker, 'target_point_marker',
                                                             10)  # Marker publisher for target point
                                                            
         self.current_pose = None
@@ -87,19 +87,19 @@ class RobotClient(Node):
             10)
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/current_pose',
+            'current_pose',
             self.current_pose_callback,
             qos_settings)
 
         self.pd_sub = self.create_subscription(
             Bool,
-            '/pallet_detected',
+            'pallet_detected',
             self.pallet_detection_callback,
             1)
 
         self.subscription = self.create_subscription(
             Float64,
-            '/wheel_velocity',
+            'wheel_velocity',
             self.wv_callback,
             10  # QoS history depth
         )

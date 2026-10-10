@@ -131,8 +131,13 @@ def get_pds_results() -> tuple:
     """Run pallet_detection once and parse stdout for distance and offset."""
     _logger.info("Running pallet_detection...")
     try:
+        command = ["ros2", "run", "pallet_detection", "pallet_detection"]
+        ns = os.environ.get('ROS_NAMESPACE')
+        if ns and ns != '/':
+            command.extend(["--ros-args", "-r", f"__ns:={ns}"])
+            
         result_pds = subprocess.run(
-            ["ros2", "run", "pallet_detection", "pallet_detection"],
+            command,
             capture_output=True,
             text=True,
         )
@@ -180,8 +185,13 @@ def get_pds_tag_results() -> tuple:
     """Run pallet_detection_tag once and parse stdout for offsets."""
     _logger.info("Running pallet_detection_tag...")
     try:
+        command = ["ros2", "run", "pallet_detection", "pallet_detection_tag"]
+        ns = os.environ.get('ROS_NAMESPACE')
+        if ns and ns != '/':
+            command.extend(["--ros-args", "-r", f"__ns:={ns}"])
+
         result_pds = subprocess.run(
-            ["ros2", "run", "pallet_detection", "pallet_detection_tag"],
+            command,
             capture_output=True,
             text=True,
         )

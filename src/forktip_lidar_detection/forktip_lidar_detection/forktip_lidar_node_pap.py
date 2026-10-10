@@ -12,16 +12,20 @@ class QuadrilateralPublisher(Node):
     def __init__(self):
         super().__init__('quadrilateral_publisher')
 
+        # Get namespace for TF prefixing
+        ns = self.get_namespace()
+        self.tf_prefix = ns[1:] + '/' if ns != '/' else ''
+
         # Create a publisher for the Marker message
-        self.marker_publisher = self.create_publisher(Marker, '/visualization_marker_pap', 10)
+        self.marker_publisher = self.create_publisher(Marker, 'visualization_marker_pap', 10)
 
         # Create a publisher for the boolean result (True if inside, False if not)
-        self.boolean_publisher = self.create_publisher(Bool, '/pap_field_status', 10)
+        self.boolean_publisher = self.create_publisher(Bool, 'pap_field_status', 10)
         
         # Set up the TF2 listener
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.scan_subscription = self.create_subscription(LaserScan, '/Lidar_RFT', self.scan_callback, 10)
+        self.scan_subscription = self.create_subscription(LaserScan, 'Lidar_RFT', self.scan_callback, 10)
 
         # Create a timer to periodically publish the marker
         timer_period = 0.5  # seconds
@@ -93,22 +97,22 @@ class QuadrilateralPublisher(Node):
         try:
             # Lookup the transformation between right_forktip_laser and base_link
             if not self.tf_buffer.can_transform(
-                'base_link',
-                'front_lidar_frame_right',
+                self.tf_prefix + 'base_link',
+                self.tf_prefix + 'front_lidar_frame_right',
                 rclpy.time.Time(),
                 timeout=rclpy.duration.Duration(seconds=0.2)
             ):
                 return
 
             transform = self.tf_buffer.lookup_transform(
-                'base_link',
-                'front_lidar_frame_right',
+                self.tf_prefix + 'base_link',
+                self.tf_prefix + 'front_lidar_frame_right',
                 rclpy.time.Time()
             )
 
             # Create a Marker message for the quadrilateral
             marker = Marker()
-            marker.header.frame_id = "base_link"  # Now we're visualizing in base_link frame
+            marker.header.frame_id = self.tf_prefix + "base_link"  # Now we're visualizing in base_link frame
             marker.header.stamp = self.get_clock().now().to_msg()  # Current time
             marker.ns = "quadrilateral"
             marker.id = 0
@@ -147,7 +151,7 @@ class QuadrilateralPublisher(Node):
             for point in points:
                 # Create a geometry_msgs/PointStamped from the point
                 point_stamped = PointStamped(
-                    header=Header(frame_id='front_lidar_frame_right'),
+                    header=Header(frame_id=self.tf_prefix + 'front_lidar_frame_right'),
                     point=point
                 )
                 # Transform the point

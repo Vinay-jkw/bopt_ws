@@ -161,6 +161,7 @@ class MovementHandler(FastDriveMixin):
         if adjust:
             pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
                 "--ros-args",
+                "-r", f"__ns:={self.node.get_namespace()}",
                 "-p", f"target_z:={location[2]}",
                 "-p", f"target_w:={location[3]}",
             ]
@@ -240,6 +241,7 @@ class MovementHandler(FastDriveMixin):
         if adjust:
             pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
                 "--ros-args",
+                "-r", f"__ns:={self.node.get_namespace()}",
                 "-p", f"target_z:={location[2]}",
                 "-p", f"target_w:={location[3]}",
             ]

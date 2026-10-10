@@ -38,11 +38,11 @@ class YawAdjustmentNode: public rclcpp::Node {
 
 YawAdjustmentNode::YawAdjustmentNode(double yaw_correction) 
   : rclcpp::Node("yaw_adjustment_node"), yaw_correction_(yaw_correction), amcl_pose_received_(false), success_(false) {
-    cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+    cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
     auto qos = rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::BestEffort);
 
     pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "/current_pose", qos, std::bind(&YawAdjustmentNode::amcl_pose_callback, this, std::placeholders::_1));
+      "current_pose", qos, std::bind(&YawAdjustmentNode::amcl_pose_callback, this, std::placeholders::_1));
 
     auto timer_callback = std::bind(&YawAdjustmentNode::adjust_yaw, this);
     timer_ = this->create_wall_timer(std::chrono::milliseconds(50), timer_callback);

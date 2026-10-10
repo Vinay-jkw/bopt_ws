@@ -72,13 +72,13 @@ class RobotClient(Node):
                 self.charging_state_callback,
                 qos)
 
-        self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
-        self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
-        self.state_publisher = self.create_publisher(String, '/state', 10)
-        self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
-        self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker',
+        self.velocity_publisher = self.create_publisher(Float64, 'velocity', 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, 'steering_angle', 10)
+        self.state_publisher = self.create_publisher(String, 'state', 10)
+        self.path_publisher = self.create_publisher(Path, 'visualization_path', 10)  # Path publisher
+        self.target_point_publisher = self.create_publisher(Marker, 'target_point_marker',
                                                             10)  # Marker publisher for target point
-        self.safety_turnoff_publisher = self.create_publisher(String, '/safety_turnoff', 10)
+        self.safety_turnoff_publisher = self.create_publisher(String, 'safety_turnoff', 10)
 
         self.current_pose = None
         self.current_velocity = 0.0  # Initialize the current velocity to zero
@@ -87,13 +87,13 @@ class RobotClient(Node):
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/current_pose',
+            'current_pose',
             self.current_pose_callback,
             qos_settings)
 
         self.pd_sub = self.create_subscription(
             Bool,
-            '/pallet_detected',
+            'pallet_detected',
             self.pallet_detection_callback,
             1)
 

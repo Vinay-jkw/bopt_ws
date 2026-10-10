@@ -61,7 +61,7 @@ amcl:
     set_initial_pose: true
 
     initial_pose:
-      x: 0.0
-      y: 0.0
+      x: 41.363338143095355
+      y: 46.37513965950239
       z: 0.0
-      yaw: 0.0
+      yaw: 3.14159

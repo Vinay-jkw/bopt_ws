@@ -34,9 +34,11 @@ class ImuCovarianceRelay(Node):
 
         self.declare_parameter('input_topic', '/imu')
         self.declare_parameter('output_topic', '/imu/corrected')
+        self.declare_parameter('frame_id', '')
 
         input_topic = self.get_parameter('input_topic').value
         output_topic = self.get_parameter('output_topic').value
+        self.frame_id = self.get_parameter('frame_id').value
 
         self.publisher = self.create_publisher(Imu, output_topic, 10)
 
@@ -52,6 +54,8 @@ class ImuCovarianceRelay(Node):
         )
 
     def imu_callback(self, msg):
+        if self.frame_id:
+            msg.header.frame_id = self.frame_id
         msg.orientation_covariance = diag_covariance(ORIENTATION_VAR)
         msg.angular_velocity_covariance = diag_covariance(ANGULAR_VELOCITY_VAR)
         msg.linear_acceleration_covariance = diag_covariance(LINEAR_ACCEL_VAR)

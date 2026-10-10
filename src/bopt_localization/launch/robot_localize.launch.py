@@ -30,11 +30,15 @@ def generate_launch_description():
         output="screen",
         parameters=[
             amcl_config,
-            {"use_sim_time": True,}
+            {
+                "use_sim_time": True,
+                "base_frame_id": [robot_name, "/base_footprint"],
+                "odom_frame_id": [robot_name, "/odom"],
+            }
         ],
         remappings=[
-        ("map", "/map")   
-    ],
+            ("map", "/map")
+        ],
     )
 
     nav2_lifecycle_manager = Node(

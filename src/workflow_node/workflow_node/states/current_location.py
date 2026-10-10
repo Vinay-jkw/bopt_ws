@@ -17,7 +17,7 @@ class CurrentLocationNode(Node):
         qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
         self.pose_sub = self.create_subscription(
-            PoseStamped, '/current_pose', self._current_pose_callback, qos
+            PoseStamped, 'current_pose', self._current_pose_callback, qos
         )
         self.current_pose = None
         self.success = False

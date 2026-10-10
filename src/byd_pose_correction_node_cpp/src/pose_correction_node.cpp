@@ -79,15 +79,14 @@ public:
 
     target_yaw_ = quatToYaw(0.0, 0.0, target_z_, target_w_);
 
-    cmd_pub_ =
-        this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+    cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
     auto amcl_qos =
         rclcpp::QoS(rclcpp::KeepLast(10)).reliable().transient_local();
 
     amcl_sub_ = this->create_subscription<
         geometry_msgs::msg::PoseWithCovarianceStamped>(
-        "/amcl_pose", amcl_qos,
+        "amcl_pose", amcl_qos,
         std::bind(&OrientRobot::amclCallback, this, std::placeholders::_1));
 
     auto period = std::chrono::duration<double>(1.0 / rate_hz);

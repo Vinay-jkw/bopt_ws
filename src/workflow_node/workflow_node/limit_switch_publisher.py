@@ -9,12 +9,12 @@ class LimitSwitchOdotPublisher(Node):
         
         self.subscription = self.create_subscription(
             JointState,
-            '/joint_states',
+            'joint_states',
             self.joint_states_callback,
             10
         )
         
-        self.publisher = self.create_publisher(String, '/byd/can_odot_data', 10)
+        self.publisher = self.create_publisher(String, 'byd/can_odot_data', 10)
         
         # We can also use a timer to constantly publish the state if needed,
         # but publishing on every joint_states message is also fine.

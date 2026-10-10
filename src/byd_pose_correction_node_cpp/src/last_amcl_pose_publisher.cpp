@@ -9,8 +9,8 @@ public:
   {
     last_amcl_pose_ = nullptr;
     pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-        "/amcl_pose", 10, std::bind(&LastAMCLPosePublisher::amcl_pose_callback, this, std::placeholders::_1));
-    last_amcl_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/last_amcl_pose", 10);
+        "amcl_pose", 10, std::bind(&LastAMCLPosePublisher::amcl_pose_callback, this, std::placeholders::_1));
+    last_amcl_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("last_amcl_pose", 10);
 
     timer_ = this->create_wall_timer(std::chrono::milliseconds(100),
                                       std::bind(&LastAMCLPosePublisher::publish_last_amcl_pose, this));

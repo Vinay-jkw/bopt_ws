@@ -1,3 +1,4 @@
+import os
 import pickle
 import re
 import subprocess
@@ -36,7 +37,8 @@ class ActionHandler(RsManeuverMixin):
     def __init__(self, node) -> None:
         self.node = node
         self._logger = node.get_logger()
-        self.path_file_path = "/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path_pp_control.pkl"
+        ns = self.node.get_namespace().strip("/") or "default"
+        self.path_file_path = f"/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path_{ns}.pkl"
     # ------------------------------------------------------------------
     # Fork control
     # ------------------------------------------------------------------
@@ -63,28 +65,41 @@ class ActionHandler(RsManeuverMixin):
     #         self._logger.error(f"fork_down subprocess failed: {error}")
     #         traceback.print_exc()
     def fork_up(self) -> None:
-        command = (
-            "ros2 service call /set_lift_height "
-            "bopt_interfaces/srv/SetLiftHeight "
-            "\"{height: 0.095}\""
-        )
         try:
-            subprocess.call(command, shell=True)
+            from bopt_interfaces.srv import SetLiftHeight
+            ns = self.node.get_namespace()
+            srv_name = "/set_lift_height" if ns == "/" else f"{ns}/set_lift_height"
+            
+            client = self.node.create_client(SetLiftHeight, srv_name)
+            if not client.wait_for_service(timeout_sec=5.0):
+                self._logger.error(f"fork_up: Service {srv_name} not available!")
+                return
+                
+            req = SetLiftHeight.Request()
+            req.height = 0.095
+            client.call_async(req)
+            self._logger.info(f"fork_up: Requested lift to 0.095 on {srv_name}")
         except Exception as error:
-            self._logger.error(f"fork_up subprocess failed: {error}")
+            self._logger.error(f"fork_up failed: {error}")
             traceback.print_exc()
 
-
     def fork_down(self) -> None:
-        command = (
-            "ros2 service call /set_lift_height "
-            "bopt_interfaces/srv/SetLiftHeight "
-            "\"{height: 0.0}\""
-        )
         try:
-            subprocess.call(command, shell=True)
+            from bopt_interfaces.srv import SetLiftHeight
+            ns = self.node.get_namespace()
+            srv_name = "/set_lift_height" if ns == "/" else f"{ns}/set_lift_height"
+            
+            client = self.node.create_client(SetLiftHeight, srv_name)
+            if not client.wait_for_service(timeout_sec=5.0):
+                self._logger.error(f"fork_down: Service {srv_name} not available!")
+                return
+                
+            req = SetLiftHeight.Request()
+            req.height = 0.0
+            client.call_async(req)
+            self._logger.info(f"fork_down: Requested lift to 0.0 on {srv_name}")
         except Exception as error:
-            self._logger.error(f"fork_down subprocess failed: {error}")
+            self._logger.error(f"fork_down failed: {error}")
             traceback.print_exc()
 
     # ------------------------------------------------------------------
@@ -185,54 +200,71 @@ class ActionHandler(RsManeuverMixin):
         )
         return present, dx, dy, angle_rad
 
-    def ppts(self):
-        """Run PPTS/lidar clustering once and parse the pallet detection result."""
+    def ppts(self) -> bool:
+        """Run PPTS/lidar clustering once and write the pallet path to disk.
+
+        Returns True on success, False if the subprocess failed or timed out.
+        The caller should not read ``self.path_file_path`` when False is returned.
+        """
 
         try:
+            ppts_cmd = list(self.node.cfg.subprocesses.ppts)
+            ns = self.node.get_namespace()
+            if ns and ns != '/':
+                ppts_cmd.extend(["--ros-args", "-r", f"__ns:={ns}"])
+            
+            try:
+                if self.node.get_parameter('use_sim_time').value:
+                    if "--ros-args" not in ppts_cmd:
+                        ppts_cmd.append("--ros-args")
+                    ppts_cmd.extend(["-p", "use_sim_time:=true"])
+            except Exception:
+                pass
+
             result = subprocess.run(
-                list(self.node.cfg.subprocesses.ppts),
+                ppts_cmd,
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
+            
+            if result.returncode != 0:
+                self._logger.error(f"ppts subprocess failed with return code {result.returncode}")
+                self._logger.error(f"ppts stdout:\n{result.stdout.strip()}")
+                self._logger.error(f"ppts stderr:\n{result.stderr.strip()}")
+                return False
+
+            if not os.path.exists(self.path_file_path):
+                self._logger.error(f"ppts succeeded but path file was not created: {self.path_file_path}")
+                self._logger.error(f"ppts stdout:\n{result.stdout.strip()}")
+                self._logger.error(f"ppts stderr:\n{result.stderr.strip()}")
+                return False
+
+            return True
 
         except FileNotFoundError as error:
             self._logger.error(
                 f"ppts executable not found: {error}"
             )
             traceback.print_exc()
-            return None, None, None, None
+            return False
 
         except subprocess.TimeoutExpired as error:
             self._logger.error(
                 f"ppts subprocess timed out: {error}"
             )
-            return None, None, None, None
+            if hasattr(error, 'stdout') and error.stdout:
+                self._logger.error(f"ppts stdout:\n{error.stdout.strip()}")
+            if hasattr(error, 'stderr') and error.stderr:
+                self._logger.error(f"ppts stderr:\n{error.stderr.strip()}")
+            return False
 
         except Exception as error:
             self._logger.error(
                 f"ppts subprocess failed: {error}"
             )
             traceback.print_exc()
-            return None, None, None, None
-
-        # stdout = result.stdout or ""
-        # stderr = result.stderr or ""
-
-        # self._logger.info(
-        #     f"ppts stdout:\n{stdout.strip()}"
-        # )
-
-        # self._logger.info(
-        #     f"ppts stderr:\n{stderr.strip()}"
-        # )
-
-        # # ROS logging normally appears in stderr.
-        # output = f"{stdout}\n{stderr}"
-
-        # # ==========================================================
-        # # Parse current PPTS detection result
-        # # ==========================================================
+            return False
 
         # pattern = (
         #     r'Pallet Detection\s*\|\s*'
@@ -378,18 +410,52 @@ class ActionHandler(RsManeuverMixin):
 
         if state.operation_state < '3':
             mvmt.drive_rs_path(node.dock_station_end_line, PROFILE_DP)
-            pose_cmd = list(cfg.subprocesses.pose_correction) + [
-                "--ros-args",
+            pose_cmd = list(cfg.subprocesses.pose_correction)
+            ns = node.get_namespace()
+            if ns and ns != '/':
+                pose_cmd.extend(["--ros-args", "-r", f"__ns:={ns}"])
+            else:
+                pose_cmd.extend(["--ros-args"])
+            
+            pose_cmd.extend([
                 "-p", f"target_z:={node.dock_location[2]}",
                 "-p", f"target_w:={node.dock_location[3]}",
-            ]
+            ])
             try:
                 subprocess.run(pose_cmd)
             except Exception as error:
                 self._logger.error(f"pose_correction subprocess failed: {error}")
                 traceback.print_exc()
 
-            self.ppts()
+            # Delete any stale path file before running ppts so that a
+            # timeout cannot cause stale data from a previous run to be used.
+            import os
+            try:
+                os.remove(self.path_file_path)
+            except FileNotFoundError:
+                pass  # No stale file to remove — that's fine.
+            except OSError as error:
+                self._logger.warning(f"Could not remove stale ppts path file: {error}")
+
+            ppts_ok = self.ppts()
+
+            if not ppts_ok:
+                self._logger.error(
+                    "ppts failed or timed out — cannot determine pallet path. "
+                    "Aborting pickup and returning to dock."
+                )
+                node.mqtt_node.publish2topic("machine/error/detected", "E002")
+                node.mqtt_node.publish2topic("machine/task/status", "Pallet_Not_Present")
+                state.error_status = "Pallet_Not_Present"
+                mvmt.drive_rs_path(node.dock_location, PROFILE_SLOW, adjust=False)
+                try:
+                    node.thread1 = Thread(target=node.pickdrop_field)
+                    node.thread1.start()
+                except Exception as error:
+                    self._logger.error(f"Failed to restart pickdrop_field thread: {error}")
+                    traceback.print_exc()
+                return True
+
             with open(self.path_file_path, 'rb') as f:
                 self.pp_data = pickle.load(f)
             if self.pp_data['valid'] is True:
@@ -438,6 +504,8 @@ class ActionHandler(RsManeuverMixin):
 
         if state.operation_state < '4':
             self.fork_up()
+            self._logger.info("Waiting 2.5s for lift to reach max position...")
+            time.sleep(2.5)
             node.mqtt_node.publish2topic('machine/task/status', 'operation_state=4')
 
         if state.operation_state < '5':

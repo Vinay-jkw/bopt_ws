@@ -48,16 +48,16 @@ ppts:
 
       topics:
 
-        left_scan: "/Lidar_LFT"
-        right_scan: "/Lidar_RFT"
+        left_scan: "Lidar_LFT"
+        right_scan: "Lidar_RFT"
 
-        left_cloud: "/ppts/left_cloud"
-        right_cloud: "/ppts/right_cloud"
+        left_cloud: "ppts/left_cloud"
+        right_cloud: "ppts/right_cloud"
 
-        merged_cloud: "/ppts/merged_cloud"
+        merged_cloud: "ppts/merged_cloud"
 
-        clusters: "/ppts/clusters"
-        rois: "/ppts/rois"
+        clusters: "ppts/clusters"
+        rois: "ppts/rois"
 
 
       # --------------------------------------------------------

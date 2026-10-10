@@ -68,7 +68,10 @@ def generate_launch_description():
         output="screen",
         arguments=["-topic", "robot_description",
                    "-name", "JKW_BOPT",
-                   "-Y", "3.14159"],
+                   "-x", "109.500",
+                   "-y", "27.200",
+                   "-z", "0.1",
+                   "-Y", "0.0"],
     )
 
     return LaunchDescription([

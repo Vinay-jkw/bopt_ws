@@ -46,11 +46,11 @@ class RobotClient(Node):
         with open('/home/jkw/bopt_ws/src/nmpc_controller/nmpc_controller/mpc_lookup_table_1.542.pkl', 'rb') as f:
             self.lookup_table = pickle.load(f)
 
-        self.velocity_publisher = self.create_publisher(Float64, '/velocity', 10)
-        self.steering_angle_publisher = self.create_publisher(Float64, '/steering_angle', 10)
-        self.state_publisher = self.create_publisher(String, '/state', 10)
-        self.path_publisher = self.create_publisher(Path, '/visualization_path', 10)  # Path publisher
-        self.target_point_publisher = self.create_publisher(Marker, '/target_point_marker', 10)  # Marker publisher for target point
+        self.velocity_publisher = self.create_publisher(Float64, 'velocity', 10)
+        self.steering_angle_publisher = self.create_publisher(Float64, 'steering_angle', 10)
+        self.state_publisher = self.create_publisher(String, 'state', 10)
+        self.path_publisher = self.create_publisher(Path, 'visualization_path', 10)  # Path publisher
+        self.target_point_publisher = self.create_publisher(Marker, 'target_point_marker', 10)  # Marker publisher for target point
         self.current_pose = None
         self.current_velocity = 0.0  # Initialize the current velocity to zero
 
@@ -58,7 +58,7 @@ class RobotClient(Node):
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/current_pose',
+            'current_pose',
             self.current_pose_callback,
             qos_settings)
 

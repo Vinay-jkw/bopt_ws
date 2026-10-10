@@ -1,3 +1,5 @@
+from launch.actions import reset_launch_configurations
+from http import client
 import argparse
 import signal
 
@@ -85,7 +87,7 @@ class RosMqttBridge(Node):
         )
         self.lane_status_sub = self.create_subscription(
             String,
-            f'{self.robot_id}/lane_status',
+            'lane_status',
             self._lane_status_to_mqtt,
             10
         )
@@ -102,8 +104,8 @@ class RosMqttBridge(Node):
         self.command_pub = self.create_publisher(String, self.ros2_topics['conflict_action'], qos_profile)
         self.task_action_pub = self.create_publisher(String, self.ros2_topics['task_action'], qos_profile)
         self.dimension_pub = self.create_publisher(String, self.ros2_topics['robot_dimensions'], qos_profile)
-        self.velo_pub = self.create_publisher(Float64, '/velocity', qos_profile)
-        self.steer_pub = self.create_publisher(Float64, '/steering_angle', qos_profile)
+        self.velo_pub = self.create_publisher(Float64, 'velocity', qos_profile)
+        self.steer_pub = self.create_publisher(Float64, 'steering_angle', qos_profile)
         
         self.mqtt_status_pub = self.create_publisher(
             String,
@@ -116,7 +118,7 @@ class RosMqttBridge(Node):
 
         # Timer to periodically publish dimensions (every 5 seconds)
         self.create_timer(self.publish_dimensions_period, self.dimensions_callback)
-        self.lane_state_pub = self.create_publisher(String, f"/{self.robot_id}/lane_cmd_state", qos_profile)
+        self.lane_state_pub = self.create_publisher(String, "lane_cmd_state", qos_profile)
         self.create_timer(0.01, self.publish_lane_state)
         # Initialize MQTT Client with error handling
         self.mqtt_client = mqtt.Client()
@@ -192,6 +194,8 @@ class RosMqttBridge(Node):
         client.subscribe(self.mqtt_topics['task'], qos=2)
         client.subscribe(self.mqtt_topics['conflict_action'], qos=2)
         client.subscribe(self.mqtt_topics['task_action'], qos=2)
+        client.subscribe(f"{self.robot_id}/lane_cmd", qos=1)
+        client.subscribe(f"{self.robot_id}/buffer_status", qos=1)
         client.subscribe("manager/heartbeat", qos=1)
 
     def on_disconnect(self, client, userdata, rc):

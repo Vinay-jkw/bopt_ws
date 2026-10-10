@@ -87,7 +87,7 @@
 
             <plane>
               <normal>0 0 1</normal>
-              <size>200 200</size>
+              <size>300 300</size>
             </plane>
 
           </geometry>
@@ -101,7 +101,7 @@
 
             <plane>
               <normal>0 0 1</normal>
-              <size>200 200</size>
+              <size>300 300</size>
             </plane>
 
           </geometry>
@@ -132,7 +132,7 @@
 
       <!-- Warehouse position and orientation -->
       <!-- Center the warehouse by offsetting its original coordinates -->
-      <pose>0 0 0 0 0 0</pose>
+      <pose>0 0 -0.05 0 0 0</pose>
 
       <link name="warehouse_link">
 

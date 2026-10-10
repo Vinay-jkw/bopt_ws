@@ -9,7 +9,7 @@ class CurrentLocationNode(Node):
         qos_settings = QoSProfile(depth=10)
         qos_settings.reliability = QoSReliabilityPolicy.BEST_EFFORT
         
-        self.pose_sub = self.create_subscription(PoseStamped, '/current_pose', self.current_pose_callback, qos_settings)
+        self.pose_sub = self.create_subscription(PoseStamped, 'current_pose', self.current_pose_callback, qos_settings)
         self.current_pose = None
         self.success = False
 

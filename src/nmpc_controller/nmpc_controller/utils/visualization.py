@@ -9,8 +9,8 @@ from visualization_msgs.msg import Marker
 class Visualizer:
     def __init__(self, node):
         self._node = node
-        self._path_pub = node.create_publisher(Path, "/visualization_path", 10)
-        self._marker_pub = node.create_publisher(Marker, "/target_point_marker", 10)
+        self._path_pub = node.create_publisher(Path, "visualization_path", 10)
+        self._marker_pub = node.create_publisher(Marker, "target_point_marker", 10)
 
     def publish_path(self, path):
         # Called once after the path is loaded. Shows the full planned route in RViz2.

@@ -49,7 +49,7 @@ class WorkflowHandler(Node):
         # ROS publishers
         # -----------------------------------------------------------------
         try:
-            safety_pub_node = SafetyPublisher()
+            safety_pub_node = SafetyPublisher(namespace=self.get_namespace())
             self.publisher_ = safety_pub_node.publisher_  # /byd/safety
         except Exception as error:
             self.get_logger().error(

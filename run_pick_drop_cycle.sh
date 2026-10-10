@@ -5,15 +5,15 @@ set -u
 # ============================================================
 # BOPT CONTINUOUS PICK / DROP TEST
 #
-# Pickup : B0
-# Drops  : C0 -> A0 -> C0 -> A0 -> ...
+# Pickup : Pickup3
+# Drop   : Drop3
 #
 # Flow:
-#   Spawn pallet at B0
-#   Pickup B0
-#   Drop C0/A0
+#   Spawn pallet at Pickup3
+#   Pickup Pickup3
+#   Drop Drop3
 #   Despawn pallet
-#   Spawn fresh pallet at B0
+#   Spawn fresh pallet at Pickup3
 #   Repeat
 # ============================================================
 
@@ -21,12 +21,16 @@ PALLET_NAME="pallet_2"
 
 PALLET_SDF="$HOME/bopt_ws/src/bopt_description/models/pallet/model.sdf"
 
+# Ignition Gazebo world name (fg_warehouse.world -> fg_warehouse_world)
+WORLD_NAME="fg_warehouse_world"
+
 # ------------------------------------------------------------
-# Pallet spawn pose at B0
+# Pallet spawn pose at Pickup3
+# (dock_station_end_line: x=123.71, y=45.51, yaw=0.0 => pose_z=0.0, pose_w=1.0)
 # ------------------------------------------------------------
 
-PALLET_X="6.10"
-PALLET_Y="0.10"
+PALLET_X="28.0"
+PALLET_Y="28.064"
 PALLET_Z="0.05"
 PALLET_YAW="0.0"
 
@@ -34,11 +38,10 @@ PALLET_YAW="0.0"
 # Stations
 # ------------------------------------------------------------
 
-PICKUP_STATION="B0"
+PICKUP_STATION="Pickup3"
 
-DROP_STATIONS=("C0" "A0")
+DROP_STATION="Drop3"
 
-DROP_INDEX=0
 CYCLE=1
 
 
@@ -54,7 +57,7 @@ despawn_pallet()
     echo "============================================================"
 
     ign service \
-        -s /world/empty_world/remove \
+        -s /world/$WORLD_NAME/remove \
         --reqtype ignition.msgs.Entity \
         --reptype ignition.msgs.Boolean \
         --timeout 3000 \
@@ -84,8 +87,8 @@ spawn_pallet()
     echo ""
     echo "============================================================"
     echo " Spawning pallet"
-    echo " Name : $PALLET_NAME"
-    echo " B0   : x=$PALLET_X y=$PALLET_Y"
+    echo " Name    : $PALLET_NAME"
+    echo " Pickup3 : x=$PALLET_X y=$PALLET_Y"
     echo "============================================================"
 
     ros2 run ros_gz_sim create \
@@ -146,8 +149,6 @@ pickup_pallet()
 
 drop_pallet()
 {
-    local DROP_STATION="$1"
-
     echo ""
     echo "------------------------------------------------------------"
     echo " Cycle $CYCLE"
@@ -184,7 +185,7 @@ cleanup()
     echo "============================================================"
 
     ign service \
-        -s /world/empty_world/remove \
+        -s /world/$WORLD_NAME/remove \
         --reqtype ignition.msgs.Entity \
         --reptype ignition.msgs.Boolean \
         --timeout 3000 \
@@ -207,9 +208,10 @@ echo ""
 echo "############################################################"
 echo "# BOPT CONTINUOUS PICK / DROP TEST"
 echo "############################################################"
-echo "# Pickup : B0"
-echo "# Drops  : C0 -> A0 -> C0 -> A0 -> ..."
+echo "# Pickup : $PICKUP_STATION"
+echo "# Drop   : $DROP_STATION"
 echo "# Pallet : $PALLET_NAME"
+echo "# World  : $WORLD_NAME"
 echo "############################################################"
 
 
@@ -221,7 +223,7 @@ echo ""
 echo "[INFO] Removing any existing pallet..."
 
 ign service \
-    -s /world/empty_world/remove \
+    -s /world/$WORLD_NAME/remove \
     --reqtype ignition.msgs.Entity \
     --reptype ignition.msgs.Boolean \
     --timeout 3000 \
@@ -249,8 +251,6 @@ fi
 
 while true
 do
-
-    DROP_STATION="${DROP_STATIONS[$DROP_INDEX]}"
 
     echo ""
     echo ""
@@ -280,7 +280,7 @@ do
     # 2. DROP
     # --------------------------------------------------------
 
-    drop_pallet "$DROP_STATION"
+    drop_pallet
 
     if [ $? -ne 0 ]; then
         echo ""
@@ -305,25 +305,11 @@ do
 
 
     # --------------------------------------------------------
-    # 4. CHANGE DROP LOCATION
-    #
-    # C0 -> A0
-    # A0 -> C0
-    # --------------------------------------------------------
-
-    if [ "$DROP_INDEX" -eq 0 ]; then
-        DROP_INDEX=1
-    else
-        DROP_INDEX=0
-    fi
-
-
-    # --------------------------------------------------------
-    # 5. RESPAWN AT B0
+    # 4. RESPAWN AT Pickup3
     # --------------------------------------------------------
 
     echo ""
-    echo "[INFO] Respawning fresh pallet at B0..."
+    echo "[INFO] Respawning fresh pallet at $PICKUP_STATION..."
 
     spawn_pallet
 
@@ -336,13 +322,13 @@ do
 
 
     # --------------------------------------------------------
-    # 6. NEXT CYCLE
+    # 5. NEXT CYCLE
     # --------------------------------------------------------
 
     echo ""
     echo "############################################################"
     echo "# CYCLE $CYCLE COMPLETED"
-    echo "# Next drop: ${DROP_STATIONS[$DROP_INDEX]}"
+    echo "# Next: Pickup=$PICKUP_STATION  Drop=$DROP_STATION"
     echo "############################################################"
 
     CYCLE=$((CYCLE + 1))

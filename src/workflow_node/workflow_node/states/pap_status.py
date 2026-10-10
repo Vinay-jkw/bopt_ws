@@ -17,7 +17,7 @@ class PapNode(Node):
         qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
         self.pose_sub = self.create_subscription(
-            Bool, '/pap_field_status', self._pap_callback, qos
+            Bool, 'pap_field_status', self._pap_callback, qos
         )
         self.pap_status = None
 

@@ -17,7 +17,7 @@ class CurrentOdotStateNode(Node):
         qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
         self.subscription = self.create_subscription(
-            String, '/byd/can_odot_data', self._odot_callback, qos
+            String, 'byd/can_odot_data', self._odot_callback, qos
         )
         self.sensor_data = None
         self.back_sensor_byte = None
