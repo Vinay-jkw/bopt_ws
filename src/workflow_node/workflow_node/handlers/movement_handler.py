@@ -199,8 +199,8 @@ class MovementHandler(FastDriveMixin):
             turn_radius=self.node.cfg.planner.turn_radius,
             rev_drive=False,
         )
-
-        rs_path_file = self.node.cfg.paths.rs_path_file
+        ns = self.node.get_namespace().strip("/") or "default"
+        rs_path_file = f"/home/jkw/bopt_ws/src/workflow_node/constructed_rs_path_{ns}.pkl"
         try:
             with open(rs_path_file, 'wb') as f:
                 pickle.dump(rs_path, f)

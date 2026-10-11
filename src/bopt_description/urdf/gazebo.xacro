@@ -148,7 +148,7 @@
 
     <gazebo reference="limit_switch_bar_joint">
         <implicitSpringDamper>true</implicitSpringDamper>
-        <springStiffness>5.0</springStiffness>
+        <springStiffness>40.0</springStiffness>
         <springReference>0.0</springReference>
     </gazebo>
 

@@ -33,7 +33,7 @@ class LimitSwitchOdotPublisher(Node):
                 pos = msg.position[idx]
                 
                 # Check if position exceeds the threshold
-                if abs(pos) > self.threshold:
+                if pos > self.threshold:
                     self.limit_switch_triggered = True
                 else:
                     self.limit_switch_triggered = False

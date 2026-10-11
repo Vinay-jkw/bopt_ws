@@ -524,17 +524,17 @@ class ActionHandler(RsManeuverMixin):
         self._logger.info(f"action_operation: DROP, pap={pap}")
 
         if state.operation_state < '3':
-            if pap:
-                node.mqtt_node.publish2topic("machine/error/detected", "E001")
-                node.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
-                state.error_status = "Pallet_Already_Present"
-                try:
-                    node.thread1 = Thread(target=node.pickdrop_field)
-                    node.thread1.start()
-                except Exception as error:
-                    self._logger.error(f"Failed to restart pickdrop_field thread: {error}")
-                    traceback.print_exc()
-                return True
+            # if pap:
+            #     node.mqtt_node.publish2topic("machine/error/detected", "E001")
+            #     node.mqtt_node.publish2topic("machine/task/status", "Pallet_Already_Present")
+            #     state.error_status = "Pallet_Already_Present"
+            #     try:
+            #         node.thread1 = Thread(target=node.pickdrop_field)
+            #         node.thread1.start()
+            #     except Exception as error:
+            #         self._logger.error(f"Failed to restart pickdrop_field thread: {error}")
+            #         traceback.print_exc()
+            #     return True
             node.mqtt_node.publish2topic('machine/task/status', 'operation_state=3')
 
         if state.operation_state < '4':
@@ -546,7 +546,7 @@ class ActionHandler(RsManeuverMixin):
             self.fork_down()
             node.mqtt_node.publish2topic('machine/task/status', 'operation_state=5')
 
-        rs_path_file = cfg.paths.rs_path_file
+        rs_path_file = self.path_file_path
         try:
             from workflow_node.planners import rs_path_planner
             rs_path = rs_path_planner.generate_rs_path(
@@ -574,11 +574,16 @@ class ActionHandler(RsManeuverMixin):
                 self._logger.error(f"nmpc_controller failed on drop return: {error}")
                 traceback.print_exc()
 
-        pose_cmd = list(cfg.subprocesses.pose_correction) + [
-            "--ros-args",
+        pose_cmd = list(cfg.subprocesses.pose_correction)
+        ns = node.get_namespace()
+        if ns and ns != '/':
+            pose_cmd.extend(["--ros-args", "-r", f"__ns:={ns}"])
+        else:
+            pose_cmd.extend(["--ros-args"])
+        pose_cmd.extend([
             "-p", f"target_z:={node.dock_location[2]}",
             "-p", f"target_w:={node.dock_location[3]}",
-        ]
+        ])
         if state.operation_state < '6':
             try:
                 run_command_with_retry(

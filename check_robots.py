@@ -69,6 +69,35 @@ def check_nodes(robot_ns):
         print(" OK")
     return all_running
 
+def check_amcl(robot_ns):
+    print(f"  [AMCL] Checking lifecycle state...", end='', flush=True)
+    cmd = f"ros2 lifecycle get {robot_ns}/amcl"
+    try:
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, text=True).strip()
+    except subprocess.CalledProcessError as e:
+        print(f" FAILED\n    Could not query AMCL state: {e.output.strip()}")
+        return False
+
+    if "active" in output:
+        print(" OK")
+        return True
+
+    print(f"\n    [X] AMCL is {output}. Attempting to activate...", end='', flush=True)
+    try:
+        if "unconfigured" in output:
+            subprocess.run(f"ros2 lifecycle set {robot_ns}/amcl configure", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        subprocess.run(f"ros2 lifecycle set {robot_ns}/amcl activate", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        output2 = subprocess.check_output(cmd, shell=True, text=True).strip()
+        if "active" in output2:
+            print(" FIXED!")
+            return True
+        else:
+            print(" FAILED TO FIX")
+            return False
+    except Exception:
+        print(" TIMED OUT")
+        return False
+
 def check_topic(topic_name, timeout=10):
     print(f"  [Topic] {topic_name}...", end='', flush=True)
     cmd = f"timeout {timeout} ros2 topic echo --once {topic_name} > /dev/null"
@@ -92,11 +121,15 @@ def check_robot(robot_idx):
     if not check_nodes(robot_ns):
         healthy = False
         
-    # 2. Check Controllers
+    # 2. Check AMCL Lifecycle
+    if not check_amcl(robot_ns):
+        healthy = False
+
+    # 3. Check Controllers
     if not check_controllers(robot_ns):
         healthy = False
         
-    # 3. Check Topics
+    # 4. Check Topics
     topics_to_check = [
         f"{robot_ns}/odom",
         f"{robot_ns}/amcl_pose",

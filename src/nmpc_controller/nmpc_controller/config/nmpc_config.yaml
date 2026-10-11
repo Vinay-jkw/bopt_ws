@@ -81,7 +81,6 @@ nmpc_controller:
       features:
         use_picking: true
         pallet_gate: true
-        sensor: ds_field
         use_runway: true
 
     pp:
