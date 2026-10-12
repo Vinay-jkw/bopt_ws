@@ -30,7 +30,7 @@ SPAWN_SETTLE = 3.0
 
 REMOVE_SETTLE = 2.0
 
-ROBOT_START_GAP = 25.0  # Between starting robot001, robot002, etc. in each phase.
+ROBOT_START_GAP = 35.0  # Between starting robot001, robot002, etc. in each phase.
 
 
 

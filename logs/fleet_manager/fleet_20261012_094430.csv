@@ -1,0 +1,9 @@
+timestamp,robot,cycle,phase,result,elapsed_seconds,detail
+2026-10-12T09:44:30,robot001,1,spawn,create_command_ok,0.00,"[INFO] [1791778470.395209785] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1791778470.595834543] [ros_gz_sim]: Requested creation of entity.
+[INFO] [1791778470.595860214] [ros_gz_sim]: OK creation of entity.
+"
+2026-10-12T09:44:34,robot002,1,spawn,create_command_ok,0.00,"[INFO] [1791778473.842529781] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1791778474.043830933] [ros_gz_sim]: Requested creation of entity.
+[INFO] [1791778474.043888935] [ros_gz_sim]: OK creation of entity.
+"

@@ -1,0 +1,13 @@
+timestamp,robot,cycle,phase,result,elapsed_seconds,detail
+2026-10-12T10:40:38,robot001,1,spawn,create_command_ok,0.00,"[INFO] [1791781838.458776833] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1791781838.659492128] [ros_gz_sim]: Requested creation of entity.
+[INFO] [1791781838.659520057] [ros_gz_sim]: OK creation of entity.
+"
+2026-10-12T10:44:19,robot001,1,pickup,process_exit_0,217.85,station=Pickup2; returncode=0
+2026-10-12T10:47:55,robot001,1,drop,process_exit_0,215.68,station=Drop8; returncode=0
+2026-10-12T10:47:55,robot001,1,despawn,success,0.00,pallet_r001
+2026-10-12T10:47:59,robot001,2,spawn,create_command_ok,0.00,"[INFO] [1791782279.648869582] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1791782279.849836938] [ros_gz_sim]: Requested creation of entity.
+[INFO] [1791782279.849878337] [ros_gz_sim]: OK creation of entity.
+"
+2026-10-12T10:50:48,robot001,2,pickup,failed,165.46,station=Pickup2; returncode=0
