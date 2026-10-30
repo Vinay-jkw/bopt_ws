@@ -159,12 +159,18 @@ class MovementHandler(FastDriveMixin):
             return False
 
         if adjust:
-            pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
-                "--ros-args",
-                "-r", f"__ns:={self.node.get_namespace()}",
+            ns = self.node.get_namespace()
+            if not ns or ns == '/':
+                ns = os.environ.get('ROS_NAMESPACE', '')
+            if not ns and os.environ.get('ROBOT_ID'):
+                ns = '/' + os.environ['ROBOT_ID']
+            pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + ["--ros-args"]
+            if ns and ns != '/':
+                pose_cmd.extend(["-r", f"__ns:={ns}"])
+            pose_cmd.extend([
                 "-p", f"target_z:={location[2]}",
                 "-p", f"target_w:={location[3]}",
-            ]
+            ])
             try:
                 run_command_with_retry(
                     pose_cmd,
@@ -239,12 +245,18 @@ class MovementHandler(FastDriveMixin):
             return False
 
         if adjust:
-            pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
-                "--ros-args",
-                "-r", f"__ns:={self.node.get_namespace()}",
+            ns = self.node.get_namespace()
+            if not ns or ns == '/':
+                ns = os.environ.get('ROS_NAMESPACE', '')
+            if not ns and os.environ.get('ROBOT_ID'):
+                ns = '/' + os.environ['ROBOT_ID']
+            pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + ["--ros-args"]
+            if ns and ns != '/':
+                pose_cmd.extend(["-r", f"__ns:={ns}"])
+            pose_cmd.extend([
                 "-p", f"target_z:={location[2]}",
                 "-p", f"target_w:={location[3]}",
-            ]
+            ])
             try:
                 run_command_with_retry(
                     pose_cmd,

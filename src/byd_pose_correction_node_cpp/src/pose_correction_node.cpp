@@ -94,13 +94,11 @@ public:
         std::chrono::duration_cast<std::chrono::nanoseconds>(period),
         std::bind(&OrientRobot::controlLoop, this));
 
-    node_start_time_ = this->now(); // NEW
-
     RCLCPP_INFO(
         this->get_logger(),
         "Target z=%.3f w=%.3f -> yaw=%.3f rad (%.1f deg). Control @ %.1f Hz.",
         target_z_, target_w_, target_yaw_, target_yaw_ * 180.0 / M_PI, rate_hz);
-    RCLCPP_INFO(this->get_logger(), "Waiting for /amcl_pose ...");
+    RCLCPP_INFO(this->get_logger(), "Waiting for %s ...", amcl_sub_->get_topic_name());
   }
 
 private:
@@ -141,19 +139,29 @@ private:
   }
 
   void controlLoop() {
+    auto now = this->now();
+    if (now.nanoseconds() == 0) {
+      return;
+    }
+    if (node_start_time_.nanoseconds() == 0) {
+      node_start_time_ = now;
+      return;
+    }
+
     double current_yaw;
     rclcpp::Time last_time;
     bool have_pose;
     {
       std::lock_guard<std::mutex> lock(pose_mutex_);
       current_yaw = latest_yaw_;
+      if (last_pose_time_.nanoseconds() == 0 && pose_received_) {
+        last_pose_time_ = now;
+      }
       last_time = last_pose_time_;
       have_pose = pose_received_;
     }
 
-    auto now = this->now();
-
-    // ---- NEW: hard timeout — guaranteed escape ----
+    // ---- hard timeout — guaranteed escape ----
     double elapsed = (now - node_start_time_).seconds();
     if (elapsed > total_timeout_) {
       char buf[128];
@@ -167,7 +175,7 @@ private:
 
     if (!have_pose) {
       RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                           "No /amcl_pose received yet.");
+                           "No %s received yet.", amcl_sub_->get_topic_name());
       return;
     }
 
@@ -272,7 +280,7 @@ private:
   std::mutex pose_mutex_;
   double latest_yaw_ = 0.0;
   rclcpp::Time last_pose_time_;
-  rclcpp::Time node_start_time_; // NEW
+  rclcpp::Time node_start_time_{0, 0, RCL_ROS_TIME};
   bool pose_received_ = false;
   rclcpp::Time in_tolerance_since_{0, 0, RCL_ROS_TIME};
 

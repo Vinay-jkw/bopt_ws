@@ -511,7 +511,7 @@ def generate_launch_description():
     # NUMBER OF ROBOTS  —  CHANGE ONLY THIS
     # ============================================================
 
-    num_robots = 1
+    num_robots = 3
     
     
 

@@ -359,19 +359,26 @@ class RsManeuverMixin:
             traceback.print_exc()
             return
         
-        # pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + [
-        #     "--ros-args",
-        #     "-p", f"target_z:={self.node.dock_station_end_line[2]}",
-        #     "-p", f"target_w:={self.node.dock_station_end_line[3]}",
-        # ]
-        # try:
-        #     run_command_with_retry(
-        #         pose_cmd,
-        #         timeout=self.node.cfg.pose_correction.timeout,
-        #         max_retries=self.node.cfg.pose_correction.max_retries,
-        #         delay_between_retries=self.node.cfg.pose_correction.delay_between_retries,
-        #     )
-        # except Exception as error:
-        #     self._logger.error(f"pose_correction failed after retries: {error}")
-        #     traceback.print_exc()
-        #     return 
+        ns = self.node.get_namespace()
+        if not ns or ns == '/':
+            ns = os.environ.get('ROS_NAMESPACE', '')
+        if not ns and os.environ.get('ROBOT_ID'):
+            ns = '/' + os.environ['ROBOT_ID']
+        pose_cmd = list(self.node.cfg.subprocesses.pose_correction) + ["--ros-args"]
+        if ns and ns != '/':
+            pose_cmd.extend(["-r", f"__ns:={ns}"])
+        pose_cmd.extend([
+            "-p", f"target_z:={self.node.dock_station_end_line[2]}",
+            "-p", f"target_w:={self.node.dock_station_end_line[3]}",
+        ])
+        try:
+            run_command_with_retry(
+                pose_cmd,
+                timeout=self.node.cfg.pose_correction.timeout,
+                max_retries=self.node.cfg.pose_correction.max_retries,
+                delay_between_retries=self.node.cfg.pose_correction.delay_between_retries,
+            )
+        except Exception as error:
+            self._logger.error(f"pose_correction failed after retries: {error}")
+            traceback.print_exc()
+            return

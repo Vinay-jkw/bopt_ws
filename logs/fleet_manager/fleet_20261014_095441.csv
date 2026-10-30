@@ -1,0 +1,6 @@
+timestamp,robot,cycle,phase,result,elapsed_seconds,detail
+2026-10-14T09:54:42,robot001,1,spawn,create_command_ok,0.00,"[INFO] [1791951881.708679198] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1791951881.909900810] [ros_gz_sim]: Requested creation of entity.
+[INFO] [1791951881.909934691] [ros_gz_sim]: OK creation of entity.
+"
+2026-10-14T09:57:13,robot001,1,pickup,failed,148.12,station=Pickup2; returncode=0

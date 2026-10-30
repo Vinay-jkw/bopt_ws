@@ -412,10 +412,13 @@ class ActionHandler(RsManeuverMixin):
             mvmt.drive_rs_path(node.dock_station_end_line, PROFILE_DP)
             pose_cmd = list(cfg.subprocesses.pose_correction)
             ns = node.get_namespace()
+            if not ns or ns == '/':
+                ns = os.environ.get('ROS_NAMESPACE', '')
+            if not ns and os.environ.get('ROBOT_ID'):
+                ns = '/' + os.environ['ROBOT_ID']
+            pose_cmd.append("--ros-args")
             if ns and ns != '/':
-                pose_cmd.extend(["--ros-args", "-r", f"__ns:={ns}"])
-            else:
-                pose_cmd.extend(["--ros-args"])
+                pose_cmd.extend(["-r", f"__ns:={ns}"])
             
             pose_cmd.extend([
                 "-p", f"target_z:={node.dock_location[2]}",
@@ -576,10 +579,13 @@ class ActionHandler(RsManeuverMixin):
 
         pose_cmd = list(cfg.subprocesses.pose_correction)
         ns = node.get_namespace()
+        if not ns or ns == '/':
+            ns = os.environ.get('ROS_NAMESPACE', '')
+        if not ns and os.environ.get('ROBOT_ID'):
+            ns = '/' + os.environ['ROBOT_ID']
+        pose_cmd.append("--ros-args")
         if ns and ns != '/':
-            pose_cmd.extend(["--ros-args", "-r", f"__ns:={ns}"])
-        else:
-            pose_cmd.extend(["--ros-args"])
+            pose_cmd.extend(["-r", f"__ns:={ns}"])
         pose_cmd.extend([
             "-p", f"target_z:={node.dock_location[2]}",
             "-p", f"target_w:={node.dock_location[3]}",

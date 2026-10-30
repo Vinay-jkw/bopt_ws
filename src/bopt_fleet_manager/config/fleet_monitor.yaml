@@ -1,0 +1,7 @@
+bopt_fleet_monitor:
+  ros__parameters:
+    robots: ["robot001", "robot002", "robot003"]
+    stop_distance: 4.0
+    release_distance: 4.5
+    pose_timeout_sec: 1.5
+    report_period_sec: 1.0

@@ -1,0 +1,9 @@
+timestamp,robot,cycle,phase,result,elapsed_seconds,detail
+2026-10-15T11:31:23,robot001,1,spawn,failed,0.00,"os_gz_sim]: Requesting list of world names.
+[INFO] [1792044053.274168497] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792044058.274309508] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792044063.274483585] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792044068.274626014] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792044073.274775654] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792044078.274952206] [ros_gz_sim]: Requesting list of world names.
+"

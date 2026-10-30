@@ -1,0 +1,7 @@
+timestamp,robot,cycle,phase,result,elapsed_seconds,detail
+2026-10-15T12:26:53,robot001,1,spawn,failed,0.00,"[INFO] [1792047403.696359695] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792047408.696591397] [ros_gz_sim]: Requesting list of world names.
+[INFO] [1792047411.401124216] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1792047413.696806021] [ros_gz_sim]: Timed out when getting world names.
+[ros2run]: Process exited with failure 255
+"
